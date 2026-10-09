@@ -98,14 +98,24 @@ func _init() -> void:
 	var ok_sizes := true
 	for a in [Vector2(540, 1150), Vector2(1250, 620), Vector2(700, 700), Vector2(380, 1400), Vector2(2000, 500)]:
 		var d := BoardLogic.best_dims(a)
-		ok_sizes = ok_sizes and d.x * d.y >= 330 and d.x * d.y <= 365
-	check(ok_sizes, "every shape has 330..365 slots for the 270 gems")
+		ok_sizes = ok_sizes and d.x * d.y >= 317 and d.x * d.y <= 372
+	check(ok_sizes, "every shape has 345 slots ±8% for the 270 gems")
 	var sq := BoardLogic.new()
 	sq.setup(tall.x, tall.y, rng)
 	var gems := 0
 	for kk in sq.cells:
 		if kk >= 0: gems += 1
 	check(gems == 270, "270 gems on a %dx%d board" % [tall.x, tall.y])
+	var cm := BoardLogic.COMPACT
+	var phone := BoardLogic.best_dims(Vector2(540, 1150), cm.slots)
+	var small := BoardLogic.new()
+	small.setup(phone.x, phone.y, rng, cm.shining, cm.kinds, cm.per_kind)
+	var cnt := {}
+	for kk in small.cells:
+		cnt[kk] = cnt.get(kk, 0) + 1
+	check(phone.y > phone.x and phone.x * phone.y >= 99 and phone.x * phone.y <= 116,
+		"compact phone board %s has about 108 slots" % [phone])
+	check(cnt.size() == cm.kinds + 1 and cnt.get(0, 0) == cm.per_kind, "compact board: 6 kinds x 14 gems")
 
 	var sh := BoardLogic.new()
 	sh.setup(BoardLogic.LONG, BoardLogic.SHORT, rng)

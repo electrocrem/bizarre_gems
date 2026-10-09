@@ -7,15 +7,27 @@ enum State { MENU, PLAYING, PAUSED, OVER }
 const START_TIME := 120.0
 const CONTINUE_TIME := 15.0
 const HINT_AFTER := 15.0
-const TOTAL_GEMS := BoardLogic.KINDS * BoardLogic.PER_KIND
+const WAVE_TIME := 5.0      ## bonus seconds when a fresh board is dealt
+const CLEAR_POINTS := 25    ## bonus for knocking out every gem on a board
+const CLEAR_TIME := 5.0
 
-const BRASS := Color("#d2ab55")
-const BRASS_LIGHT := Color("#f7e2a8")
-const CREAM := Color("#f1e8d4")
-const MUTED := Color("#8ea6a1")
-const DANGER := Color("#ff5d4f")
-const INK := Color("#0a1315")
-const PANEL := Color(0.035, 0.086, 0.094, 0.96)
+const BRASS := Color("#ffc83d")        ## accent: gold
+const BRASS_LIGHT := Color("#ffe9a3")
+const CREAM := Color("#ffffff")
+const MUTED := Color("#aab8ec")
+const DANGER := Color("#ff5d6c")
+const INK := Color("#141a3a")
+const PANEL := Color(0.08, 0.11, 0.3, 0.97)
+## Palettes the screen cycles through on big combos and new boards: background top/bottom
+## and how far the board's hue is rotated (gems change colour with it).
+const THEMES := [
+	{"top": Color("#3d63e0"), "bottom": Color("#1b2c8c")},
+	{"top": Color("#7a4fe6"), "bottom": Color("#341a8c")},
+	{"top": Color("#14b89a"), "bottom": Color("#0b5a6e")},
+	{"top": Color("#e2457f"), "bottom": Color("#7a1450")},
+	{"top": Color("#f2804a"), "bottom": Color("#8c2b2b")},
+]
+const COMBO_COLORS := [Color("#3d8bff"), Color("#22c97a"), Color("#ff9a2e"), Color("#ff4dad")]
 
 const ICONS := {
 	"pause": preload("res://assets/ui/icon_pause.png"),
@@ -32,11 +44,17 @@ const ICONS := {
 	"settings": preload("res://assets/ui/icon_settings.png"),
 	"calendar": preload("res://assets/ui/icon_calendar.png"),
 	"rotate": preload("res://assets/ui/icon_rotate.png"),
+	"crown": preload("res://assets/ui/icon_crown.png"),
 }
 
 var logic := BoardLogic.new()
 var keeper := ScoreKeeper.new()
 var daily := false
+var mode: Dictionary = BoardLogic.CLASSIC
+var wave := 1
+var theme_i := 0
+var hue_total := 0.0
+var dealing := false
 var ambient: Ambient
 var shown_score := 0.0
 var play_time := 0.0
@@ -46,7 +64,6 @@ var time_left := START_TIME
 var score := 0
 var cleared := 0
 var used_continue := false
-var used_shuffle := false
 var idle := 0.0
 var end_reason := ""
 var last_tick := -1
@@ -70,7 +87,9 @@ var score_caption: Label
 var score_label: Label
 var best_caption: Label
 var best_label: Label
-var combo_box: VBoxContainer
+var combo_box: PanelContainer
+var combo_style: StyleBoxFlat
+var combo_row: CenterContainer
 var combo_mult: Label
 var combo_count: Label
 var combo_bar: ProgressBar
@@ -142,17 +161,10 @@ func _on_sdk_ready() -> void:
 
 func start_game(is_daily := false) -> void:
 	daily = is_daily
-	if daily:
-		# the same layout for everyone today: fixed 23x15 shape, seeded by the date
-		var r := RandomNumberGenerator.new()
-		r.seed = hash("bizarre-gems-" + _today())
-		logic.setup(BoardLogic.LONG, BoardLogic.SHORT, r)
-		var d := _dims()
-		if d.y > d.x:
-			logic.transpose()
-	else:
-		var d := _dims()
-		logic.setup(d.x, d.y, rng)
+	mode = BoardLogic.COMPACT if _is_touch_device() else BoardLogic.CLASSIC
+	wave = 1
+	_deal_board()
+	_set_theme(0, true)
 	score = 0
 	shown_score = 0.0
 	keeper.reset()
@@ -161,13 +173,66 @@ func start_game(is_daily := false) -> void:
 	cleared = 0
 	time_left = START_TIME
 	used_continue = false
-	used_shuffle = false
 	board.clear_fx()
 	board.refresh()
 	board.deal_in()
 	ambient.pulse(BRASS, 0.6)
 	Sfx.play("start")
 	_resume_play()
+
+
+## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
+## date seed (plus the wave number), so everyone on the same kind of device gets the same one.
+func _deal_board() -> void:
+	if daily:
+		var r := RandomNumberGenerator.new()
+		r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
+		logic.setup(mode.cols, mode.rows, r, mode.shining, mode.kinds, mode.per_kind)
+	else:
+		var d := _dims()
+		logic.setup(d.x, d.y, rng, mode.shining, mode.kinds, mode.per_kind)
+
+
+## A board ran out of moves: deal the next one with a time bonus, the game goes on.
+func _next_wave(at: Vector2i) -> void:
+	var full_clear := logic.gems_left() == 0
+	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
+	var bonus_p := CLEAR_POINTS if full_clear else 0
+	time_left += bonus_t
+	if bonus_p > 0:
+		keeper.score += bonus_p
+		score = keeper.score
+	wave += 1
+	dealing = true
+	board.interactive = false
+	_banner(L.t("clear_board" if full_clear else "new_board"), bonus_p, bonus_t, BRASS_LIGHT)
+	_flash_delta("+%d" % int(bonus_t), false)
+	Sfx.play("precise")
+	board.play_burst(at, 50)
+	_set_theme(theme_i + 1)
+	var tw := create_tween()
+	tw.tween_interval(0.7)
+	tw.tween_callback(func():
+		_deal_board()
+		board.clear_fx()
+		board.refresh()
+		board.deal_in()
+		dealing = false
+		board.interactive = state == State.PLAYING)
+
+
+## Switch to palette i: background gradient and board hue fade over.
+func _set_theme(i: int, instant := false) -> void:
+	var step := i - theme_i
+	theme_i = posmod(i, THEMES.size())
+	var t: Dictionary = THEMES[theme_i]
+	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
+	if instant:
+		hue_total = 0.0
+		board.hue = 0.0
+	else:
+		hue_total += 1.0 / THEMES.size() * maxi(step, 1)
+		create_tween().tween_property(board, "hue", hue_total, 0.9)
 
 
 func _today() -> String:
@@ -211,26 +276,25 @@ func end_game(reason: String) -> void:
 	if daily:
 		is_best = Save.submit_daily(score, _today())
 	else:
-		is_best = Save.submit(score)
+		is_best = Save.submit(score, mode.id)
 		if Yandex.is_authorized():
-			Yandex.submit_score(Save.best)
+			Yandex.submit_score(Save.best_for(mode.id), mode.board)
 	Sfx.play("over")
 	Haptics.buzz("over")
 	ui.over_title.text = L.t("stuck" if reason == "stuck" else "times_up")
 	ui.over_score.text = str(score)
 	ui.over_best.visible = is_best and score > 0
 	ui.over_best.text = L.t("new_daily_best" if daily else "new_best")
-	ui.over_line.text = L.t("cleared", {"n": cleared, "total": TOTAL_GEMS}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
+	ui.over_line.text = L.t("cleared", {"n": cleared, "w": wave}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
 	if daily:
 		ui.over_line.text = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(_today())}) + "\n" + ui.over_line.text
 	ui.btn_continue.visible = reason == "time" and not used_continue
-	ui.btn_shuffle.visible = reason == "stuck" and not used_shuffle and logic.gems_left() > 1
 	_show_panel(over_panel)
 	_update_hud()
 
 
 func _on_slot(p: Vector2i) -> void:
-	if state != State.PLAYING or not logic.is_empty(p):
+	if state != State.PLAYING or dealing or not logic.is_empty(p):
 		return
 	board.ripple(p)
 	var gone := logic.matches_from(p)
@@ -258,6 +322,10 @@ func _on_slot(p: Vector2i) -> void:
 		Sfx.play("bonus")
 		board.play_burst(p, 14 * nshine, false)
 		ambient.pulse(Color(1.0, 0.84, 0.4), 0.5)
+	if n >= 4 and res.event == "":
+		board.praise(L.t("praise_great"), p, BRASS_LIGHT)
+	if res.tier_up and res.mult >= 3:
+		board.praise(L.t("praise_super" if res.mult == 3 else "praise_wow"), p, COMBO_COLORS[res.mult - 1].lightened(0.35), 1.2)
 	cleared += n
 	time_left += res.time
 	idle = 0.0
@@ -280,6 +348,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_burst(p, 40)
 		board.flash(BRASS_LIGHT, 0.22)
 		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, ScoreKeeper.PRECISE_TIME, BRASS_LIGHT)
+		_set_theme(theme_i + 1)
 	elif event == "perfect":
 		Sfx.play("perfect")
 		Haptics.buzz("perfect")
@@ -289,6 +358,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.flash(Color.WHITE, 0.4)
 		board.shake(0.3)
 		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
+		_set_theme(theme_i + 1)
 	_update_combo_widget(res.tier_up)
 	if autoplay and (event != "" or res.tier_up):
 		print("[autoplay] combo=%d mult=%d event=%s" % [res.combo, res.mult, event])
@@ -296,7 +366,7 @@ func _on_slot(p: Vector2i) -> void:
 			_auto_t = -2.0  # hold still so the banner can be captured
 	_update_hud()
 	if not logic.has_any_move():
-		end_game("stuck")
+		_next_wave(p)
 
 
 func _process(delta: float) -> void:
@@ -360,22 +430,6 @@ func _on_continue() -> void:
 		_flash_delta("+15", false)
 		Sfx.play("bonus")
 		_resume_play())
-
-
-func _on_shuffle() -> void:
-	Sfx.play("click")
-	Yandex.show_rewarded(func(ok: bool):
-		if not ok:
-			_toast(L.t("ad_failed"))
-			return
-		used_shuffle = true
-		logic.shuffle_remaining(rng)
-		board.clear_fx()
-		board.deal_in()
-		if logic.has_any_move():
-			_resume_play()
-		else:
-			end_game("stuck"))
 
 
 func _on_again() -> void:
@@ -453,7 +507,7 @@ func _refresh_leaders() -> void:
 		ui.btn_login.visible = not Yandex.is_authorized()
 		for e in entries:
 			list.add_child(_leader_row(e))
-		_fit_panels.call_deferred())
+		_fit_panels.call_deferred(), mode.board)
 
 
 func _leader_row(e: Dictionary) -> Control:
@@ -483,7 +537,7 @@ func _leader_row(e: Dictionary) -> Control:
 func _on_login() -> void:
 	Yandex.open_auth(func(ok: bool):
 		if ok:
-			Yandex.submit_score(Save.best)
+			Yandex.submit_score(Save.best_for(mode.id), mode.board)
 			_refresh_leaders())
 
 
@@ -628,19 +682,6 @@ func _icon_button(icon_name: String, cb: Callable) -> Button:
 
 
 func _build() -> void:
-	var bg := TextureRect.new()
-	bg.texture = preload("res://assets/ui/velvet.png")
-	bg.stretch_mode = TextureRect.STRETCH_TILE
-	bg.set_anchors_preset(Control.PRESET_FULL_RECT)
-	bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(bg)
-	var vig := TextureRect.new()
-	vig.texture = preload("res://assets/ui/vignette.png")
-	vig.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	vig.stretch_mode = TextureRect.STRETCH_SCALE
-	vig.set_anchors_preset(Control.PRESET_FULL_RECT)
-	vig.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(vig)
 	ambient = Ambient.new()
 	ambient.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(ambient)
@@ -654,75 +695,89 @@ func _build() -> void:
 	col.add_theme_constant_override("separation", 10)
 	margin.add_child(col)
 
-	# ---- HUD ----
+	# ---- HUD: pause | big score with best under it | settings, then the timer bar ----
 	hud = HBoxContainer.new()
-	hud.add_theme_constant_override("separation", 22)
+	hud.add_theme_constant_override("separation", 10)
 	col.add_child(hud)
+	btn_pause = _icon_button("pause", func(): Sfx.play("click"); pause_game())
+	btn_pause.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hud.add_child(btn_pause)
+	var mid := VBoxContainer.new()
+	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	mid.add_theme_constant_override("separation", 0)
+	score_label = _label("0", f_display, 54, CREAM)
+	score_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	score_label.add_theme_constant_override("outline_size", 10)
+	score_label.add_theme_color_override("font_outline_color", Color(0.05, 0.07, 0.2, 0.6))
+	mid.add_child(score_label)
+	var brow := HBoxContainer.new()
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
+	brow.add_theme_constant_override("separation", 6)
+	var crown := TextureRect.new()
+	crown.texture = ICONS["crown"]
+	crown.custom_minimum_size = Vector2(22, 22)
+	crown.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	crown.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	crown.modulate = BRASS
+	best_label = _label("0", f_num, 20, BRASS)
+	brow.add_child(crown)
+	brow.add_child(best_label)
+	mid.add_child(brow)
+	hud.add_child(mid)
+	btn_settings = _icon_button("settings", _open_settings_from_hud)
+	btn_settings.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hud.add_child(btn_settings)
+	# captions and title are kept for layout code but not shown in this HUD
 	title_label = _label("", f_display, 30, BRASS)
-	title_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	hud.add_child(title_label)
-
-	var tbox := VBoxContainer.new()
-	tbox.add_theme_constant_override("separation", 3)
-	tbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	tbox.size_flags_stretch_ratio = 2.0
-	tbox.custom_minimum_size.x = 130
 	time_caption = _caption("")
-	tbox.add_child(time_caption)
+	score_caption = _caption("")
+	best_caption = _caption("")
+	for hidden in [title_label, time_caption, score_caption, best_caption]:
+		hidden.visible = false
+		hud.add_child(hidden)
+
 	var trow := HBoxContainer.new()
 	trow.add_theme_constant_override("separation", 10)
-	time_label = _label("120", f_num, 28)
-	time_delta = _label("", f_num, 18, BRASS)
-	time_delta.modulate.a = 0.0
-	trow.add_child(time_label)
-	trow.add_child(time_delta)
-	tbox.add_child(trow)
 	time_bar = ProgressBar.new()
 	time_bar.show_percentage = false
-	time_bar.custom_minimum_size.y = 6
+	time_bar.custom_minimum_size.y = 10
 	time_bar.max_value = 100
-	tbox.add_child(time_bar)
-	hud.add_child(tbox)
+	time_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	time_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	time_label = _label("120", f_num, 22)
+	time_delta = _label("", f_num, 18, BRASS)
+	time_delta.modulate.a = 0.0
+	trow.add_child(time_bar)
+	trow.add_child(time_label)
+	trow.add_child(time_delta)
+	col.add_child(trow)
 
-	var sbox := VBoxContainer.new()
-	sbox.add_theme_constant_override("separation", 3)
-	score_caption = _caption("")
-	score_label = _label("0", f_num, 28)
-	sbox.add_child(score_caption)
-	sbox.add_child(score_label)
-	hud.add_child(sbox)
-	var bbox := VBoxContainer.new()
-	bbox.add_theme_constant_override("separation", 3)
-	best_caption = _caption("")
-	best_label = _label("0", f_num, 28)
-	bbox.add_child(best_caption)
-	bbox.add_child(best_label)
-	hud.add_child(bbox)
-
-	combo_box = VBoxContainer.new()
-	combo_box.add_theme_constant_override("separation", 2)
-	combo_box.custom_minimum_size.x = 96
-	combo_mult = _label("×2", f_display, 30, BRASS)
-	combo_mult.pivot_offset = Vector2(20, 18)
-	combo_count = _label("", f_bold, 13, MUTED)
+	# ---- combo badge: big and coloured so a running combo is obvious ----
+	var crow := CenterContainer.new()
+	combo_row = crow
+	crow.custom_minimum_size.y = 52
+	combo_box = PanelContainer.new()
+	combo_style = _box(COMBO_COLORS[0], Color(1, 1, 1, 0.5), 3, 22, Vector4(22, 4, 22, 6))
+	combo_box.add_theme_stylebox_override("panel", combo_style)
+	var cv := VBoxContainer.new()
+	cv.add_theme_constant_override("separation", 0)
+	combo_mult = _label("", f_display, 28, CREAM)
+	combo_mult.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	combo_mult.add_theme_constant_override("outline_size", 8)
+	combo_mult.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.25))
+	combo_count = _label("", f_bold, 12, CREAM)
+	combo_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	combo_count.uppercase = true
 	combo_bar = ProgressBar.new()
 	combo_bar.show_percentage = false
-	combo_bar.custom_minimum_size.y = 4
-	combo_box.add_child(combo_count)
-	combo_box.add_child(combo_mult)
-	combo_box.add_child(combo_bar)
+	combo_bar.custom_minimum_size = Vector2(120, 5)
+	cv.add_child(combo_mult)
+	cv.add_child(combo_count)
+	cv.add_child(combo_bar)
+	combo_box.add_child(cv)
 	combo_box.modulate.a = 0.0
-	hud.add_child(combo_box)
-
-	var btns := HBoxContainer.new()
-	btns.add_theme_constant_override("separation", 8)
-	btns.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	btn_pause = _icon_button("pause", func(): Sfx.play("click"); pause_game())
-	btn_settings = _icon_button("settings", _open_settings_from_hud)
-	btns.add_child(btn_pause)
-	btns.add_child(btn_settings)
-	hud.add_child(btns)
+	crow.add_child(combo_box)
+	col.add_child(crow)
 
 	# ---- board ----
 	board = BoardView.new()
@@ -871,7 +926,8 @@ func _build_pause() -> void:
 	ui.btn_resume = _button("", "play", true, func(): Sfx.play("click"); _resume_play())
 	ui.btn_menu_pause = _button("", "home", false, func(): Sfx.play("click"); go_menu())
 	ui.btn_settings_pause = _icon_button("settings", func(): _open_settings(pause_panel))
-	v.add_child(_row([ui.btn_resume, ui.btn_menu_pause, ui.btn_settings_pause]))
+	ui.btn_restart_pause = _button("", "restart", false, func(): Sfx.play("click"); start_game(daily))
+	v.add_child(_row([ui.btn_resume, ui.btn_restart_pause, ui.btn_menu_pause, ui.btn_settings_pause]))
 
 
 func _build_over() -> void:
@@ -888,9 +944,7 @@ func _build_over() -> void:
 	v.add_child(ui.over_best)
 	v.add_child(ui.over_line)
 	ui.btn_continue = _button("", "video", false, _on_continue)
-	ui.btn_shuffle = _button("", "shuffle", false, _on_shuffle)
 	v.add_child(ui.btn_continue)
-	v.add_child(ui.btn_shuffle)
 	ui.btn_again = _button("", "restart", true, _on_again)
 	ui.btn_leaders_over = _button("", "trophy", false, func(): _open_leaders(over_panel))
 	ui.btn_menu_over = _button("", "home", false, func(): Sfx.play("click"); go_menu())
@@ -1033,9 +1087,9 @@ func _apply_texts() -> void:
 	ui.pause_title.text = L.t("paused")
 	ui.btn_resume.text = L.t("resume")
 	ui.btn_menu_pause.text = L.t("menu")
+	ui.btn_restart_pause.text = L.t("restart")
 	ui.over_best.text = L.t("new_best")
 	ui.btn_continue.text = L.t("continue_ad")
-	ui.btn_shuffle.text = L.t("shuffle_ad")
 	ui.btn_again.text = L.t("again")
 	ui.btn_leaders_over.text = L.t("leaders")
 	ui.btn_menu_over.text = L.t("menu")
@@ -1097,7 +1151,7 @@ func _update_hud() -> void:
 	time_label.add_theme_color_override("font_color", DANGER if low else CREAM)
 	time_bar.add_theme_stylebox_override("fill", bar_fill_low if low else bar_fill)
 	time_bar.value = clampf(time_left / START_TIME, 0.0, 1.0) * 100.0
-	best_label.text = str(maxi(Save.best, score))
+	best_label.text = str(maxi(Save.best_for(mode.id), score))
 	btn_pause.disabled = state != State.PLAYING
 
 
@@ -1126,14 +1180,14 @@ func _update_combo_widget(pulse := false) -> void:
 		combo_box.modulate.a = 0.0
 		return
 	var m := ScoreKeeper.multiplier_for(c)
-	combo_mult.text = "×%d" % m
-	combo_mult.add_theme_color_override("font_color", board.TEXT_COLORS[clampi(m, 1, 4) - 1])
+	combo_mult.text = "%s ×%d" % [L.t("combo").to_upper(), m]
 	combo_count.text = L.t("combo_count", {"n": c})
+	combo_style.bg_color = COMBO_COLORS[clampi(m, 1, 4) - 1]
 	combo_box.modulate.a = 1.0
 	if pulse:
-		var tw := create_tween()
-		combo_mult.scale = Vector2.ONE * 1.6
-		tw.tween_property(combo_mult, "scale", Vector2.ONE, 0.25).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		combo_box.pivot_offset = combo_box.size / 2
+		combo_box.scale = Vector2.ONE * 1.35
+		create_tween().tween_property(combo_box, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 
 
 func _combo_break() -> void:
@@ -1164,10 +1218,12 @@ func _banner(title: String, pts: int, secs: float, color: Color) -> void:
 ## Board shape for the current screen: wide screens get 23x15, tall ones 15x23.
 ## Board shape for the free space under the HUD: tall phones get tall boards, wide screens wide ones.
 func _dims() -> Vector2i:
+	if mode.id == "classic":
+		return Vector2i(mode.cols, mode.rows)  # the original wide board on desktops
 	var a := board.size - Vector2.ONE * board.frame_pad * 2.0
 	if a.x < 50.0 or a.y < 50.0:
-		a = get_viewport_rect().size - Vector2(32, 120)
-	return BoardLogic.best_dims(a)
+		a = get_viewport_rect().size - Vector2(32, 200)
+	return BoardLogic.best_dims(a, mode.slots)
 
 
 ## Fit the board to its area. Before a game starts the board is re-dealt in the best shape;
@@ -1176,7 +1232,8 @@ func _relayout_board() -> void:
 	var d := _dims()
 	if Vector2i(logic.cols, logic.rows) != d:
 		if state == State.MENU:
-			logic.setup(d.x, d.y, rng)
+			mode = BoardLogic.COMPACT if _is_touch_device() else BoardLogic.CLASSIC
+			_deal_board()
 			board.clear_fx()
 		elif Vector2i(logic.rows, logic.cols) == d:
 			logic.transpose()
@@ -1191,7 +1248,16 @@ func _on_viewport_resized() -> void:
 	if turn:
 		pause_game()
 	compact = s.x < 640 or s.y < 600
-	title_label.visible = s.x >= 980
+	# wide screens: the combo badge moves up into the HUD so the board gets that height
+	var wide := s.x > s.y
+	var target: Node = hud if wide else combo_row
+	if combo_box.get_parent() != target:
+		combo_box.reparent(target, false)
+		if wide:
+			hud.move_child(combo_box, hud.get_child_count() - 1)
+			hud.move_child(btn_settings, hud.get_child_count() - 1)
+		combo_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	combo_row.visible = not wide
 	var m := 6 if compact else 16
 	for side in ["left", "right", "top", "bottom"]:
 		margin.add_theme_constant_override("margin_" + side, m)

@@ -11,6 +11,10 @@ const LONG := 23
 const SHORT := 15
 const EMPTY := -1
 const SHINING := 8  ## gems with a bonus on them at the start of a game
+## Board presets. Classic is the original wide board (desktop); compact has fewer, bigger
+## cells for phones and picks its shape from the screen. Each has its own leaderboard.
+const CLASSIC := {"id": "classic", "kinds": 10, "per_kind": 27, "cols": 23, "rows": 15, "slots": 345, "shining": 8, "board": "score"}
+const COMPACT := {"id": "compact", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15, "slots": 108, "shining": 3, "board": "score_mobile"}
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var cols := LONG
@@ -19,12 +23,12 @@ var cells := PackedInt32Array()
 var shine := PackedByteArray()  ## 1 where the gem is a shining (bonus) gem
 
 
-func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING) -> void:
+func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds := KINDS, per_kind := PER_KIND) -> void:
 	cols = c
 	rows = r
 	var bag := PackedInt32Array()
-	for k in KINDS:
-		for i in PER_KIND:
+	for k in kinds:
+		for i in per_kind:
 			bag.append(k)
 	while bag.size() < cols * rows:
 		bag.append(EMPTY)
@@ -167,20 +171,23 @@ func shuffle_remaining(rng: RandomNumberGenerator) -> void:
 			return
 
 
-## Grid shape that gives the biggest cells in the given area. The gem count stays 270;
-## only the shape changes, with about 345 slots (330..365), so 60..95 of them start empty.
-static func best_dims(area: Vector2) -> Vector2i:
+## Grid shape that gives the biggest cells in the given area for about `slots` slots
+## (within -8%..+8%). The gem count is fixed by the mode; only the shape changes.
+static func best_dims(area: Vector2, slots := 345) -> Vector2i:
+	var fallback := Vector2i(LONG, SHORT) if slots >= 300 else Vector2i(7, 15)
 	if area.x <= 0.0 or area.y <= 0.0:
-		return Vector2i(LONG, SHORT)
-	var best := Vector2i(LONG, SHORT)
+		return fallback
+	var lo := int(slots * 0.92)
+	var hi := int(slots * 1.08)
+	var best := fallback
 	var best_cell := -1.0
-	for c in range(9, 33):
-		for r in [floori(345.0 / c), ceili(345.0 / c)]:
+	for c in range(5, 40):
+		for r in [floori(float(slots) / c), ceili(float(slots) / c)]:
 			var n: int = c * r
-			if r < 9 or n < 330 or n > 365:
+			if r < 5 or n < lo or n > hi:
 				continue
 			var cell := minf(area.x / c, area.y / r)
-			var closer := absi(n - 345) < absi(best.x * best.y - 345)
+			var closer := absi(n - slots) < absi(best.x * best.y - slots)
 			if cell > best_cell + 0.01 or (absf(cell - best_cell) <= 0.01 and closer):
 				best_cell = cell
 				best = Vector2i(c, r)

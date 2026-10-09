@@ -125,6 +125,7 @@ ICONS = {  # 64x64 white glyphs
     "shuffle": '<path d="M8 20h12c12 0 14 24 26 24h8M8 44h12c5 0 8-4 10-8M38 26c2-3 5-6 8-6h8" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M50 12l8 8-8 8zM50 36l8 8-8 8z"/>',
     "calendar": '<rect x="8" y="12" width="48" height="44" rx="6" fill="none" stroke="#fff" stroke-width="5"/><rect x="8" y="12" width="48" height="12" rx="4"/><rect x="18" y="5" width="6" height="14" rx="2"/><rect x="40" y="5" width="6" height="14" rx="2"/><rect x="18" y="31" width="9" height="8" rx="1.5"/><rect x="31" y="31" width="9" height="8" rx="1.5"/><rect x="18" y="42" width="9" height="8" rx="1.5"/>',
     "rotate": '<rect x="20" y="6" width="24" height="42" rx="5" fill="none" stroke="#fff" stroke-width="4"/><rect x="28" y="40" width="8" height="3" rx="1.5"/><path d="M10 40c0 8 6 14 14 16" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M20 50l6 7-9 2z"/>',
+    "crown": '<path d="M8 46L12 18l13 13 7-17 7 17 13-13 4 28z"/><rect x="8" y="49" width="48" height="7" rx="2"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 
@@ -138,6 +139,46 @@ def gear_path(teeth=8, r_out=28, r_in=21, hole=9, c=32):
     d = "M" + " L".join("%.2f %.2f" % p for p in pts_) + " Z"
     d += f" M{c + hole} {c} A{hole} {hole} 0 1 0 {c - hole} {c} A{hole} {hole} 0 1 0 {c + hole} {c} Z"
     return f'<path fill-rule="evenodd" d="{d}"/>'
+
+
+# bright "toy" palette for the board tiles, same order as GEMS
+TOY = ["#ff4d5e", "#3d8bff", "#22c97a", "#a35cff", "#ff9a2e", "#ffcf33", "#dfe5f0", "#ff6fb5", "#2fd6e0", "#9be03a"]
+
+
+def tile_svg(base, cut, size=128):
+    """A glossy, bevelled toy tile in `base` colour with the gem's silhouette embossed on it."""
+    c = size / 2
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}"><defs>',
+           f'<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{shade(base, .3)}"/>'
+           f'<stop offset="0.55" stop-color="{base}"/><stop offset="1" stop-color="{shade(base, -.3)}"/></linearGradient>',
+           f'<linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{shade(base, .75)}"/>'
+           f'<stop offset="1" stop-color="{shade(base, .35)}"/></linearGradient>',
+           '</defs>']
+    out.append(f'<rect x="7" y="11" width="114" height="112" rx="24" fill="#000" fill-opacity="0.32"/>')
+    out.append(f'<rect x="6" y="5" width="116" height="112" rx="24" fill="{shade(base, -.38)}"/>')
+    out.append(f'<rect x="6" y="5" width="116" height="104" rx="24" fill="url(#b)"/>')
+    out.append(f'<rect x="10" y="9" width="108" height="96" rx="20" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="3"/>')
+    out.append(f'<rect x="16" y="12" width="96" height="34" rx="15" fill="#fff" fill-opacity="0.26"/>')
+    R = 32
+    if cut == "pearl":
+        out.append(f'<circle cx="{c}" cy="{c - 2}" r="{R * .82}" fill="url(#g)" stroke="{shade(base, -.45)}" stroke-width="3"/>')
+    else:
+        P = [(c + x * R, c - 2 + y * R) for x, y in outline(cut)]
+        out.append(f'<polygon points="{pts(P)}" fill="url(#g)" stroke="{shade(base, -.45)}" stroke-width="3" stroke-linejoin="round"/>')
+    out.append(f'<ellipse cx="{c - 12}" cy="{c - 16}" rx="8" ry="4.5" fill="#fff" fill-opacity="0.85" transform="rotate(-35 {c - 12} {c - 16})"/>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
+def make_tiles():
+    for i, (name, _base, cut) in enumerate(GEMS):
+        svg_to_png(tile_svg(TOY[i], cut), A("gems", f"gem_{i}.png"), 128)
+    # empty slot: a soft rounded hollow
+    slot = ('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">'
+            '<rect x="6" y="6" width="84" height="84" rx="18" fill="#000" fill-opacity="0.28"/>'
+            '<rect x="6" y="6" width="84" height="84" rx="18" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>'
+            '<rect x="10" y="10" width="76" height="14" rx="7" fill="#000" fill-opacity="0.18"/></svg>')
+    svg_to_png(slot, A("ui", "slot.png"), 96)
 
 
 def make_icons():
@@ -464,6 +505,7 @@ def main():
         svg_to_png(gem_svg(name, base, cut, 128), A("gems", f"gem_{i}.png"), 128)
     make_icons()
     make_textures()
+    make_tiles()
     make_sounds()
     make_branding()
     print("assets written")

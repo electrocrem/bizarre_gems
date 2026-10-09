@@ -18,9 +18,9 @@
 Головоломка с самоцветами: найди пары камней на линиях креста и выбей их за 2 минуты. Обгони игроков в таблице лидеров!
 
 ### about
-Бархатный поднос усыпан самоцветами: рубины, сапфиры, изумруды, аметисты, топазы, жемчуг и ещё четыре вида камней, всего 270 штук. Один удар уходит крестом во все четыре стороны. Если среди первых встреченных камней есть одинаковые, они вылетают с подноса.
-Каждая партия длится две минуты, а расклад всегда новый, поэтому повторов не бывает. Бей без промахов, чтобы разогнать комбо до ×4, и лови точные и идеальные комбо с фейерверком и бонусным временем. Золотые сияющие камни дают лишние очки и секунды, а «Расклад дня» каждый день предлагает всем одно и то же поле. Выбей три или четыре камня разом, чтобы получить бонусные очки и лишние секунды. Застрял? Перемешай поле. Не хватило совсем чуть-чуть? Получи ещё 15 секунд.
-Рекорд сохраняется в облаке, а таблица лидеров покажет, кто быстрее всех видит пары. Игра работает на компьютере, планшете и телефоне, в горизонтальной и вертикальной ориентации.
+Яркое поле из глянцевых плиток-самоцветов: рубины, сапфиры, изумруды, аметисты, топазы и другие. На компьютере — классическое широкое поле на 270 камней, на телефоне — крупные плитки под палец. Один удар уходит крестом во все четыре стороны. Если среди первых встреченных камней есть одинаковые, они вылетают с подноса.
+Каждая партия длится две минуты, а расклад всегда новый, поэтому повторов не бывает. Бей без промахов, чтобы разогнать комбо до ×4, и лови точные и идеальные комбо с фейерверком и бонусным временем. Сверкающие камни дают лишние очки и секунды, кончились ходы — сразу новое поле, а на крутых комбо поле меняет цвет. «Расклад дня» каждый день предлагает всем одно и то же поле. Выбей три или четыре камня разом, чтобы получить бонусные очки и лишние секунды. Застрял? Перемешай поле. Не хватило совсем чуть-чуть? Получи ещё 15 секунд.
+Рекорд сохраняется в облаке, а таблица лидеров покажет, кто быстрее всех видит пары. Играй на компьютере или телефоне.
 
 ### howto
 Нажимай на пустые клетки поля. От выбранной клетки игра смотрит вверх, вниз, влево и вправо и берёт первый камень с каждой стороны. Все камни, которые встретились хотя бы дважды, выбиваются.
@@ -47,9 +47,9 @@ Knock out gem pairs with one cross-shaped strike before time runs out
 Gem puzzle where one strike hits four lines at once. Spot matching pairs, beat the two-minute clock and climb the leaderboard!
 
 ### about
-A velvet tray is covered in 270 gems: rubies, sapphires, emeralds, amethysts, topazes, pearls and four more kinds. One strike travels in a cross in all four directions. If the first gems it meets include a match, they fly off the tray.
-Every round lasts two minutes and every layout is new, so no two games are alike. Strike without misses to push your combo to ×4 and land precise and perfect combos with fireworks and bonus time. Golden shining gems add points and seconds, and the daily board gives everyone the same layout each day. Knock out three or four gems at once for bonus points and extra seconds. Stuck? Shuffle the board. Just a little short? Get 15 more seconds.
-Your high score is saved in the cloud, and the leaderboard shows who spots pairs fastest. Plays on desktop, tablet and phone, in landscape and portrait.
+A bright board of glossy gem tiles: rubies, sapphires, emeralds, amethysts, topazes and more. Desktops get the classic wide board of 270 gems, phones get big finger-sized tiles. One strike travels in a cross in all four directions. If the first gems it meets include a match, they fly off the tray.
+Every round lasts two minutes and every layout is new, so no two games are alike. Strike without misses to push your combo to ×4 and land precise and perfect combos with fireworks and bonus time. Sparkling gems add points and seconds, a new board arrives as soon as you run out of moves, and big combos repaint the board. The daily board gives everyone the same layout each day. Knock out three or four gems at once for bonus points and extra seconds. Stuck? Shuffle the board. Just a little short? Get 15 more seconds.
+Your high score is saved in the cloud, and the leaderboard shows who spots pairs fastest. Play on a computer or a phone.
 
 ### howto
 Tap empty slots on the board. From the chosen slot the game looks up, down, left and right and takes the first gem on each side. Every gem that shows up at least twice is knocked out.
@@ -76,9 +76,9 @@ Süre bitmeden tek bir çapraz vuruşla taş çiftlerini kır
 Değerli taşlı bulmaca: tek vuruş dört yöne gider. Eşleşen çiftleri bul, iki dakikada rekor kır ve lider tablosuna yüksel!
 
 ### about
-Kadife bir tepsi 270 değerli taşla dolu: yakutlar, safirler, zümrütler, ametistler, topazlar, inciler ve dört tür daha. Tek bir vuruş dört yöne çapraz olarak gider. Karşılaştığı ilk taşlar arasında aynı olanlar varsa tepsiden uçarlar.
-Her tur iki dakika sürer ve dizilim her seferinde yenidir, bu yüzden iki oyun asla aynı olmaz. Komboyu ×4'e çıkarmak için ıskalamadan vur, havai fişekli ve bonus süreli hassas ve kusursuz kombolar yakala. Altın parlayan taşlar ek puan ve saniye verir, günün dizilimi ise her gün herkese aynı tahtayı sunar. Bonus puan ve ek saniye için tek seferde üç ya da dört taş kır. Takıldın mı? Tahtayı karıştır. Az mı kaldı? 15 saniye daha al.
-Rekorun bulutta saklanır, lider tablosu ise çiftleri en hızlı kimin gördüğünü gösterir. Bilgisayarda, tablette ve telefonda, yatay ve dikey modda oynanır.
+Parlak değerli taş karolarıyla dolu renkli bir tahta: yakutlar, safirler, zümrütler, ametistler, topazlar ve daha fazlası. Bilgisayarda 270 taşlık klasik geniş tahta, telefonda parmağa uygun büyük karolar. Tek bir vuruş dört yöne çapraz olarak gider. Karşılaştığı ilk taşlar arasında aynı olanlar varsa tepsiden uçarlar.
+Her tur iki dakika sürer ve dizilim her seferinde yenidir, bu yüzden iki oyun asla aynı olmaz. Komboyu ×4'e çıkarmak için ıskalamadan vur, havai fişekli ve bonus süreli hassas ve kusursuz kombolar yakala. Işıldayan taşlar ek puan ve saniye verir, hamle bitince hemen yeni tahta gelir, büyük kombolar tahtanın rengini değiştirir. Günün dizilimi her gün herkese aynı tahtayı sunar. Bonus puan ve ek saniye için tek seferde üç ya da dört taş kır. Takıldın mı? Tahtayı karıştır. Az mı kaldı? 15 saniye daha al.
+Rekorun bulutta saklanır, lider tablosu ise çiftleri en hızlı kimin gördüğünü gösterir. Bilgisayarda veya telefonda oyna.
 
 ### howto
 Tahtadaki boş hücrelere dokun. Oyun seçilen hücreden yukarı, aşağı, sola ve sağa bakar ve her yöndeki ilk taşı alır. En az iki kez görünen her taş kırılır.

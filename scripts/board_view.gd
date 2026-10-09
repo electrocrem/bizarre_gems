@@ -14,9 +14,21 @@ const GEM_TEX: Array[Texture2D] = [
 const SLOT_TEX := preload("res://assets/ui/slot.png")
 const SPARKLE_TEX := preload("res://assets/fx/sparkle.png")
 const GLOW_TEX := preload("res://assets/fx/glow.png")
-## halo colour per gem kind, matches the gem art
-const GEM_GLOW: Array[Color] = [Color("#e2334c"), Color("#2f6ff0"), Color("#17a866"), Color("#9a4fe6"), Color("#f28a22"),
-	Color("#f4c62e"), Color("#ece8f2"), Color("#f25fae"), Color("#3fd6dc"), Color("#a6dc3a")]
+## tile colour per gem kind, matches the tile art (used for shards)
+const GEM_GLOW: Array[Color] = [Color("#ff4d5e"), Color("#3d8bff"), Color("#22c97a"), Color("#a35cff"), Color("#ff9a2e"),
+	Color("#ffcf33"), Color("#dfe5f0"), Color("#ff6fb5"), Color("#2fd6e0"), Color("#9be03a")]
+## Rotates the hue of everything on the board; tweened when the palette changes on a big combo.
+const HUE_SHADER := """
+shader_type canvas_item;
+uniform float hue = 0.0;
+void fragment() {
+	float a = hue * 6.2831853;
+	vec3 c = COLOR.rgb;
+	vec3 yiq = mat3(vec3(0.299, 0.596, 0.211), vec3(0.587, -0.274, -0.523), vec3(0.114, -0.322, 0.312)) * c;
+	yiq.yz = mat2(vec2(cos(a), sin(a)), vec2(-sin(a), cos(a))) * yiq.yz;
+	COLOR.rgb = mat3(vec3(1.0, 1.0, 1.0), vec3(0.956, -0.272, -1.106), vec3(0.621, -0.647, 1.703)) * yiq;
+}
+"""
 const GOLD := Color(1.0, 0.84, 0.4)
 const BEAM := Color(0.97, 0.89, 0.66)
 const MISS := Color(1.0, 0.36, 0.31)
@@ -52,15 +64,23 @@ var _glint_timer := 0.0
 var _ripples: Array[Dictionary] = []
 var _fx: Control  ## effects layer, redrawn every frame; the board itself redraws only on change
 var _shake_off := Vector2.ZERO
+var _shards: Array[Dictionary] = []
+var _pops: Array[Dictionary] = []
+var _praise: Array[Dictionary] = []
+var _hue_mat := ShaderMaterial.new()
+var hue := 0.0:
+	set(v):
+		hue = v
+		_hue_mat.set_shader_parameter("hue", v)
 
 
 func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	mouse_filter = Control.MOUSE_FILTER_STOP
-	_frame.bg_color = Color(0.05, 0.13, 0.14, 0.55)
-	_frame.border_color = Color(0.82, 0.67, 0.33, 0.55)
-	_frame.set_border_width_all(2)
-	_frame.set_corner_radius_all(14)
+	_frame.bg_color = Color(0.04, 0.07, 0.2, 0.55)
+	_frame.border_color = Color(1, 1, 1, 0.14)
+	_frame.set_border_width_all(3)
+	_frame.set_corner_radius_all(20)
 	_frame.shadow_color = Color(0, 0, 0, 0.45)
 	_frame.shadow_size = 18
 	resized.connect(_relayout)
@@ -69,6 +89,11 @@ func _ready() -> void:
 	_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_fx)
 	_fx.draw.connect(_draw_fx)
+	var sh := Shader.new()
+	sh.code = HUE_SHADER
+	_hue_mat.shader = sh
+	material = _hue_mat
+	_fx.use_parent_material = true
 
 
 func _relayout() -> void:
@@ -109,6 +134,7 @@ func _deal_scale(i: int) -> float:
 
 func clear_fx() -> void:
 	_flyers.clear(); _beams.clear(); _texts.clear(); _misses.clear(); _sparks.clear(); _waves.clear()
+	_shards.clear(); _pops.clear(); _praise.clear()
 	_flash = 0.0
 	_hint = Vector2i(-1, -1)
 
@@ -131,11 +157,13 @@ func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points
 	for i in gone.size():
 		var h := slot_center(gone[i])
 		_beams.append({"a": c, "b": h, "t": 0.0, "rainbow": rainbow, "w": 1.0 + (mult - 1) * 0.5})
-		var away := signf(h.x - c.x)
-		if away == 0.0:
-			away = randf_range(-1, 1)
-		_flyers.append({"k": kinds[i], "p": h, "v": Vector2(away * cell * randf_range(2, 4), -cell * randf_range(6, 9)),
-			"r": 0.0, "vr": randf_range(-7, 7)})
+		_pops.append({"p": h, "t": 0.0})
+		var base: Color = GEM_GLOW[kinds[i]]
+		for j in 7:
+			var a := randf() * TAU
+			_shards.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2.5, 6.0) + Vector2(0, -cell * 3.0),
+				"r": randf() * TAU, "vr": randf_range(-9, 9), "s": cell * randf_range(0.12, 0.22),
+				"c": base.lightened(randf_range(0.0, 0.35)), "t": 0.0, "life": randf_range(0.5, 0.8)})
 		for j in 4 + mult * 3:
 			var a := randf() * TAU
 			_sparks.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2, 5 + mult), "t": 0.0,
@@ -175,6 +203,11 @@ func _spark_color(rainbow: bool) -> Color:
 	return Color.from_hsv(randf(), 0.55, 1.0) if rainbow else Color(1, 0.95, 0.8)
 
 
+## Big word of praise floating up from a slot ("Great!").
+func praise(text: String, at: Vector2i, color: Color, big := 1.0) -> void:
+	_praise.append({"p": slot_center(at), "s": text, "c": color, "k": big, "t": 0.0})
+
+
 ## Small ring where the player pressed.
 func ripple(at: Vector2i) -> void:
 	_ripples.append({"p": slot_center(at), "t": 0.0})
@@ -212,6 +245,16 @@ func _process(delta: float) -> void:
 	_age(_texts, delta, 0.9)
 	_age(_misses, delta, 0.45)
 	_age(_waves, delta, 0.6)
+	_age(_pops, delta, 0.22)
+	_age(_praise, delta, 1.1)
+	if not _shards.is_empty():
+		var g2 := cell * 22.0
+		for sd in _shards:
+			sd.t += delta
+			sd.v.y += g2 * delta
+			sd.p += sd.v * delta
+			sd.r += sd.vr * delta
+		_shards = _shards.filter(func(sd): return sd.t < sd.life)
 	if not _flyers.is_empty():
 		var g := cell * 26.0
 		for f in _flyers:
@@ -260,17 +303,11 @@ func _draw() -> void:
 		draw_rect(Rect2(origin.x, origin.y + focus.y * cell, grid_size.x, cell), lane)
 		draw_rect(Rect2(origin.x + focus.x * cell, origin.y, cell, grid_size.y), lane)
 
-	var gem := cell * 0.97
+	var gem := cell * 0.96
 	for y in logic.rows:
 		for x in logic.cols:
-			var i := y * logic.cols + x
 			var ctr := origin + (Vector2(x, y) + Vector2(0.5, 0.5)) * cell
-			var k := logic.cells[i]
-			if k < 0:
-				draw_texture_rect(SLOT_TEX, Rect2(ctr - Vector2.ONE * cell * 0.42, Vector2.ONE * cell * 0.84), false)
-			elif logic.shine[i] == 0:
-				var hs := cell * 1.3 * _deal_scale(i)
-				draw_texture_rect(GLOW_TEX, Rect2(ctr - Vector2.ONE * hs / 2, Vector2.ONE * hs), false, Color(GEM_GLOW[k], 0.3))
+			draw_texture_rect(SLOT_TEX, Rect2(ctr - Vector2.ONE * cell * 0.48, Vector2.ONE * cell * 0.96), false)
 	for y in logic.rows:
 		for x in logic.cols:
 			var i := y * logic.cols + x
@@ -295,23 +332,19 @@ func _draw_fx() -> void:
 	var c := _fx
 	var off := _shake_off
 	c.draw_set_transform(off)
-	var gem := cell * 0.97
-	# shining gems: pulsing gold halo under a gold-ringed gem (drawn here so they can animate)
+	var gem := cell * 0.96
+	# shining gems: no marker, just a sparkle that flares up every second or so
 	for i in logic.shine.size():
 		if logic.shine[i] == 0 or logic.cells[i] < 0:
 			continue
-		var ctr := origin + (Vector2(i % logic.cols, i / logic.cols) + Vector2(0.5, 0.5)) * cell
-		var ds := _deal_scale(i)
-		var hs := cell * 1.9 * ds
-		c.draw_texture_rect(GLOW_TEX, Rect2(ctr - Vector2.ONE * hs / 2, Vector2.ONE * hs), false, Color(GOLD, 0.6 + 0.25 * sin(_time * 4.0 + i)))
-		var gs := gem * ds
-		c.draw_texture_rect(GEM_TEX[logic.cells[i]], Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
-		for seg in 6:
-			var a0 := _time * 2.0 + seg * TAU / 6.0
-			c.draw_arc(ctr, cell * 0.56, a0, a0 + 0.6, 4, Color(GOLD, 0.9), maxf(1.5, cell * 0.06))
-		var ss := cell * (0.55 + 0.12 * sin(_time * 5.0 + i))
-		c.draw_set_transform(ctr + off, _time * 1.5 + i)
-		c.draw_texture_rect(SPARKLE_TEX, Rect2(-Vector2.ONE * ss / 2, Vector2.ONE * ss), false, Color(GOLD, 0.95))
+		var flare := sin(_time * 2.6 + i * 1.7)
+		if flare < 0.35:
+			continue
+		var f := (flare - 0.35) / 0.65
+		var ctr := origin + (Vector2(i % logic.cols, i / logic.cols) + Vector2(0.62, 0.32)) * cell
+		var ss := cell * 0.7 * f
+		c.draw_set_transform(ctr + off, _time * 2.0 + i)
+		c.draw_texture_rect(SPARKLE_TEX, Rect2(-Vector2.ONE * ss / 2, Vector2.ONE * ss), false, Color(1, 0.97, 0.85, f))
 		c.draw_set_transform(off)
 	for gl in _glints:
 		var gi: int = gl.i
@@ -345,9 +378,16 @@ func _draw_fx() -> void:
 		var sz: float = cell * sp.s * (0.6 + a * 0.6)
 		var sc: Color = sp.get("c", Color(1, 0.95, 0.8))
 		c.draw_texture_rect(SPARKLE_TEX, Rect2(sp.p - Vector2.ONE * sz / 2, Vector2.ONE * sz), false, Color(sc, a))
-	for f in _flyers:
-		c.draw_set_transform(f.p + off, f.r)
-		c.draw_texture_rect(GEM_TEX[f.k], Rect2(-Vector2.ONE * gem / 2, Vector2.ONE * gem), false)
+	for pp in _pops:
+		var q: float = pp.t / 0.22
+		c.draw_circle(pp.p, cell * (0.3 + q * 0.35), Color(1, 1, 1, (1.0 - q) * 0.75))
+	for sd in _shards:
+		var a: float = 1.0 - sd.t / sd.life
+		var r: float = sd.r
+		var k: float = sd.s
+		var tri := PackedVector2Array([Vector2(cos(r), sin(r)) * k, Vector2(cos(r + 2.3), sin(r + 2.3)) * k * 0.8, Vector2(cos(r + 4.1), sin(r + 4.1)) * k * 0.9])
+		c.draw_set_transform(sd.p + off)
+		c.draw_colored_polygon(tri, Color(sd.c, a))
 	c.draw_set_transform(off)
 	for m in _misses:
 		var a: float = 1.0 - m.t / 0.45
@@ -362,6 +402,16 @@ func _draw_fx() -> void:
 			var p: Vector2 = t.p - Vector2(cell * 2.0, t.t * cell * 1.6 - fs * 0.35)
 			c.draw_string(number_font, p + Vector2(1, 2), t.s, HORIZONTAL_ALIGNMENT_CENTER, cell * 4, fs, Color(0, 0, 0, a * 0.6))
 			c.draw_string(number_font, p, t.s, HORIZONTAL_ALIGNMENT_CENTER, cell * 4, fs, Color(t.c, a))
+	if number_font:
+		for pr in _praise:
+			var q: float = pr.t / 1.1
+			var a: float = clampf((1.0 - q) * 2.5, 0.0, 1.0)
+			var pop: float = 1.0 + 0.5 * maxf(0.0, 1.0 - pr.t / 0.12)
+			var fs := int(maxf(26.0, cell * 0.9) * pr.k * pop)
+			var w := maxf(size.x, cell * 8)
+			var pos: Vector2 = Vector2(clampf(pr.p.x - w / 2, -w / 2 + size.x / 2, size.x / 2 - w / 2), pr.p.y - cell * 0.8 - q * cell * 1.8)
+			c.draw_string_outline(number_font, pos, pr.s, HORIZONTAL_ALIGNMENT_CENTER, w, fs, int(fs * 0.22), Color(0.05, 0.05, 0.15, a))
+			c.draw_string(number_font, pos, pr.s, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(pr.c, a))
 	if _flash > 0.0:
 		c.draw_set_transform(Vector2.ZERO)
 		var grid_size := Vector2(logic.cols, logic.rows) * cell

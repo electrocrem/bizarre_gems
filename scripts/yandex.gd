@@ -88,17 +88,18 @@ func open_auth(done: Callable) -> void:
 	_yg.openAuth(_cb(func(a): done.call_deferred(bool(a[0]))))
 
 
-func submit_score(score: int) -> void:
+## `board` is the leaderboard's technical name in the Yandex console.
+func submit_score(score: int, board := "score") -> void:
 	if _yg and available:
-		_yg.setScore(score)
+		_yg.setScore(board, score)
 
 
 ## done(result) where result is {} when unavailable, else {"entries": [...], "userRank": int}.
-func fetch_leaderboard(done: Callable) -> void:
+func fetch_leaderboard(done: Callable, board := "score") -> void:
 	if _yg == null or not available:
 		done.call_deferred({})
 		return
-	_yg.getEntries(_cb(func(a): done.call_deferred(_parse(str(a[0])))))
+	_yg.getEntries(board, _cb(func(a): done.call_deferred(_parse(str(a[0])))))
 
 
 func load_data(done: Callable) -> void:

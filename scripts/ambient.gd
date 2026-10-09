@@ -6,26 +6,20 @@ extends Control
 const SPARKLE_TEX := preload("res://assets/fx/sparkle.png")
 const SHADER := """
 shader_type canvas_item;
-render_mode blend_add;  // pools only ever light up the cloth underneath
-uniform float aspect = 1.0;
+uniform vec4 top : source_color = vec4(0.23, 0.36, 0.86, 1.0);
+uniform vec4 bottom : source_color = vec4(0.11, 0.18, 0.56, 1.0);
 uniform float pulse = 0.0;
 uniform vec4 pulse_color : source_color = vec4(1.0);
-
-vec3 pool(vec2 p, vec2 c, float r, vec3 col) {
-	vec2 d = p - c;
-	return col * exp(-dot(d, d) / (r * r));
-}
+uniform float aspect = 1.0;
 
 void fragment() {
-	float t = TIME;
-	vec2 p = vec2(UV.x * aspect, UV.y);
-	vec2 span = vec2(aspect, 1.0);
-	vec3 c = vec3(0.0);
-	c += pool(p, span * vec2(0.5 + 0.38 * sin(t * 0.031), 0.5 + 0.38 * cos(t * 0.023)), 0.55, vec3(0.18, 0.71, 0.66));
-	c += pool(p, span * vec2(0.5 + 0.38 * sin(t * 0.019 + 2.1), 0.5 + 0.38 * cos(t * 0.027 + 2.7)), 0.5, vec3(0.48, 0.31, 0.84));
-	c += pool(p, span * vec2(0.5 + 0.38 * sin(t * 0.026 + 4.2), 0.5 + 0.38 * cos(t * 0.018 + 5.4)), 0.38, vec3(0.82, 0.67, 0.33));
-	c += pool(p, span * vec2(0.5 + 0.38 * sin(t * 0.017 + 5.5), 0.5 + 0.38 * cos(t * 0.032 + 7.1)), 0.34, vec3(0.89, 0.31, 0.5));
-	c = c * (0.10 + pulse * 0.10) + pulse_color.rgb * pulse * 0.10 * exp(-dot(UV - 0.5, UV - 0.5) * 3.0);
+	vec3 c = mix(top.rgb, bottom.rgb, smoothstep(0.0, 1.0, UV.y));
+	// soft diagonal bands of light drifting slowly
+	float band = sin((UV.x * aspect + UV.y) * 7.0 - TIME * 0.35) * 0.5 + 0.5;
+	c += vec3(1.0) * pow(band, 6.0) * 0.045;
+	// glow at the top centre, brighter on a pulse
+	float d = distance(vec2(UV.x * aspect, UV.y), vec2(0.5 * aspect, 0.18));
+	c += mix(vec3(1.0), pulse_color.rgb, pulse) * exp(-d * d * 3.0) * (0.10 + pulse * 0.25);
 	COLOR = vec4(c, 1.0);
 }
 """
@@ -65,6 +59,16 @@ func _new_mote(anywhere: bool) -> Dictionary:
 		"v": randf_range(0.008, 0.025), "s": randf_range(4.0, 11.0),
 		"w": randf_range(0.5, 1.5), "a": randf_range(0.15, 0.45),
 	}
+
+
+## Fade the gradient to a new palette.
+func fade_palette(top: Color, bottom: Color, seconds := 0.8) -> void:
+	var from_top: Color = _mat.get_shader_parameter("top") if _mat.get_shader_parameter("top") != null else top
+	var from_bottom: Color = _mat.get_shader_parameter("bottom") if _mat.get_shader_parameter("bottom") != null else bottom
+	var tw := create_tween()
+	tw.tween_method(func(t: float):
+		_mat.set_shader_parameter("top", from_top.lerp(top, t))
+		_mat.set_shader_parameter("bottom", from_bottom.lerp(bottom, t)), 0.0, 1.0, seconds)
 
 
 func pulse(color: Color, strength := 1.0) -> void:
