@@ -8,7 +8,7 @@ const PATH := "user://save.cfg"
 
 var best := 0          ## classic (desktop) board
 var best_bright := 0  ## bright mode
-var mode := "classic"  ## last mode the player started
+var mode := "bright" if OS.has_feature("android") else "classic"  ## last mode the player started
 var sound := true
 var music := true
 var vibration := true

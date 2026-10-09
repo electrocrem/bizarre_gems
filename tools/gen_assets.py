@@ -172,7 +172,40 @@ def tile_svg(base, cut, size=128):
     return "\n".join(out)
 
 
+# Bright mode block palettes (6 colours each): soft, juicy, never neon. The board cycles
+# through them on big combos and new boards, together with the background.
+BLOCK_PALETTES = [
+    ["#ef5f67", "#f59e45", "#f6c94e", "#5cc87a", "#4b9cf0", "#a477e0"],  # candy
+    ["#f0857a", "#f2b65a", "#5ccfb0", "#36b5d8", "#4a7fd6", "#8f7ae6"],  # ocean
+    ["#e0507f", "#f07f6a", "#f2c14e", "#8bc34a", "#5b8def", "#b05fd6"],  # berry
+    ["#e86a5a", "#e9a03b", "#d9c64a", "#4fb36a", "#3f9fb0", "#7d6fd0"],  # forest
+    ["#ff6b8b", "#ffa463", "#ffd966", "#6ed9a9", "#60a5fa", "#c084fc"],  # night
+]
+BLOCK_SYMBOL = ["square", "round", "star", "octagon", "kite", "hexagon"]
+
+
+def block_svg(base, cut, size=128):
+    """A chunky bevelled block: light top face, darker lower edge, glossy corner, faint emboss."""
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}"><defs>',
+           f'<linearGradient id="f" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{shade(base, .18)}"/>'
+           f'<stop offset="1" stop-color="{shade(base, -.06)}"/></linearGradient></defs>',
+           f'<rect x="6" y="10" width="116" height="114" rx="16" fill="#000" fill-opacity="0.22"/>',
+           f'<rect x="6" y="6" width="116" height="114" rx="16" fill="{shade(base, -.32)}"/>',
+           f'<rect x="6" y="6" width="116" height="104" rx="16" fill="url(#f)"/>',
+           f'<polygon points="6,22 22,6 106,6 122,22 106,26 22,26" fill="#fff" fill-opacity="0.28"/>',
+           f'<rect x="18" y="18" width="92" height="80" rx="10" fill="{shade(base, .08)}"/>',
+           f'<rect x="18" y="18" width="92" height="80" rx="10" fill="none" stroke="{shade(base, -.18)}" stroke-opacity="0.35" stroke-width="3"/>',
+           f'<circle cx="30" cy="30" r="6" fill="#fff" fill-opacity="0.75"/>']
+    P = [(64 + x * 22, 58 + y * 22) for x, y in outline(cut)]
+    out.append(f'<polygon points="{pts(P)}" fill="{shade(base, -.25)}" fill-opacity="0.22" stroke="#fff" stroke-opacity="0.2" stroke-width="2" stroke-linejoin="round"/>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
 def make_tiles():
+    for t, pal in enumerate(BLOCK_PALETTES):
+        for i, col in enumerate(pal):
+            svg_to_png(block_svg(col, BLOCK_SYMBOL[i]), A("tiles", f"block_{t}_{i}.png"), 128)
     for i, (name, _base, cut) in enumerate(GEMS):
         svg_to_png(tile_svg(TOY[i], cut), A("tiles", f"tile_{i}.png"), 128)
     # empty slot: a soft rounded hollow
@@ -332,6 +365,7 @@ def make_sounds():
     # bonus time
     write_wav(A("audio", "bonus.wav"), bell(1568, .5, .2, .3) + np.pad(bell(2093, .42, .2, .25), (int(.08 * SR), 0))[:int(SR * .5)])
     make_combo_sounds(rng)
+    make_bright_sounds(rng)
     make_music()
 
 
@@ -368,6 +402,98 @@ def make_combo_sounds(rng):
     x[:len(t)] += np.sin(2 * np.pi * (90 - 40 * t) * t) * np.exp(-t / .12) * .6
     g = shimmer(rng, 1.8, .14); x[:len(g)] += g
     write_wav(A("audio", "perfect.wav"), np.tanh(x * 1.2) * .8)
+
+
+def pluck(freq, dur, vol=.3, bright=1.0):
+    n = int(SR * dur); t = np.arange(n) / SR
+    x = (np.sin(2 * np.pi * freq * t) + .5 * bright * np.sin(4 * np.pi * freq * t) + .25 * bright * np.sin(6 * np.pi * freq * t))
+    return x * np.exp(-t / (dur * .35)) * np.minimum(t / .003, 1) * vol
+
+
+def pop(freq, dur=.16, vol=.5):
+    """Bubbly pop: a quick downward pitch sweep with a soft click."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    f = freq * (1.6 - .6 * np.minimum(t / (dur * .5), 1))
+    ph = 2 * np.pi * np.cumsum(f) / SR
+    return np.sin(ph) * np.exp(-t / (dur * .28)) * np.minimum(t / .002, 1) * vol
+
+
+def make_bright_sounds(rng):
+    """Bright mode: poppy, bouncy effects and a faster, drum-driven music loop."""
+    for k, base in ((2, 620), (3, 700), (4, 790)):
+        x = np.zeros(int(SR * .5))
+        for i in range(k - 1):
+            p = pop(base * (1.12 ** i), .18, .45); o = int(i * .045 * SR); x[o:o + len(p)] += p
+        b = bell(base * 2.5, .4, .12, .16); x[:len(b)] += b
+        write_wav(A("audio", f"b_knock{k}.wav"), x)
+    write_wav(A("audio", "b_miss.wav"), pop(220, .2, .5) * .8)
+    write_wav(A("audio", "b_combo_up.wav"), arpeggio((1046.5, 1318.5, 1568, 2093), .045, .35, .15, .22))
+    write_wav(A("audio", "b_combo_break.wav"), pop(330, .25, .35))
+    x = arpeggio((784, 988, 1175, 1568, 1976), .06, .9, .25, .24); g = shimmer(rng, .9, .12); x[:len(g)] += g[:len(x)]
+    write_wav(A("audio", "b_precise.wav"), x)
+    n = int(SR * 1.6); x = np.zeros(n)
+    for i, f in enumerate((523, 659, 784, 1047, 1319, 1568, 2093, 2637)):
+        b = pluck(f, .5, .22); o = int(i * .05 * SR); x[o:o + len(b)] += b[:n - o]
+    for o in (0, .2, .4):
+        kk = _kick(); s0 = int(o * SR); x[s0:s0 + len(kk)] += kk[:n - s0] * .7
+    g = shimmer(rng, 1.6, .12); x[:len(g)] += g
+    write_wav(A("audio", "b_perfect.wav"), np.tanh(x * 1.3) * .8)
+    write_wav(A("audio", "b_start.wav"), arpeggio((659, 784, 988, 1319), .07, .5, .18, .25))
+    write_wav(A("audio", "b_bonus.wav"), arpeggio((1568, 2093), .06, .35, .12, .22))
+    write_wav(A("audio", "b_over.wav"), arpeggio((784, 659, 523, 392), .12, .9, .3, .25))
+    write_wav(A("audio", "b_tick.wav"), pop(1400, .06, .3))
+    make_bright_music()
+
+
+def _kick():
+    n = int(SR * .22); t = np.arange(n) / SR
+    return np.sin(2 * np.pi * (55 + 90 * np.exp(-t / .03)) * t) * np.exp(-t / .09)
+
+
+def _snare(rng):
+    n = int(SR * .16); t = np.arange(n) / SR
+    return (rng.normal(0, 1, n) * .6 + np.sin(2 * np.pi * 190 * t) * .5) * np.exp(-t / .05)
+
+
+def _hat(rng):
+    n = int(SR * .05); t = np.arange(n) / SR
+    x = rng.normal(0, 1, n); x = x - np.convolve(x, np.ones(4) / 4, "same")
+    return x * np.exp(-t / .012) * .5
+
+
+def make_bright_music():
+    """Upbeat 128 bpm loop, 8 bars: four-on-the-floor kick, offbeat hats, a bouncy bass and
+    a plucked arpeggio over I-V-vi-IV in C (an original pattern, not an existing tune)."""
+    rng = np.random.default_rng(21)
+    bpm = 128; beat = 60 / bpm; bars = 8
+    n = int(SR * beat * 4 * bars); x = np.zeros(n)
+    chords = [(261.63, 329.63, 392.0), (196.0, 246.94, 293.66), (220.0, 261.63, 329.63), (174.61, 220.0, 261.63)]
+    roots = [65.41, 49.0, 55.0, 43.65]
+    order = [0, 1, 2, 3, 0, 1, 3, 3]
+    arp = [0, 1, 2, 1, 0, 2, 1, 2]
+    def put(sig, at, vol=1.0):
+        s0 = int(at * SR)
+        if s0 >= n: return
+        x[s0:s0 + len(sig)] += sig[:n - s0] * vol
+    for bar in range(bars):
+        ci = order[bar]; ch = chords[ci]; t0 = bar * 4 * beat
+        for b in range(4):
+            put(_kick(), t0 + b * beat, .9)
+            put(_hat(rng), t0 + b * beat + beat / 2, .55)
+            if b in (1, 3):
+                put(_snare(rng), t0 + b * beat, .45)
+        for e in range(8):  # bass on eighths, octave bounce
+            f = roots[ci] * (2 if e % 2 else 1)
+            put(pluck(f * 2, beat * .45, .32, .5), t0 + e * beat / 2)
+        for e in range(8):  # arpeggio, an octave up, accent on the bar's first note
+            f = ch[arp[e]] * 2 * (2 if bar % 4 == 3 and e >= 6 else 1)
+            put(pluck(f, beat * .7, .16 if e else .22), t0 + e * beat / 2)
+        for f in ch:  # soft pad under it all
+            m = int(4 * beat * SR); tt = np.arange(m) / SR
+            pad = np.sin(2 * np.pi * f * tt) * .03 * np.minimum(1, np.minimum(tt / .3, (tt[-1] - tt + 1e-6) / .3))
+            put(pad, t0)
+    x = np.tanh(x * 1.1) * .75
+    write_wav(A("audio", "music_bright.wav"), x)
 
 
 def make_music():

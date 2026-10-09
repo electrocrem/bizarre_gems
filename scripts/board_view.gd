@@ -85,6 +85,21 @@ var skin := "classic":
 		skin = v
 		_apply_skin()
 var _gem_tex: Array[Texture2D] = GEM_TEX
+## Bright mode blocks: BLOCKS[palette][kind]; the palette changes on big combos.
+var BLOCKS: Array = []
+var palette := 0:
+	set(v):
+		palette = posmod(v, maxi(BLOCKS.size(), 1))
+		_apply_skin()
+const PALETTE_COLORS := [
+	["#ef5f67", "#f59e45", "#f6c94e", "#5cc87a", "#4b9cf0", "#a477e0"],
+	["#f0857a", "#f2b65a", "#5ccfb0", "#36b5d8", "#4a7fd6", "#8f7ae6"],
+	["#e0507f", "#f07f6a", "#f2c14e", "#8bc34a", "#5b8def", "#b05fd6"],
+	["#e86a5a", "#e9a03b", "#d9c64a", "#4fb36a", "#3f9fb0", "#7d6fd0"],
+	["#ff6b8b", "#ffa463", "#ffd966", "#6ed9a9", "#60a5fa", "#c084fc"],
+]
+var _confetti: Array[Dictionary] = []
+var _glow := 0.0
 var _slot_tex: Texture2D = SLOT_TEX
 var _colors: Array[Color] = CLASSIC_COLORS
 var hue := 0.0:
@@ -108,6 +123,11 @@ func _ready() -> void:
 	_fx.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(_fx)
 	_fx.draw.connect(_draw_fx)
+	for t in PALETTE_COLORS.size():
+		var set: Array[Texture2D] = []
+		for k in 6:
+			set.append(load("res://assets/tiles/block_%d_%d.png" % [t, k]))
+		BLOCKS.append(set)
 	var sh := Shader.new()
 	sh.code = HUE_SHADER
 	_hue_mat.shader = sh
@@ -117,10 +137,15 @@ func _ready() -> void:
 
 func _apply_skin() -> void:
 	var bright := skin == "bright"
-	_gem_tex = TILE_TEX if bright else GEM_TEX
+	_gem_tex = BLOCKS[palette] if bright and not BLOCKS.is_empty() else GEM_TEX
 	_slot_tex = SLOT_TILE_TEX if bright else SLOT_TEX
-	_colors = GEM_GLOW if bright else CLASSIC_COLORS
-	material = _hue_mat if bright else null
+	_colors = CLASSIC_COLORS
+	if bright:
+		var cols: Array[Color] = []
+		for hexc in PALETTE_COLORS[palette]:
+			cols.append(Color(hexc))
+		_colors = cols
+	material = null  # palettes are real colour sets now, no hue rotation
 	if not bright:
 		hue = 0.0
 	if bright:
@@ -174,7 +199,7 @@ func _deal_scale(i: int) -> float:
 
 func clear_fx() -> void:
 	_flyers.clear(); _beams.clear(); _texts.clear(); _misses.clear(); _sparks.clear(); _waves.clear()
-	_shards.clear(); _pops.clear(); _praise.clear()
+	_shards.clear(); _pops.clear(); _praise.clear(); _confetti.clear()
 	_flash = 0.0
 	_hint = Vector2i(-1, -1)
 
@@ -197,9 +222,20 @@ func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points
 	for i in gone.size():
 		var h := slot_center(gone[i])
 		_beams.append({"a": c, "b": h, "t": 0.0, "rainbow": rainbow, "w": 1.0 + (mult - 1) * 0.5})
+		if skin != "bright":
+			var away := signf(h.x - c.x)
+			if away == 0.0:
+				away = randf_range(-1, 1)
+			_flyers.append({"k": kinds[i], "p": h, "v": Vector2(away * cell * randf_range(2, 4), -cell * randf_range(6, 9)),
+				"r": 0.0, "vr": randf_range(-7, 7)})
+			for j in 3 + mult * 2:
+				var a2 := randf() * TAU
+				_sparks.append({"p": h, "v": Vector2.from_angle(a2) * cell * randf_range(2, 5 + mult), "t": 0.0,
+					"life": randf_range(0.35, 0.6), "s": randf_range(0.25, 0.5), "c": _spark_color(rainbow)})
+			continue
 		_pops.append({"p": h, "t": 0.0})
 		var base: Color = _colors[kinds[i]]
-		for j in 7:
+		for j in 9:
 			var a := randf() * TAU
 			_shards.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2.5, 6.0) + Vector2(0, -cell * 3.0),
 				"r": randf() * TAU, "vr": randf_range(-9, 9), "s": cell * randf_range(0.12, 0.22),
@@ -244,6 +280,20 @@ func _spark_color(rainbow: bool) -> Color:
 
 
 ## Big word of praise floating up from a slot ("Great!").
+## Confetti raining over the board (bright mode celebrations).
+func play_confetti(count := 60) -> void:
+	for i in count:
+		_confetti.append({"p": Vector2(randf_range(0, size.x), randf_range(-size.y * 0.3, 0)),
+			"v": Vector2(randf_range(-40, 40), randf_range(120, 260)), "r": randf() * TAU, "vr": randf_range(-6, 6),
+			"s": Vector2(randf_range(6, 11), randf_range(10, 18)) * maxf(cell / 40.0, 0.6),
+			"c": _colors[randi() % _colors.size()].lightened(0.15), "t": 0.0, "ph": randf() * TAU})
+
+
+## Make the board frame flash.
+func glow(strength := 1.0) -> void:
+	_glow = maxf(_glow, strength)
+
+
 func praise(text: String, at: Vector2i, color: Color, big := 1.0) -> void:
 	_praise.append({"p": slot_center(at), "s": text, "c": color, "k": big, "t": 0.0})
 
@@ -286,6 +336,13 @@ func _process(delta: float) -> void:
 	_age(_misses, delta, 0.45)
 	_age(_waves, delta, 0.6)
 	_age(_pops, delta, 0.22)
+	_glow = maxf(0.0, _glow - delta * 1.5)
+	if not _confetti.is_empty():
+		for cf in _confetti:
+			cf.t += delta
+			cf.p += Vector2(cf.v.x + sin(cf.t * 4.0 + cf.ph) * 50.0, cf.v.y) * delta
+			cf.r += cf.vr * delta
+		_confetti = _confetti.filter(func(cf): return cf.p.y < size.y + 20 and cf.t < 4.0)
 	_age(_praise, delta, 1.1)
 	if not _shards.is_empty():
 		var g2 := cell * 22.0
@@ -428,7 +485,8 @@ func _draw_fx() -> void:
 		var a: float = 1.0 - sd.t / sd.life
 		var r: float = sd.r
 		var k: float = sd.s
-		var tri := PackedVector2Array([Vector2(cos(r), sin(r)) * k, Vector2(cos(r + 2.3), sin(r + 2.3)) * k * 0.8, Vector2(cos(r + 4.1), sin(r + 4.1)) * k * 0.9])
+		var tri := PackedVector2Array([Vector2(cos(r), sin(r)) * k, Vector2(cos(r + PI / 2), sin(r + PI / 2)) * k,
+			Vector2(cos(r + PI), sin(r + PI)) * k, Vector2(cos(r + PI * 1.5), sin(r + PI * 1.5)) * k])
 		c.draw_set_transform(sd.p + off)
 		c.draw_colored_polygon(tri, Color(sd.c, a))
 	c.draw_set_transform(off)
@@ -455,6 +513,15 @@ func _draw_fx() -> void:
 			var pos: Vector2 = Vector2(clampf(pr.p.x - w / 2, -w / 2 + size.x / 2, size.x / 2 - w / 2), pr.p.y - cell * 0.8 - q * cell * 1.8)
 			c.draw_string_outline(number_font, pos, pr.s, HORIZONTAL_ALIGNMENT_CENTER, w, fs, int(fs * 0.22), Color(0.05, 0.05, 0.15, a))
 			c.draw_string(number_font, pos, pr.s, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(pr.c, a))
+	for cf in _confetti:
+		var a: float = clampf(4.0 - cf.t, 0.0, 1.0)
+		c.draw_set_transform(cf.p, cf.r, Vector2(1.0, absf(cos(cf.t * 6.0 + cf.ph))))
+		c.draw_rect(Rect2(-cf.s / 2, cf.s), Color(cf.c, a))
+	c.draw_set_transform(off)
+	if _glow > 0.0:
+		var gs := Vector2(logic.cols, logic.rows) * cell
+		var fr := Rect2(origin - Vector2.ONE * frame_pad, gs + Vector2.ONE * frame_pad * 2)
+		c.draw_rect(fr.grow(2.0), Color(1, 1, 1, _glow * 0.8), false, 4.0 + _glow * 4.0)
 	if _flash > 0.0:
 		c.draw_set_transform(Vector2.ZERO)
 		var grid_size := Vector2(logic.cols, logic.rows) * cell

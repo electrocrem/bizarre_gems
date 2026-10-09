@@ -21,11 +21,11 @@ const PANEL := Color(0.08, 0.11, 0.3, 0.97)
 ## Palettes the screen cycles through on big combos and new boards: background top/bottom
 ## and how far the board's hue is rotated (gems change colour with it).
 const THEMES := [
-	{"top": Color("#3d63e0"), "bottom": Color("#1b2c8c")},
-	{"top": Color("#7a4fe6"), "bottom": Color("#341a8c")},
-	{"top": Color("#14b89a"), "bottom": Color("#0b5a6e")},
-	{"top": Color("#e2457f"), "bottom": Color("#7a1450")},
-	{"top": Color("#f2804a"), "bottom": Color("#8c2b2b")},
+	{"top": Color("#4a6fd8"), "bottom": Color("#22337f")},  # candy
+	{"top": Color("#2f9bb3"), "bottom": Color("#164a6b")},  # ocean
+	{"top": Color("#9c4a8f"), "bottom": Color("#45204f")},  # berry
+	{"top": Color("#4f8f63"), "bottom": Color("#1f4636")},  # forest
+	{"top": Color("#4b4fa3"), "bottom": Color("#1b1c4a")},  # night
 ]
 const COMBO_COLORS := [Color("#3d8bff"), Color("#22c97a"), Color("#ff9a2e"), Color("#ff4dad")]
 
@@ -203,6 +203,8 @@ func _use_mode(id: String) -> void:
 	mode = BoardLogic.BRIGHT if id == "bright" else BoardLogic.CLASSIC
 	board.skin = mode.id
 	ambient.set_skin(mode.id)
+	Sfx.set_skin(mode.id)
+	Sfx.update_music()
 	if hud_sets.has(mode.id):
 		_apply_hud(mode.id)
 		_update_combo_widget()
@@ -241,6 +243,7 @@ func _next_wave(at: Vector2i) -> void:
 	_flash_delta("+%d" % int(bonus_t), false)
 	Sfx.play("precise")
 	board.play_burst(at, 50)
+	board.play_confetti(70)
 	_set_theme(theme_i + 1)
 	var tw := create_tween()
 	tw.tween_interval(0.7)
@@ -257,16 +260,13 @@ func _next_wave(at: Vector2i) -> void:
 func _set_theme(i: int, instant := false) -> void:
 	if mode.id != "bright":
 		return  # the classic look keeps its colours
-	var step := i - theme_i
 	theme_i = posmod(i, THEMES.size())
 	var t: Dictionary = THEMES[theme_i]
 	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
-	if instant:
-		hue_total = 0.0
-		board.hue = 0.0
-	else:
-		hue_total += 1.0 / THEMES.size() * maxi(step, 1)
-		create_tween().tween_property(board, "hue", hue_total, 0.9)
+	board.palette = theme_i
+	if not instant:
+		board.flash(Color.WHITE, 0.35)
+		board.glow(1.0)
 
 
 func _today() -> String:
@@ -383,6 +383,8 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_burst(p, 40)
 		board.flash(BRASS_LIGHT, 0.22)
 		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, ScoreKeeper.PRECISE_TIME, BRASS_LIGHT)
+		if mode.id == "bright":
+			board.play_confetti(50)
 		_set_theme(theme_i + 1)
 	elif event == "perfect":
 		Sfx.play("perfect")
@@ -393,6 +395,8 @@ func _on_slot(p: Vector2i) -> void:
 		board.flash(Color.WHITE, 0.4)
 		board.shake(0.3)
 		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
+		if mode.id == "bright":
+			board.play_confetti(90)
 		_set_theme(theme_i + 1)
 	_update_combo_widget(res.tier_up)
 	if autoplay and (event != "" or res.tier_up):
@@ -1191,7 +1195,7 @@ func _build_modes() -> void:
 	flow.add_theme_constant_override("h_separation", 20)
 	flow.add_theme_constant_override("v_separation", 20)
 	ui.mode_cards = []
-	for id in ["classic", "bright"]:
+	for id in (["bright", "classic"] if OS.has_feature("android") else ["classic", "bright"]):
 		var card := PanelContainer.new()
 		var accent := BRASS if id == "classic" else Color("#3d8bff")
 		card.add_theme_stylebox_override("panel", _box(PANEL, accent, 3, 20, Vector4(16, 16, 16, 18)))
@@ -1611,7 +1615,7 @@ func _relayout_board() -> void:
 
 func _on_viewport_resized() -> void:
 	var s := get_viewport_rect().size
-	var turn := _is_touch_device() and s.x > s.y * 1.05
+	var turn := _is_touch_device() and s.x > s.y * 1.05 and not OS.has_feature("android")
 	rotate_overlay.visible = turn
 	if turn:
 		pause_game()
@@ -1643,7 +1647,11 @@ func _on_viewport_resized() -> void:
 	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
-	ui.menu_title.add_theme_font_size_override("font_size", 46 if s.x < 600 else 64)
+	var short := s.y < 600
+	ui.menu_title.add_theme_font_size_override("font_size", 40 if short else (46 if s.x < 600 else 64))
+	ui.home_gems[0].get_parent().visible = s.y >= 560
+	(menu_panel.get_child(0) as VBoxContainer).add_theme_constant_override("separation", 8 if short else 18)
+	ui.btn_home_play.custom_minimum_size = Vector2(260, 62 if short else 78)
 	for card in ui.mode_cards:
 		card.custom_minimum_size.x = clampf(s.x - 48, 260, 380)
 	ui.over_score.add_theme_font_size_override("font_size", 52 if compact else 72)
