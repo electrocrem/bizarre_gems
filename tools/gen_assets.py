@@ -124,6 +124,7 @@ ICONS = {  # 64x64 white glyphs
     "video": '<rect x="6" y="14" width="52" height="36" rx="7"/><path d="M27 23l13 9-13 9z" fill="#1b1408"/>',
     "shuffle": '<path d="M8 20h12c12 0 14 24 26 24h8M8 44h12c5 0 8-4 10-8M38 26c2-3 5-6 8-6h8" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/><path d="M50 12l8 8-8 8zM50 36l8 8-8 8z"/>',
     "calendar": '<rect x="8" y="12" width="48" height="44" rx="6" fill="none" stroke="#fff" stroke-width="5"/><rect x="8" y="12" width="48" height="12" rx="4"/><rect x="18" y="5" width="6" height="14" rx="2"/><rect x="40" y="5" width="6" height="14" rx="2"/><rect x="18" y="31" width="9" height="8" rx="1.5"/><rect x="31" y="31" width="9" height="8" rx="1.5"/><rect x="18" y="42" width="9" height="8" rx="1.5"/>',
+    "rotate": '<rect x="20" y="6" width="24" height="42" rx="5" fill="none" stroke="#fff" stroke-width="4"/><rect x="28" y="40" width="8" height="3" rx="1.5"/><path d="M10 40c0 8 6 14 14 16" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M20 50l6 7-9 2z"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 
@@ -179,7 +180,10 @@ def make_textures():
     sl = np.zeros((s, s, 4), np.uint8)
     sl[..., :3] = np.where(rim[..., None] > 0, 255, 0)
     sl[..., 3] = np.clip(alpha + rim, 0, 255)
-    Image.fromarray(sl).filter(ImageFilter.GaussianBlur(1.2)).save(A("ui", "slot.png"))
+    slot_img = Image.fromarray(sl).filter(ImageFilter.GaussianBlur(1.2))
+    rr = s * .44 * (0.3 / 0.42)  # gold ring at 0.3 cell radius (the texture spans 0.84 cell)
+    ImageDraw.Draw(slot_img).ellipse([s / 2 - rr, s / 2 - rr, s / 2 + rr, s / 2 + rr], outline=(210, 171, 85, 70), width=3)
+    slot_img.save(A("ui", "slot.png"))
     # soft round glow, tinted in code (gem halos, ambient light)
     s = 128
     y, x = np.mgrid[0:s, 0:s] - (s - 1) / 2

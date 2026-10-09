@@ -31,6 +31,7 @@ const ICONS := {
 	"restart": preload("res://assets/ui/icon_restart.png"),
 	"settings": preload("res://assets/ui/icon_settings.png"),
 	"calendar": preload("res://assets/ui/icon_calendar.png"),
+	"rotate": preload("res://assets/ui/icon_rotate.png"),
 }
 
 var logic := BoardLogic.new()
@@ -81,6 +82,7 @@ var btn_settings: Button
 var settings_return: Control
 var compact := false
 var ui_scale_info := ""
+var rotate_overlay: Control
 var margin: MarginContainer
 var panel_style: StyleBoxFlat
 var panel_style_compact: StyleBoxFlat
@@ -775,6 +777,32 @@ func _build() -> void:
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(toast)
 
+	# phones are portrait only: in landscape the game pauses behind this notice
+	var ro := ColorRect.new()
+	ro.color = Color(0.03, 0.07, 0.08, 0.97)
+	ro.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ro.mouse_filter = Control.MOUSE_FILTER_STOP
+	ro.visible = false
+	var rc := CenterContainer.new()
+	rc.set_anchors_preset(Control.PRESET_FULL_RECT)
+	var rv := VBoxContainer.new()
+	rv.alignment = BoxContainer.ALIGNMENT_CENTER
+	rv.add_theme_constant_override("separation", 18)
+	var ri := TextureRect.new()
+	ri.texture = ICONS["rotate"]
+	ri.custom_minimum_size = Vector2(72, 72)
+	ri.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	ri.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	ri.modulate = BRASS
+	ui.rotate_label = _label("", f_bold, 24, CREAM)
+	ui.rotate_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	rv.add_child(ri)
+	rv.add_child(ui.rotate_label)
+	rc.add_child(rv)
+	ro.add_child(rc)
+	add_child(ro)
+	rotate_overlay = ro
+
 
 func _panel() -> Array:
 	var p := PanelContainer.new()
@@ -1019,6 +1047,7 @@ func _apply_texts() -> void:
 	ui.chk_music.text = L.t("music_opt")
 	ui.chk_vibration.text = L.t("vibration")
 	ui.btn_settings_done.text = L.t("done")
+	ui.rotate_label.text = L.t("rotate")
 	_fit_panels.call_deferred()
 
 
@@ -1157,6 +1186,10 @@ func _relayout_board() -> void:
 
 func _on_viewport_resized() -> void:
 	var s := get_viewport_rect().size
+	var turn := _is_touch_device() and s.x > s.y * 1.05
+	rotate_overlay.visible = turn
+	if turn:
+		pause_game()
 	compact = s.x < 640 or s.y < 600
 	title_label.visible = s.x >= 980
 	var m := 6 if compact else 16

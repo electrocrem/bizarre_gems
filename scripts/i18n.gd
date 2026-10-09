@@ -52,6 +52,7 @@ const S := {
 		"en": "Gems glowing gold give +5 points and +2 seconds. The daily board is the same layout for everyone and changes every day.",
 		"tr": "Altın gibi parlayan taşlar +5 puan ve +2 saniye verir. Günün dizilimi herkes için aynıdır ve her gün değişir."},
 	"pay_shine": {"ru": "Сияющий камень: +5 очков, +2 с", "en": "Shining gem: +5 points, +2 s", "tr": "Parlayan taş: +5 puan, +2 sn"},
+	"rotate": {"ru": "Поверните телефон вертикально", "en": "Turn your phone upright", "tr": "Telefonunu dikey çevir"},
 	"settings": {"ru": "Настройки", "en": "Settings", "tr": "Ayarlar"},
 	"sounds": {"ru": "Звуки", "en": "Sound effects", "tr": "Ses efektleri"},
 	"music_opt": {"ru": "Музыка", "en": "Music", "tr": "Müzik"},
