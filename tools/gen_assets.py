@@ -135,6 +135,12 @@ ICONS = {  # 64x64 white glyphs
     "crystal": '<path d="M20 8h24l12 16-24 34L8 24z"/><path d="M8 24h48M20 8l12 16 12-16M32 24v34" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="3"/>',
     "hint": '<path d="M32 6a18 18 0 0 0-10 33v7h20v-7A18 18 0 0 0 32 6z"/><rect x="23" y="49" width="18" height="5" rx="2"/><rect x="26" y="56" width="12" height="4" rx="2"/>',
     "strikes": '<circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="32" r="13" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="32" r="4"/>',
+    "gift": '<rect x="8" y="26" width="48" height="32" rx="4"/><rect x="5" y="17" width="54" height="11" rx="3"/><rect x="28" y="17" width="8" height="41" fill="#000" fill-opacity="0.3"/><path d="M32 17c-6-12-20-8-14 0M32 17c6-12 20-8 14 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
+    "medal": '<path d="M20 4h10l6 16H26zM34 4h10l-6 16h-10z"/><circle cx="32" cy="40" r="18"/><circle cx="32" cy="40" r="11" fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="4"/>',
+    "puzzle": '<path d="M8 20h14a6 6 0 1 1 12 0h14v14a6 6 0 1 0 0 12v14H34a6 6 0 1 0-12 0H8V46a6 6 0 1 1 0-12z"/>',
+    "duel": '<circle cx="20" cy="18" r="9"/><circle cx="44" cy="18" r="9"/><path d="M4 56c0-12 7-20 16-20s16 8 16 20zM28 56c0-12 7-20 16-20s16 8 16 20z"/>',
+    "hand": '<path d="M26 6a5 5 0 0 1 10 0v22l3-1a5 5 0 0 1 6 3l1 2a5 5 0 0 1 6 3v10c0 10-7 17-17 17h-4c-7 0-12-4-15-10l-7-13a5 5 0 0 1 8-6l9 9z"/>',
+    "link": '<rect x="6" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/><rect x="28" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 
@@ -213,7 +219,11 @@ def block_svg(base, cut, size=128):
 # different from each other as possible. Look 0 is the original palette, then five more.
 BRIGHT_SHAPES = ["heart", "kite", "triangle", "star", "round", "square"]
 BRIGHT_LOOKS = [["#ff4d5e", "#3d8bff", "#22c97a", "#ffcf33", "#ff9a2e", "#a35cff"]] + [
-    [p[0], p[4], p[3], p[2], p[1], p[5]] for p in BLOCK_PALETTES]
+    [p[0], p[4], p[3], p[2], p[1], p[5]] for p in BLOCK_PALETTES] + [
+    ["#f4a6b8", "#5c84c9", "#8fe3cf", "#f0d58a", "#c7d7ea", "#b8a6f2"],   # 6 winter (season)
+    ["#c8283c", "#2e8f8f", "#7ccf3a", "#e8e0c8", "#f07b1d", "#7b3fb5"],   # 7 halloween (season)
+    ["#d64a5a", "#3f6fd6", "#2fa36b", "#e6b93c", "#c88a4a", "#9aa3b5"],   # 8 gold (7-day streak)
+]
 
 
 def bright_tile_svg(base, cut, size=128):
@@ -431,6 +441,7 @@ def make_sounds():
     # bonus time
     write_wav(A("audio", "bonus.wav"), bell(1568, .5, .2, .3) + np.pad(bell(2093, .42, .2, .25), (int(.08 * SR), 0))[:int(SR * .5)])
     make_combo_sounds(rng)
+    make_voices()
     make_bright_sounds(rng)
     make_music()
 
@@ -606,6 +617,38 @@ def make_bright_music():
         put(_lead(note(semi), step * length), bar * 4 * beat + st * step)
     x = np.tanh(x * 1.15) * .75
     write_wav(A("audio", "music_bright.wav"), x)
+
+
+VOICE_LINES = {"great": "Great!", "super": "Super!", "amazing": "Amazing!", "incredible": "Incredible!",
+               "perfect": "Perfect!", "clear": "Board clear!", "levelup": "Level up!"}
+
+
+def make_voices():
+    """Announcer call-outs, spoken by espeak-ng and dressed up: a little higher, doubled for
+    width, squashed and given a short shimmering tail."""
+    import shutil, tempfile
+    if not shutil.which("espeak-ng"):
+        print("espeak-ng not found, keeping existing voice files")
+        return
+    for name, text in VOICE_LINES.items():
+        with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
+            subprocess.run(["espeak-ng", "-v", "en-us+m3", "-s", "135", "-p", "62", "-a", "180", "-w", tmp.name, text], check=True)
+            with wave.open(tmp.name) as w:
+                sr = w.getframerate()
+                x = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(float) / 32768
+        # resample to SR, nudged up ~3 semitones for an excited announcer
+        n_out = int(len(x) * SR / sr / 1.19)
+        x = np.interp(np.linspace(0, len(x) - 1, n_out), np.arange(len(x)), x)
+        # double-track: a slightly delayed, slightly detuned copy
+        d = int(.012 * SR)
+        y = x.copy()
+        y[d:] += .55 * np.interp(np.linspace(0, len(x) - 1, len(x) - d) * 1.004, np.arange(len(x)), x)
+        y = np.tanh(y * 2.2)  # push it forward
+        # short shimmering tail
+        tail = np.random.default_rng(1).normal(0, 1, int(.35 * SR)) * np.exp(-np.arange(int(.35 * SR)) / (.08 * SR)) * .02
+        y = np.convolve(y, np.concatenate([[1.0], tail]))[: len(y) + int(.3 * SR)]
+        y = y / (np.max(np.abs(y)) + 1e-9) * .9
+        write_wav(A("audio", f"voice_{name}.wav"), y)
 
 
 def make_music():

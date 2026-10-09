@@ -27,6 +27,9 @@ const THEMES := [
 	{"top": Color("#9c4a8f"), "bottom": Color("#45204f")},  # berry
 	{"top": Color("#4f8f63"), "bottom": Color("#1f4636")},  # forest
 	{"top": Color("#4b4fa3"), "bottom": Color("#1b1c4a")},  # night
+	{"top": Color("#7fb3e0"), "bottom": Color("#2b4a7a")},  # winter
+	{"top": Color("#4a2a5c"), "bottom": Color("#140b1f")},  # halloween
+	{"top": Color("#8a6a2a"), "bottom": Color("#2b2210")},  # gold
 ]
 const COMBO_COLORS := [Color("#3d8bff"), Color("#22c97a"), Color("#ff9a2e"), Color("#ff4dad")]
 
@@ -53,6 +56,11 @@ const ICONS := {
 	"crystal": preload("res://assets/ui/icon_crystal.png"),
 	"hint": preload("res://assets/ui/icon_hint.png"),
 	"strikes": preload("res://assets/ui/icon_strikes.png"),
+	"gift": preload("res://assets/ui/icon_gift.png"),
+	"medal": preload("res://assets/ui/icon_medal.png"),
+	"puzzle": preload("res://assets/ui/icon_puzzle.png"),
+	"duel": preload("res://assets/ui/icon_duel.png"),
+	"hand": preload("res://assets/ui/icon_hand.png"),
 	"back": preload("res://assets/ui/icon_back.png"),
 	"info": preload("res://assets/ui/icon_info.png"),
 }
@@ -72,6 +80,13 @@ var level_total := 0      ## gems on the level board at the start
 var strikes := 0          ## no-timer mode: strikes left
 var strikes_max := 1
 var hints := 1            ## free hints left this game / level
+var puzzle_n := 1
+var goal_kind := -1       ## level goal: knock out every gem of this kind (-1: none, -2: done)
+var duel_scores := [0, 0]
+var duel_turn := 0
+var tut_step := 0
+var tut_hand: TextureRect
+var tut_label: Label
 var btn_hint: Button
 const PENTA := [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24]  ## combo knocks climb this scale
 var ambient: Ambient
@@ -148,6 +163,16 @@ var map_panel: Control         ## level map (full screen)
 var level_panel: PanelContainer  ## level result with stars
 var tasks_panel: PanelContainer
 var collection_panel: PanelContainer
+var gift_panel: PanelContainer
+var ach_panel: PanelContainer
+var leaders_board := "score"
+var settings_from_game := false  ## settings opened mid-game: Done goes straight back to playing
+var _stuck_t := 0.0
+## Lists that scroll by dragging anywhere on them (touch screens start drags on buttons).
+var drag_scrolls: Array[ScrollContainer] = []
+var _drag: ScrollContainer
+var _drag_last := Vector2.ZERO
+var _drag_moved := 0.0
 var ui := {}  # widgets that carry translated text
 
 
@@ -198,8 +223,16 @@ func _debug_start() -> void:
 		_show_panel(collection_panel)
 	elif q.begins_with("level"):
 		start_level(maxi(1, int(q.substr(5))))
-	elif q in ["zen", "bright", "classic"]:
+	elif q in ["zen", "bright", "classic", "duel", "tutorial"]:
 		start_game(q)
+	elif q == "puzzle":
+		start_puzzle(1)
+	elif q == "gift":
+		_refresh_gift()
+		_show_panel(gift_panel)
+	elif q == "ach":
+		_refresh_achievements()
+		_show_panel(ach_panel)
 
 
 func _on_sdk_ready() -> void:
@@ -239,6 +272,14 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	strikes_max = 20
 	strikes = strikes_max
 	hints = 1
+	duel_scores = [0, 0]
+	duel_turn = 0
+	if mode.kind == "puzzle":
+		strikes = logic.solution.size() + 1  # just enough to clear it, plus one spare
+		strikes_max = strikes
+	if mode.kind == "tutorial":
+		hints = 0
+		time_left = 999.0
 	used_continue = false
 	used_shuffle = false
 	board.clear_fx()
@@ -247,6 +288,12 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	ambient.pulse(BRASS, 0.6)
 	Sfx.play("start")
 	_resume_play()
+	if mode.kind == "levels" and BoardLogic.bright_level(level_n).boss:
+		_banner(L.t("boss"), 0, 0.0, Color("#ff9ed2"), L.t("boss_sub"))
+	elif mode.kind == "tutorial":
+		_tutorial_step(0)
+	elif mode.kind == "duel":
+		_toast(L.t("duel_turn", {"n": 1}))
 
 
 ## Switch rules and look: "classic" is the original game, "bright" the toy-style mode.
@@ -258,9 +305,17 @@ func _use_mode(id: String) -> void:
 			mode = BoardLogic.LEVELS
 		"zen":
 			mode = BoardLogic.ZEN
+		"puzzle":
+			mode = BoardLogic.PUZZLE
+		"duel":
+			mode = BoardLogic.DUEL
+		"tutorial":
+			mode = BoardLogic.TUTORIAL
 		_:
 			mode = BoardLogic.CLASSIC
 	board.skin = mode.skin
+	board.zoom_enabled = mode.skin == "classic" and _is_touch_device()
+	board.reset_zoom()
 	ambient.set_skin(mode.skin)
 	Sfx.set_skin(mode.skin)
 	Sfx.update_music()
@@ -275,24 +330,44 @@ func _use_mode(id: String) -> void:
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
 ## date seed (plus the wave number), so everyone on the same kind of device gets the same one.
 func _deal_board() -> void:
+	if mode.kind == "tutorial":
+		var tut := PackedInt32Array()
+		for ch in "1.1.2" + "....." + "3.3.2" + "....." + "4..4.":
+			tut.append(-1 if ch == "." else int(ch) - 1)
+		logic.load_cells(5, 5, tut)
+		return
 	if mode.skin == "bright":
 		# bright: the board for this level, dealt until it opens with the level's number of moves;
 		# map levels and the daily board use a fixed seed and shape, so everyone gets the same one
 		var lvn := _level()
 		var lv := BoardLogic.bright_level(lvn)
+		if mode.kind == "puzzle":
+			lv = BoardLogic.puzzle_config(puzzle_n)
+		elif mode.kind == "duel":
+			lv = BoardLogic.bright_level(6)
+			lv.boxes = 0
+			lv.chains = 0
 		if mode.kind == "run":
 			# the run plays like classic: one big board for the whole clock, a touch of jokers and boxes
 			lv = {"slots": 160, "kinds": 6, "per_kind": 21, "min_moves": 6, "max_moves": 999, "tries": 30,
-				"jokers": 0.15, "boxes": 2}
+				"jokers": 0.15, "boxes": 2, "chains": 1, "boss": false, "goal_kind": -1}
 		var r := rng
 		var area := _board_area()
-		if daily or mode.kind == "levels":
+		if daily or mode.kind == "levels" or mode.kind == "puzzle":
 			r = RandomNumberGenerator.new()
-			r.seed = hash("bizarre-level-%d" % lvn) if mode.kind == "levels" else hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
+			if mode.kind == "levels":
+				r.seed = hash("bizarre-level-%d" % lvn)
+			elif mode.kind == "puzzle":
+				r.seed = hash("bizarre-puzzle-%d" % puzzle_n)
+			else:
+				r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
 			area = Vector2(360, 640)
 		var d := BoardLogic.best_dims(area, lv.slots)
 		logic.setup_tuned(d.x, d.y, r, mode.shining, lv.kinds, lv.per_kind, lv.min_moves, lv.max_moves, lv.tries, true,
 			lv.jokers, lv.boxes)
+		if int(lv.get("chains", 0)) > 0:
+			logic.add_chains(r, int(lv.chains))
+		goal_kind = int(lv.get("goal_kind", -1)) if mode.kind == "levels" else -1
 		return
 	if daily:
 		var r := RandomNumberGenerator.new()
@@ -320,8 +395,13 @@ func _next_wave(at: Vector2i) -> void:
 	if full_clear:
 		board.play_clear_wave()
 		Sfx.play("clear")
+		Sfx.voice("clear")
+	elif mode.kind == "zen" or mode.kind == "run":
+		Sfx.voice("levelup")
 		Progress.report("clear_boards")
 	var bonus_p := CLEAR_POINTS if full_clear else 0
+	if full_clear and mode.kind == "run":
+		bonus_p = 100 + 50 * (wave - 1)  # clearing a whole run board is the big score
 	time_left += bonus_t
 	if bonus_p > 0:
 		keeper.score += bonus_p
@@ -339,7 +419,7 @@ func _next_wave(at: Vector2i) -> void:
 	Sfx.play("precise")
 	board.play_burst(at, 50)
 	board.play_confetti(70)
-	_set_theme(theme_i + 1)
+	_set_theme(_next_look())
 	var tw := create_tween()
 	tw.tween_interval(1.2 if full_clear else 0.7)
 	tw.tween_callback(func():
@@ -349,6 +429,12 @@ func _next_wave(at: Vector2i) -> void:
 		board.deal_in()
 		dealing = false
 		board.interactive = state == State.PLAYING)
+
+
+## The look after the current one: the six base looks in turn; a special look (seasonal or
+## gold) is only ever the starting one.
+func _next_look() -> int:
+	return (theme_i + 1) % 6 if theme_i < 6 else 0
 
 
 ## Switch to palette i: background gradient and board hue fade over.
@@ -380,13 +466,17 @@ func _time_speed() -> float:
 
 ## Board level: the map level, or the current board number in runs.
 func _level() -> int:
-	return level_n if mode.kind == "levels" else wave
+	if mode.kind == "levels":
+		return level_n
+	if mode.kind == "puzzle":
+		return puzzle_n
+	return wave
 
 
 ## Seconds for a map level: a little more than one per gem.
 func _level_time(n: int) -> float:
 	var lv := BoardLogic.bright_level(n)
-	return 20.0 + lv.kinds * lv.per_kind * 1.1
+	return (20.0 + lv.kinds * lv.per_kind * 1.1) * (1.4 if lv.boss else 1.0)
 
 
 ## Start map level n.
@@ -405,9 +495,17 @@ func _end_level() -> void:
 	var left := logic.gems_left()
 	var share := 1.0 - float(left) / maxf(1.0, level_total)
 	var got := Progress.stars_for_share(share)
+	var goal_failed := goal_kind >= 0
+	if goal_failed:
+		got = 0
 	var gained := Progress.record_level(level_n, got)
+	if BoardLogic.bright_level(level_n).boss and gained > 0:
+		Progress.crystals += gained * Progress.STAR_CRYSTALS * 2  # bosses pay triple
+		Progress.flush()
+	if Yandex.is_authorized():
+		Yandex.submit_score(Progress.total_stars(), "stars")
 	ui.level_title.text = L.t("level_n", {"n": level_n})
-	ui.level_result.text = L.t("level_passed" if got > 0 else "level_failed")
+	ui.level_result.text = L.t("goal_failed") if goal_failed else L.t("level_passed" if got > 0 else "level_failed")
 	ui.level_line.text = L.t("level_share", {"p": int(round(share * 100))}) + ("  ·  +%d" % (gained * Progress.STAR_CRYSTALS) if gained > 0 else "")
 	ui.level_next.visible = got > 0
 	for i in 3:
@@ -428,6 +526,98 @@ func _end_level() -> void:
 	Sfx.play("level" if got > 0 else "over")
 
 
+# ================= puzzle, duel, tutorial =================
+
+func start_puzzle(n: int) -> void:
+	puzzle_n = n
+	start_game("puzzle")
+
+
+func _end_puzzle() -> void:
+	if state == State.OVER:
+		return
+	state = State.OVER
+	board.interactive = false
+	var solved := logic.gems_left() == 0
+	if solved:
+		Progress.solved_puzzle(puzzle_n)
+	ui.level_title.text = L.t("puzzle_n", {"n": puzzle_n})
+	ui.level_result.text = L.t("puzzle_solved" if solved else "puzzle_failed")
+	ui.level_line.text = L.t("puzzle_line", {"n": logic.solution.size()})
+	ui.level_next.visible = solved
+	for i in 3:
+		var st: TextureRect = ui.level_stars[i]
+		st.modulate = BRASS if solved else Color(0.25, 0.3, 0.5, 1)
+	_show_panel(level_panel)
+	Sfx.play("level" if solved else "over")
+
+
+func _duel_next_turn() -> void:
+	keeper.miss()  # each player builds their own combos
+	duel_turn = 1 - duel_turn
+	_update_combo_widget()
+	_toast(L.t("duel_turn", {"n": duel_turn + 1}))
+
+
+func _end_duel() -> void:
+	Progress.report("duels")
+	var w := 0 if duel_scores[0] > duel_scores[1] else (1 if duel_scores[1] > duel_scores[0] else -1)
+	end_game("duel")
+	ui.over_title.text = L.t("duel_draw") if w < 0 else L.t("duel_win", {"n": w + 1})
+	ui.over_score.text = "%d : %d" % [duel_scores[0], duel_scores[1]]
+	ui.over_best.visible = false
+	ui.over_line.text = ""
+	ui.btn_continue.visible = false
+	ui.btn_shuffle.visible = false
+
+
+## Guided strikes of the tutorial board, then one free strike.
+const TUT_MOVES := [Vector2i(1, 0), Vector2i(1, 2), Vector2i(4, 1)]
+
+
+func _tutorial_target() -> Vector2i:
+	return TUT_MOVES[tut_step] if tut_step < TUT_MOVES.size() else Vector2i(-1, -1)
+
+
+func _tutorial_step(i: int) -> void:
+	tut_step = i
+	var keys := ["tut1", "tut2", "tut3", "tut4"]
+	tut_label.text = L.t(keys[mini(i, 3)])
+	tut_label.visible = true
+	var target := _tutorial_target()
+	tut_hand.visible = target.x >= 0
+	if target.x >= 0:
+		board.show_hint(target)
+		_place_hand.call_deferred(target)
+
+
+func _place_hand(target: Vector2i) -> void:
+	var pos := board.global_position + board.slot_center(target) - global_position
+	tut_hand.position = pos + Vector2(-8, 6)
+	var tw := create_tween().set_loops()
+	tw.tween_property(tut_hand, "position:y", pos.y + 18, 0.45)
+	tw.tween_property(tut_hand, "position:y", pos.y + 6, 0.45)
+	tut_hand.set_meta("tween", tw)
+
+
+func _tutorial_after_strike() -> void:
+	if tut_hand.has_meta("tween"):
+		(tut_hand.get_meta("tween") as Tween).kill()
+	if logic.gems_left() == 0:
+		tut_label.text = L.t("tut_done")
+		tut_hand.visible = false
+		Progress.finish_tutorial()
+		Sfx.play("level")
+		var tw := create_tween()
+		tw.tween_interval(1.6)
+		tw.tween_callback(func():
+			tut_label.visible = false
+			state = State.MENU
+			_show_panel(mode_panel))
+	elif tut_step < 3:
+		_tutorial_step(tut_step + 1)
+
+
 func _today() -> String:
 	return Time.get_date_string_from_system(true)
 
@@ -441,6 +631,33 @@ func _resume_play() -> void:
 	board.grab_focus()
 	Yandex.gameplay(true)
 	_update_hud()
+	_check_no_moves.call_deferred()
+
+
+## A board with no strike left: show the end of the game (or deal on) right away, whether it
+## got stuck after a strike, a deal, a shuffle or a continue.
+func _check_no_moves() -> void:
+	if state != State.PLAYING or dealing or logic.has_any_move():
+		return
+	match mode.kind:
+		"levels":
+			_end_level()
+		"puzzle":
+			_end_puzzle()
+		"duel":
+			_end_duel()
+		"tutorial":
+			pass
+		"run":
+			if logic.gems_left() == 0:
+				_next_wave(Vector2i(logic.cols / 2, logic.rows / 2))
+			else:
+				end_game("stuck")
+		_:
+			if mode.waves:
+				_next_wave(Vector2i(logic.cols / 2, logic.rows / 2))
+			else:
+				end_game("stuck")
 
 
 func pause_game() -> void:
@@ -497,22 +714,32 @@ func _on_slot(p: Vector2i) -> void:
 		return
 	board.ripple(p)
 	var gone := logic.matches_from(p)
+	if mode.kind == "tutorial" and tut_step < 3 and p != _tutorial_target():
+		_toast(L.t("tut_wrong"))
+		return
 	if mode.kind == "zen":
 		strikes -= 1 if not gone.is_empty() else 2  # a miss costs two steps
+	elif mode.kind == "puzzle":
+		strikes -= 1
 	if gone.is_empty():
-		if mode.kind != "zen":
+		if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
 			time_left = maxf(0.0, time_left - 1.0)
 		board.play_miss(p)
 		Sfx.play("miss")
 		Haptics.buzz("miss")
 		if keeper.miss():
 			_combo_break()
-		if mode.kind != "zen":
+		if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
 			_flash_delta("−1", true)
 		if time_left <= 0.0:
 			end_game("time")
-		elif mode.kind == "zen" and strikes <= 0:
-			end_game("strikes")
+		elif (mode.kind == "zen" or mode.kind == "puzzle") and strikes <= 0:
+			if mode.kind == "puzzle":
+				_end_puzzle()
+			else:
+				end_game("strikes")
+		if mode.kind == "duel":
+			_duel_next_turn()
 		_update_hud()
 		return
 	var kinds: Array[int] = []
@@ -520,7 +747,12 @@ func _on_slot(p: Vector2i) -> void:
 		kinds.append(logic.kind_at(g))
 	var nshine := logic.shining_count(gone)
 	var vanish := logic.vanishing(gone)
-	logic.remove(gone)
+	var before := logic.cells.duplicate()
+	var extra := logic.remove(gone)
+	for q in extra:
+		gone.append(q)
+		vanish.append(q)
+		kinds.append(before[q.y * logic.cols + q.x])
 	var n := gone.size()
 	var res := keeper.hit(n, play_time, nshine)
 	score = keeper.score
@@ -531,10 +763,19 @@ func _on_slot(p: Vector2i) -> void:
 		ambient.pulse(Color(1.0, 0.84, 0.4), 0.5)
 	if n >= 4 and res.event == "":
 		board.praise(L.t("praise_great"), p, BRASS_LIGHT)
+		Sfx.voice("great")
 	if res.tier_up and res.mult >= 3:
 		board.praise(L.t("praise_super" if res.mult == 3 else "praise_wow"), p, COMBO_COLORS[res.mult - 1].lightened(0.35), 1.2)
+		Sfx.voice("super" if res.mult == 3 else "amazing")
 	cleared += n
-	if mode.kind != "zen":
+	if extra.size() > 0:
+		keeper.score += extra.size() * 2
+		score = keeper.score
+		cleared += extra.size()
+		board.praise(L.t("chain"), p, Color("#9fe3ff"))
+	if mode.kind == "duel":
+		duel_scores[duel_turn] += res.points + extra.size() * 2
+	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
 		time_left += res.time
 	idle = 0.0
 	var event: String = res.event
@@ -553,7 +794,7 @@ func _on_slot(p: Vector2i) -> void:
 	Progress.report("gems", vanish.size())
 	if res.tier_up and res.mult == 4:
 		Progress.report("combo4")
-	if res.time > 0 and mode.kind != "zen":
+	if res.time > 0 and (mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels"):
 		_flash_delta("+%d" % int(res.time), false)
 	if res.tier_up:
 		Sfx.play("combo_up", 1.0, -2.0)
@@ -563,6 +804,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.shake(0.1)
 	if event == "precise":
 		Sfx.play("precise")
+		Sfx.voice("incredible")
 		Haptics.buzz("precise")
 		ambient.pulse(BRASS_LIGHT, 0.8)
 		board.play_wave(p, 2.0, true)
@@ -571,9 +813,10 @@ func _on_slot(p: Vector2i) -> void:
 		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, ScoreKeeper.PRECISE_TIME, BRASS_LIGHT)
 		if mode.skin == "bright":
 			board.play_confetti(50)
-		_set_theme(theme_i + 1)
+		_set_theme(_next_look())
 	elif event == "perfect":
 		Sfx.play("perfect")
+		Sfx.voice("perfect")
 		Haptics.buzz("perfect")
 		ambient.pulse(Color("#ff9ed2"), 1.0)
 		board.play_wave(p, 3.0, true)
@@ -584,16 +827,43 @@ func _on_slot(p: Vector2i) -> void:
 		Progress.report("perfects")
 		if mode.skin == "bright":
 			board.play_confetti(90)
-		_set_theme(theme_i + 1)
+		_set_theme(_next_look())
 	_update_combo_widget(res.tier_up)
 	if autoplay and (event != "" or res.tier_up):
 		print("[autoplay] combo=%d mult=%d event=%s" % [res.combo, res.mult, event])
 		if event != "":
 			_auto_t = -2.0  # hold still so the banner can be captured
 	_update_hud()
+	if goal_kind >= 0 and logic.count_kind(goal_kind) == 0:
+		goal_kind = -2  # done
+		board.praise(L.t("goal_done"), p, Color("#5cc87a"), 1.2)
+		Sfx.play("bonus")
+	if mode.kind == "tutorial":
+		_tutorial_after_strike()
+		_update_hud()
+		return
+	if mode.kind == "duel":
+		_duel_next_turn()
+		if not logic.has_any_move():
+			_end_duel()
+		_update_hud()
+		return
+	if mode.kind == "puzzle":
+		if logic.gems_left() == 0:
+			board.play_clear_wave()
+			Sfx.play("clear")
+			dealing = true
+			var tw0 := create_tween()
+			tw0.tween_interval(1.2)
+			tw0.tween_callback(func(): dealing = false; _end_puzzle())
+		elif strikes <= 0 or not logic.has_any_move():
+			_end_puzzle()
+		_update_hud()
+		return
 	if mode.kind == "levels" and logic.gems_left() == 0:
 		board.play_clear_wave()
 		Sfx.play("clear")
+		Sfx.voice("clear")
 		Progress.report("clear_boards")
 		dealing = true
 		var tw := create_tween()
@@ -630,8 +900,14 @@ func _process(delta: float) -> void:
 	score_label.text = str(int(round(shown_score)))
 	if state != State.PLAYING:
 		return
-	if mode.kind != "zen":
+	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
 		time_left -= delta * _time_speed()
+	_stuck_t += delta
+	if _stuck_t > 0.5:
+		_stuck_t = 0.0
+		_check_no_moves()
+		if state != State.PLAYING:
+			return
 	play_time += delta
 	if keeper.update(play_time):
 		_combo_break()
@@ -767,7 +1043,7 @@ func _on_back() -> void:
 		_close_settings()
 	elif map_panel.visible:
 		_show_panel(mode_panel)
-	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible:
+	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible:
 		_show_panel(menu_panel)
 	elif level_panel.visible:
 		_open_map()
@@ -779,6 +1055,30 @@ func _on_back() -> void:
 		go_menu()
 	else:
 		get_tree().quit()
+
+
+## Drag-to-scroll for the menu lists: a press that moves more than a few pixels scrolls the
+## list under it and is kept from the button it started on.
+func _input(event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_drag = null
+			for sc in drag_scrolls:
+				if sc.is_visible_in_tree() and sc.get_global_rect().has_point(event.position):
+					_drag = sc
+			_drag_last = event.position
+			_drag_moved = 0.0
+		else:
+			if _drag and _drag_moved > 14.0:
+				get_viewport().set_input_as_handled()
+			_drag = null
+	elif event is InputEventMouseMotion and _drag and (event.button_mask & MOUSE_BUTTON_MASK_LEFT):
+		var dy: float = event.position.y - _drag_last.y
+		_drag_last = event.position
+		_drag_moved += absf(dy)
+		if _drag_moved > 14.0:
+			_drag.scroll_vertical -= int(round(dy))
+			get_viewport().set_input_as_handled()
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -794,13 +1094,31 @@ func _unhandled_input(event: InputEvent) -> void:
 # ================= leaderboard =================
 
 func _open_leaders(from: Control) -> void:
+	leaders_board = "stars" if mode.kind == "levels" else (mode.board if mode.board != "" else "score")
 	Sfx.play("click")
 	leaders_return = from
 	_show_panel(leaders_panel)
 	_refresh_leaders()
 
 
+func _build_leader_tabs(v: VBoxContainer) -> void:
+	var tabs := HFlowContainer.new()
+	tabs.alignment = FlowContainer.ALIGNMENT_CENTER
+	tabs.add_theme_constant_override("h_separation", 6)
+	tabs.add_theme_constant_override("v_separation", 6)
+	for k in ["score", "score_bright", "score_zen", "stars"]:
+		var board_name: String = k
+		var b := _button("", "", false, func(): leaders_board = board_name; Sfx.play("click"); _refresh_leaders())
+		b.add_theme_font_size_override("font_size", 15)
+		ui["lb_tab_" + k] = b
+		tabs.add_child(b)
+	v.add_child(tabs)
+	v.move_child(tabs, 1)
+
+
 func _refresh_leaders() -> void:
+	for k in ["score", "score_bright", "score_zen", "stars"]:
+		(ui["lb_tab_" + k] as Button).theme_type_variation = "PrimaryButton" if k == leaders_board else ""
 	var list: VBoxContainer = ui.leaders_list
 	for c in list.get_children():
 		c.queue_free()
@@ -818,7 +1136,7 @@ func _refresh_leaders() -> void:
 		ui.btn_login.visible = not Yandex.is_authorized()
 		for e in entries:
 			list.add_child(_leader_row(e))
-		_fit_panels.call_deferred(), mode.board)
+		_fit_panels.call_deferred(), leaders_board)
 
 
 func _leader_row(e: Dictionary) -> Control:
@@ -1147,6 +1465,27 @@ func _build() -> void:
 	toast.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(toast)
 
+	# tutorial: a hint line at the top and a pointing hand over the target slot
+	tut_label = _label("", f_bold, 22, CREAM)
+	tut_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	tut_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tut_label.add_theme_stylebox_override("normal", _box(Color(0.05, 0.08, 0.22, 0.9), BRASS, 2, 14, Vector4(16, 10, 16, 10)))
+	tut_label.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP, Control.PRESET_MODE_MINSIZE, 90)
+	tut_label.custom_minimum_size.x = 320
+	tut_label.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	tut_label.visible = false
+	tut_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(tut_label)
+	tut_hand = TextureRect.new()
+	tut_hand.texture = ICONS["hand"]
+	tut_hand.custom_minimum_size = Vector2(56, 56)
+	tut_hand.size = Vector2(56, 56)
+	tut_hand.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	tut_hand.modulate = BRASS_LIGHT
+	tut_hand.visible = false
+	tut_hand.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(tut_hand)
+
 	# phones are portrait only: in landscape the game pauses behind this notice
 	var ro := ColorRect.new()
 	ro.color = Color(0.03, 0.07, 0.08, 0.97)
@@ -1338,7 +1677,12 @@ func _build_menu() -> void:
 	var gap := Control.new()
 	gap.custom_minimum_size.y = 12
 	v.add_child(gap)
-	ui.btn_home_play = _button("", "play", true, func(): Sfx.play("click"); _show_panel(mode_panel))
+	ui.btn_home_play = _button("", "play", true, func():
+		Sfx.play("click")
+		if Progress.tutorial:
+			_show_panel(mode_panel)
+		else:
+			start_game("tutorial"))
 	ui.btn_home_play.custom_minimum_size = Vector2(280, 78)
 	ui.btn_home_play.add_theme_font_size_override("font_size", 32)
 	ui.btn_home_play.add_theme_constant_override("icon_max_width", 34)
@@ -1372,7 +1716,9 @@ func _build_menu() -> void:
 	ui.home_settings = _round_button("settings", func(): _open_settings(menu_panel))
 	ui.home_tasks = _round_button("tasks", func(): Sfx.play("click"); _refresh_tasks(); _show_panel(tasks_panel))
 	ui.home_coll = _round_button("crystal", func(): Sfx.play("click"); _refresh_collection(); _show_panel(collection_panel))
-	for b in [ui.home_tasks, ui.home_coll, ui.home_leaders, ui.home_daily, ui.home_rules, ui.home_settings]:
+	ui.home_gift = _round_button("gift", func(): Sfx.play("click"); _refresh_gift(); _show_panel(gift_panel))
+	ui.home_ach = _round_button("medal", func(): Sfx.play("click"); _refresh_achievements(); _show_panel(ach_panel))
+	for b in [ui.home_gift, ui.home_tasks, ui.home_ach, ui.home_coll, ui.home_leaders, ui.home_daily, ui.home_rules, ui.home_settings]:
 		row.add_child(b)
 	v.add_child(row)
 	_build_modes()
@@ -1381,6 +1727,8 @@ func _build_menu() -> void:
 	_build_level_result()
 	_build_tasks()
 	_build_collection()
+	_build_gift()
+	_build_achievements()
 
 
 func _crown(px: int) -> TextureRect:
@@ -1446,14 +1794,17 @@ func _build_modes() -> void:
 	var cc := CenterContainer.new()
 	cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	cc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	drag_scrolls.append(scroll)
 	var flow := HFlowContainer.new()
 	flow.alignment = FlowContainer.ALIGNMENT_CENTER
 	flow.add_theme_constant_override("h_separation", 20)
 	flow.add_theme_constant_override("v_separation", 20)
 	ui.mode_cards = []
-	for id in (["levels", "bright", "zen", "classic"] if OS.has_feature("android") else ["classic", "levels", "bright", "zen"]):
+	for id in (["levels", "bright", "zen", "puzzle", "duel", "classic"] if OS.has_feature("android")
+			else ["classic", "levels", "bright", "zen", "puzzle", "duel"]):
 		var card := PanelContainer.new()
-		var accent: Color = {"classic": BRASS, "levels": Color("#22c97a"), "bright": Color("#3d8bff"), "zen": Color("#a35cff")}[id]
+		var accent: Color = {"classic": BRASS, "levels": Color("#22c97a"), "bright": Color("#3d8bff"), "zen": Color("#a35cff"),
+			"puzzle": Color("#ff9a2e"), "duel": Color("#ff4d5e")}[id]
 		card.add_theme_stylebox_override("panel", _box(PANEL, accent, 3, 20, Vector4(16, 16, 16, 18)))
 		var cv := VBoxContainer.new()
 		cv.add_theme_constant_override("separation", 10)
@@ -1479,6 +1830,10 @@ func _build_modes() -> void:
 		var mode_id: String = id
 		if id == "levels":
 			ui["card_play_" + id] = _button("", "map", true, func(): Sfx.play("click"); _open_map())
+		elif id == "puzzle":
+			ui["card_play_" + id] = _button("", "puzzle", true, func(): Sfx.play("click"); start_puzzle(Progress.puzzles + 1))
+		elif id == "duel":
+			ui["card_play_" + id] = _button("", "duel", true, func(): Sfx.play("click"); start_game("duel"))
 		else:
 			ui["card_play_" + id] = _button("", "play", true, func(): Sfx.play("click"); start_game(mode_id))
 		cv.add_child(ui["card_play_" + id])
@@ -1520,6 +1875,7 @@ func _build_map() -> void:
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	var cc := CenterContainer.new()
 	cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	drag_scrolls.append(scroll)
 	ui.map_grid = GridContainer.new()
 	ui.map_grid.columns = 5
 	ui.map_grid.add_theme_constant_override("h_separation", 12)
@@ -1566,6 +1922,9 @@ func _refresh_map() -> void:
 			b.pressed.connect(func(): Sfx.play("click"); start_level(lvl))
 			if n == top:
 				b.theme_type_variation = "PrimaryButton"
+			if n % 10 == 0:
+				b.icon = ICONS["medal"]
+				b.add_theme_constant_override("icon_max_width", 18)
 		cell.add_child(b)
 		var srow := HBoxContainer.new()
 		srow.alignment = BoxContainer.ALIGNMENT_CENTER
@@ -1597,9 +1956,25 @@ func _build_level_result() -> void:
 	ui.level_line = _para("")
 	ui.level_line.add_theme_color_override("font_color", MUTED)
 	v.add_child(ui.level_line)
-	ui.level_next = _button("", "play", true, func(): Sfx.play("click"); start_level(level_n + 1))
-	ui.level_retry = _button("", "restart", false, func(): Sfx.play("click"); start_level(level_n))
-	ui.level_map = _button("", "map", false, func(): Sfx.play("click"); _open_map())
+	ui.level_next = _button("", "play", true, func():
+		Sfx.play("click")
+		if mode.kind == "puzzle":
+			start_puzzle(puzzle_n + 1)
+		else:
+			start_level(level_n + 1))
+	ui.level_retry = _button("", "restart", false, func():
+		Sfx.play("click")
+		if mode.kind == "puzzle":
+			start_puzzle(puzzle_n)
+		else:
+			start_level(level_n))
+	ui.level_map = _button("", "map", false, func():
+		Sfx.play("click")
+		if mode.kind == "puzzle":
+			state = State.MENU
+			_show_panel(mode_panel)
+		else:
+			_open_map())
 	v.add_child(_row([ui.level_next, ui.level_retry, ui.level_map]))
 
 
@@ -1714,6 +2089,15 @@ func _refresh_collection() -> void:
 		if Progress.look == i:
 			b = _button(L.t("selected"), "", false)
 			b.disabled = true
+		elif not Progress.owns(i) and int(Progress.LOOK_PRICES[i]) == Progress.SEASON:
+			if Progress.season_look() == i:
+				b = _button(L.t("season_claim"), "gift", true, func(): Progress.claim_season(); Sfx.play("star"); _refresh_collection())
+			else:
+				b = _button(L.t("season_only"), "", false)
+				b.disabled = true
+		elif not Progress.owns(i) and int(Progress.LOOK_PRICES[i]) == Progress.GIFT:
+			b = _button(L.t("gift_only"), "", false)
+			b.disabled = true
 		elif Progress.owns(i):
 			b = _button(L.t("select"), "", false, func(): Progress.select(idx); Sfx.play("click"); _refresh_collection())
 		else:
@@ -1725,8 +2109,116 @@ func _refresh_collection() -> void:
 				_refresh_collection()
 				_refresh_menu_bests())
 			b.disabled = Progress.crystals < int(Progress.LOOK_PRICES[i])
+		b.add_theme_font_size_override("font_size", 15)
 		card.add_child(b)
 		grid.add_child(card)
+
+
+func _build_gift() -> void:
+	var pv := _panel()
+	gift_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.gift_title = _label("", f_display, 32, BRASS)
+	v.add_child(ui.gift_title)
+	ui.gift_days = HFlowContainer.new()
+	ui.gift_days.alignment = FlowContainer.ALIGNMENT_CENTER
+	ui.gift_days.add_theme_constant_override("h_separation", 6)
+	ui.gift_days.add_theme_constant_override("v_separation", 6)
+	v.add_child(ui.gift_days)
+	ui.gift_line = _para("")
+	ui.gift_line.add_theme_color_override("font_color", MUTED)
+	ui.gift_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ui.gift_line)
+	ui.btn_gift = _button("", "gift", true, _open_gift)
+	ui.btn_close_gift = _button("", "", false, func(): Sfx.play("click"); _show_panel(menu_panel))
+	v.add_child(_row([ui.btn_gift, ui.btn_close_gift]))
+
+
+func _refresh_gift() -> void:
+	for c in ui.gift_days.get_children():
+		c.queue_free()
+	var ready := Progress.gift_ready()
+	var next_day := (Progress.streak % 7) + 1 if ready else ((Progress.streak - 1) % 7) + 1
+	for d in range(1, 8):
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 2)
+		var day_label := _label(L.t("day_n", {"n": d}), f_bold, 13, MUTED)
+		day_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		var amt := _label("+%d" % Progress.gift_amount(d), f_num, 18, BRASS if d == next_day else CREAM)
+		amt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		amt.custom_minimum_size = Vector2(52, 0)
+		amt.add_theme_stylebox_override("normal", _box(Color(BRASS, 0.25) if d == next_day else Color(0, 0, 0, 0.25),
+			BRASS if d == next_day else Color(1, 1, 1, 0.1), 2, 10, Vector4(6, 8, 6, 8)))
+		box.add_child(day_label)
+		box.add_child(amt)
+		ui.gift_days.add_child(box)
+	ui.btn_gift.visible = ready
+	ui.btn_gift.text = L.t("take")
+	ui.gift_line.text = L.t("gift_day7") if ready else L.t("gift_tomorrow")
+
+
+func _open_gift() -> void:
+	var r := Progress.open_gift()
+	if r.is_empty():
+		return
+	Sfx.play("level")
+	_toast(L.t("gift_got", {"n": r.crystals}) + ("  ·  " + L.t("gift_look") if int(r.look) >= 0 else ""))
+	_refresh_gift()
+	_refresh_menu_bests()
+
+
+func _build_achievements() -> void:
+	var pv := _panel()
+	ach_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.ach_title = _label("", f_display, 32, BRASS)
+	v.add_child(ui.ach_title)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.custom_minimum_size.y = 360
+	drag_scrolls.append(scroll)
+	ui.ach_list = VBoxContainer.new()
+	ui.ach_list.add_theme_constant_override("separation", 8)
+	ui.ach_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(ui.ach_list)
+	v.add_child(scroll)
+	ui.btn_close_ach = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
+	v.add_child(_row([ui.btn_close_ach]))
+
+
+func _refresh_achievements() -> void:
+	for c in ui.ach_list.get_children():
+		c.queue_free()
+	for i in Progress.ACHIEVEMENTS.size():
+		var a: Dictionary = Progress.ACHIEVEMENTS[i]
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var got_it: bool = a.id in Progress.achieved
+		row.add_child(_icon_tex("medal", 28, BRASS if got_it or Progress.achievement_done(i) else Color(1, 1, 1, 0.25)))
+		var info := VBoxContainer.new()
+		info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		var name := _para(L.t("ach_" + str(a.id), {"n": a.goal}))
+		name.add_theme_font_size_override("font_size", 17)
+		info.add_child(name)
+		var bar := ProgressBar.new()
+		bar.show_percentage = false
+		bar.custom_minimum_size.y = 6
+		bar.max_value = float(a.goal)
+		bar.value = float(Progress.achievement_progress(i))
+		info.add_child(bar)
+		row.add_child(info)
+		var idx: int = i
+		if got_it:
+			row.add_child(_label("✓", f_bold, 24, Color("#5cc87a")))
+		elif Progress.achievement_done(i):
+			row.add_child(_button("+%d" % int(a.reward), "crystal", true, func():
+				Progress.claim_achievement(idx)
+				Sfx.play("star")
+				_refresh_achievements()
+				_refresh_menu_bests()))
+		else:
+			row.add_child(_label("%d/%d" % [Progress.achievement_progress(i), int(a.goal)], f_num, 15, MUTED))
+		ui.ach_list.add_child(row)
 
 
 func _refresh_menu_bests() -> void:
@@ -1734,8 +2226,18 @@ func _refresh_menu_bests() -> void:
 	ui.home_crystals.text = str(Progress.crystals)
 	var due := Progress.unclaimed()
 	(ui.home_tasks.get_meta("caption") as Label).text = L.t("tasks") + (" (%d)" % due if due > 0 else "")
-	for id in ["classic", "levels", "bright", "zen"]:
-		ui["card_best_" + id].text = (L.t("stars_total") if id == "levels" else L.t("best")) + ": " + str(Save.best_for(id))
+	for id in ["classic", "levels", "bright", "zen", "puzzle", "duel"]:
+		var line := L.t("best") + ": " + str(Save.best_for(id))
+		if id == "levels":
+			line = L.t("stars_total") + ": " + str(Progress.total_stars())
+		elif id == "puzzle":
+			line = L.t("puzzles_solved", {"n": Progress.puzzles})
+		elif id == "duel":
+			line = L.t("duel_hint")
+		ui["card_best_" + id].text = line
+	(ui.home_gift.get_meta("caption") as Label).text = L.t("gift") + (" !" if Progress.gift_ready() else "")
+	var adue := Progress.achievements_due()
+	(ui.home_ach.get_meta("caption") as Label).text = L.t("achievements") + (" (%d)" % adue if adue > 0 else "")
 
 
 func _build_rules() -> void:
@@ -1747,6 +2249,7 @@ func _build_rules() -> void:
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	ui.menu_scroll = scroll
+	drag_scrolls.append(scroll)
 	var rules := VBoxContainer.new()
 	rules.add_theme_constant_override("separation", 12)
 	rules.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1764,6 +2267,8 @@ func _build_rules() -> void:
 		pay.add_child(ui[k])
 	rules.add_child(pay)
 	ui.btn_close_rules = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
+	ui.btn_tutorial = _button("", "hand", false, func(): Sfx.play("click"); start_game("tutorial"))
+	v.add_child(_row([ui.btn_tutorial]))
 	v.add_child(_row([ui.btn_close_rules]))
 
 
@@ -1808,6 +2313,7 @@ func _build_leaders() -> void:
 	var v: VBoxContainer = pv[1]
 	ui.leaders_title = _label("", f_display, 36, BRASS)
 	v.add_child(ui.leaders_title)
+	_build_leader_tabs(v)
 	ui.leaders_status = _para("")
 	ui.leaders_status.add_theme_color_override("font_color", MUTED)
 	v.add_child(ui.leaders_status)
@@ -1815,6 +2321,7 @@ func _build_leaders() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size.y = 0
 	ui.leaders_scroll = scroll
+	drag_scrolls.append(scroll)
 	ui.leaders_list = VBoxContainer.new()
 	ui.leaders_list.add_theme_constant_override("separation", 6)
 	ui.leaders_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -1850,6 +2357,11 @@ func _build_settings() -> void:
 		Sfx.apply_volumes()
 		Sfx.update_music(), func(): Save.store())
 	v.add_child(_setting_row(ui.chk_music, ui.sld_music))
+	ui.chk_voice = _check(Save.voice, func(on: bool):
+		Save.voice = on
+		Save.store()
+		Sfx.voice("great"))
+	v.add_child(ui.chk_voice)
 	ui.chk_vibration = _check(Save.vibration, func(on: bool):
 		Save.vibration = on
 		Save.store()
@@ -1898,6 +2410,7 @@ func _open_settings(from: Control) -> void:
 	ui.chk_sound.set_pressed_no_signal(Save.sound)
 	ui.chk_music.set_pressed_no_signal(Save.music)
 	ui.chk_vibration.set_pressed_no_signal(Save.vibration)
+	ui.chk_voice.set_pressed_no_signal(Save.voice)
 	ui.sld_sound.set_value_no_signal(Save.sound_volume)
 	ui.sld_music.set_value_no_signal(Save.music_volume)
 	var vs := get_viewport_rect().size
@@ -1906,17 +2419,25 @@ func _open_settings(from: Control) -> void:
 
 
 func _open_settings_from_hud() -> void:
-	if state == State.PLAYING:
-		pause_game()
+	settings_from_game = state == State.PLAYING
+	if settings_from_game:
+		state = State.PAUSED
+		board.interactive = false
+		Yandex.gameplay(false)
 	_open_settings(_current_panel())
 
 
 func _close_settings() -> void:
+	if settings_from_game:
+		settings_from_game = false
+		Sfx.play("click")
+		_resume_play()
+		return
 	_show_panel(settings_return)
 
 
 func _current_panel() -> Control:
-	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel]:
+	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel]:
 		if p.visible:
 			return p
 	return null
@@ -1940,7 +2461,7 @@ func _apply_texts() -> void:
 		ui[k].text = L.t(k)
 	ui.btn_home_play.text = L.t("play")
 	ui.mode_title.text = L.t("choose_mode")
-	for id in ["classic", "levels", "bright", "zen"]:
+	for id in ["classic", "levels", "bright", "zen", "puzzle", "duel"]:
 		ui["card_name_" + id].text = L.t("mode_" + id)
 		ui["card_desc_" + id].text = L.t("mode_%s_desc" % id)
 		ui["card_play_" + id].text = L.t("open_map" if id == "levels" else "play")
@@ -1953,8 +2474,15 @@ func _apply_texts() -> void:
 	ui.coll_title.text = L.t("collection")
 	ui.coll_hint.text = L.t("collection_hint")
 	ui.btn_close_coll.text = L.t("close")
+	ui.btn_tutorial.text = L.t("tutorial")
+	ui.gift_title.text = L.t("gift_title")
+	ui.btn_close_gift.text = L.t("close")
+	ui.ach_title.text = L.t("achievements")
+	ui.btn_close_ach.text = L.t("close")
+	for k in ["score", "score_bright", "score_zen", "stars"]:
+		ui["lb_tab_" + k].text = L.t("lb_" + k)
 	for pair in [[ui.home_leaders, "leaders"], [ui.home_daily, "daily"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"],
-			[ui.home_tasks, "tasks"], [ui.home_coll, "collection"]]:
+			[ui.home_tasks, "tasks"], [ui.home_coll, "collection"], [ui.home_gift, "gift"], [ui.home_ach, "achievements"]]:
 		(pair[0].get_meta("caption") as Label).text = L.t(pair[1])
 	_refresh_menu_bests()
 	ui.btn_close_rules.text = L.t("close")
@@ -1974,6 +2502,7 @@ func _apply_texts() -> void:
 	ui.chk_sound.text = L.t("sounds")
 	ui.chk_music.text = L.t("music_opt")
 	ui.chk_vibration.text = L.t("vibration")
+	ui.chk_voice.text = L.t("voice")
 	ui.btn_settings_done.text = L.t("done")
 	ui.rotate_label.text = L.t("rotate")
 	_fit_panels.call_deferred()
@@ -1995,7 +2524,7 @@ func _show_panel(p: Control) -> void:
 		_refresh_menu_bests()
 	# the game layer stays out of sight behind the menus and anything opened from them
 	margin.visible = not on_menu and state != State.MENU
-	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel]:
+	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel]:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
@@ -2031,18 +2560,28 @@ func _update_hud() -> void:
 	time_label.text = str(secs)
 	if mode.kind == "zen":
 		time_label.text = L.t("steps_n", {"n": maxi(strikes, 0)})
+	elif mode.kind == "puzzle":
+		time_label.text = L.t("moves_left", {"n": maxi(strikes, 0)})
+	elif mode.kind == "duel":
+		time_label.text = "%s %d · %s %d" % [L.t("p1"), duel_scores[0], L.t("p2"), duel_scores[1]]
+	elif mode.kind == "tutorial":
+		time_label.text = ""
 	var low := state == State.PLAYING and secs <= 15
 	time_label.add_theme_color_override("font_color", DANGER if low else CREAM)
 	time_bar.add_theme_stylebox_override("fill", bar_fill_low if low else bar_fill)
 	time_bar.value = clampf(time_left / START_TIME, 0.0, 1.0) * 100.0
-	if mode.kind == "zen":
+	if mode.kind == "zen" or mode.kind == "puzzle":
 		time_bar.value = clampf(float(strikes) / strikes_max, 0.0, 1.0) * 100.0
+	elif mode.kind == "duel" or mode.kind == "tutorial":
+		time_bar.value = 100.0
 	elif mode.kind == "levels":
 		time_bar.value = clampf(time_left / _level_time(level_n), 0.0, 1.0) * 100.0
 	best_label.text = str(maxi(Save.best_for(mode.id), score))
 	if level_label:
 		level_label.text = "· " + L.t("level_short", {"n": _level()})
-		level_label.visible = mode.kind == "levels" or mode.kind == "zen"
+		level_label.visible = mode.kind == "levels" or mode.kind == "zen" or mode.kind == "puzzle"
+		if goal_kind >= 0:
+			level_label.text += "  ·  " + L.t("goal_left", {"n": logic.count_kind(goal_kind)})
 	btn_pause.disabled = state != State.PLAYING
 	btn_restart.disabled = state != State.PLAYING and state != State.PAUSED
 
@@ -2171,7 +2710,8 @@ func _on_viewport_resized() -> void:
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
-	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel]:
+	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
+			gift_panel, ach_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
 	var short := s.y < 600

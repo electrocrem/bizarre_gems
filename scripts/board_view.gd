@@ -101,8 +101,22 @@ const PALETTE_COLORS := [
 	["#e0507f", "#5b8def", "#8bc34a", "#f2c14e", "#f07f6a", "#b05fd6"],
 	["#e86a5a", "#3f9fb0", "#4fb36a", "#d9c64a", "#e9a03b", "#7d6fd0"],
 	["#ff6b8b", "#60a5fa", "#6ed9a9", "#ffd966", "#ffa463", "#c084fc"],
+	["#f4a6b8", "#5c84c9", "#8fe3cf", "#f0d58a", "#c7d7ea", "#b8a6f2"],
+	["#c8283c", "#2e8f8f", "#7ccf3a", "#e8e0c8", "#f07b1d", "#7b3fb5"],
+	["#d64a5a", "#3f6fd6", "#2fa36b", "#e6b93c", "#c88a4a", "#9aa3b5"],
 ]
+const LINK_TEX := preload("res://assets/ui/icon_link.png")
 var _confetti: Array[Dictionary] = []
+## Pinch zoom (classic on touch screens): 1..3x around the board, pan with one or two fingers.
+var zoom_enabled := false
+var zoom := 1.0
+var pan := Vector2.ZERO
+var _touches := {}
+var _pinch := {}
+var _press_pos := Vector2.ZERO
+var _pressing := false
+var _moved := false
+var _gestured := false
 var _clear_t := 99.0  ## time since a full clear: a wave of light sweeps over the slots
 const JOKER_TEX := preload("res://assets/tiles/joker.png")
 const BOX_TEX := preload("res://assets/tiles/box.png")
@@ -124,6 +138,7 @@ func _ready() -> void:
 	_frame.set_corner_radius_all(20)
 	_frame.shadow_color = Color(0, 0, 0, 0.45)
 	_frame.shadow_size = 18
+	clip_contents = true
 	resized.connect(_relayout)
 	_fx = Control.new()
 	_fx.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -177,9 +192,27 @@ func _relayout() -> void:
 	if logic == null:
 		return
 	var avail := size - Vector2.ONE * frame_pad * 2
-	cell = maxf(8.0, floorf(minf(avail.x / logic.cols, avail.y / logic.rows)))
-	origin = ((size - Vector2(logic.cols, logic.rows) * cell) / 2).floor()
+	var base := maxf(8.0, floorf(minf(avail.x / logic.cols, avail.y / logic.rows)))
+	cell = base * zoom
+	var bs := Vector2(logic.cols, logic.rows) * cell
+	origin = ((size - bs) / 2 + pan).floor()
+	# when zoomed in, keep the board covering the view (no empty margins beyond its edges)
+	for ax in 2:
+		if bs[ax] + frame_pad * 2 > size[ax]:
+			origin[ax] = clampf(origin[ax], size[ax] - bs[ax] - frame_pad, frame_pad)
+			pan[ax] = origin[ax] - (size[ax] - bs[ax]) / 2
+		else:
+			pan[ax] = 0.0
+			origin[ax] = floorf((size[ax] - bs[ax]) / 2)
 	queue_redraw()
+
+
+func reset_zoom() -> void:
+	zoom = 1.0
+	pan = Vector2.ZERO
+	_touches.clear()
+	_pinch.clear()
+	_relayout()
 
 
 func refresh() -> void:
@@ -447,6 +480,10 @@ func _draw() -> void:
 			draw_texture_rect(_tex(k), Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
 			if logic.hp.size() > i and logic.hp[i] >= 2:
 				draw_texture_rect(BOX_TEX, Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
+			if logic.chain.size() > i and logic.chain[i] >= 0:
+				var ls := gs * 0.42
+				var lp := ctr + Vector2(gs * 0.5 - ls, -gs * 0.5)
+				draw_texture_rect(LINK_TEX, Rect2(lp, Vector2.ONE * ls), false, Color(0.15, 0.12, 0.3, 0.85))
 
 	if interactive and focus.x >= 0:
 		var col := Color(0.82, 0.67, 0.33, 1.0 if _keyboard else 0.6)
@@ -573,6 +610,9 @@ func _draw_fx() -> void:
 # ---------------- input ----------------
 
 func _gui_input(event: InputEvent) -> void:
+	if zoom_enabled and _zoom_input(event):
+		accept_event()
+		return
 	if event is InputEventMouseMotion:
 		_keyboard = false
 		var p := slot_at(event.position)
@@ -609,9 +649,66 @@ func _notification(what: int) -> void:
 		queue_redraw()
 
 
+## Zoom-aware input: two fingers pinch and pan; with zoom on, one finger pans by dragging and
+## a strike fires on release of a short tap. Returns true when the event was used here.
+func _zoom_input(event: InputEvent) -> bool:
+	if event is InputEventScreenTouch:
+		if event.pressed:
+			_touches[event.index] = event.position
+		else:
+			_touches.erase(event.index)
+		if _touches.size() == 2:
+			var pts: Array = _touches.values()
+			_pinch = {"d": maxf(1.0, (pts[0] - pts[1]).length()), "z": zoom, "mid": (pts[0] + pts[1]) / 2, "pan": pan}
+			_gestured = true
+		elif _touches.size() < 2:
+			_pinch.clear()
+		return _touches.size() >= 2 or not _pinch.is_empty()
+	if event is InputEventScreenDrag:
+		_touches[event.index] = event.position
+		if _touches.size() == 2 and not _pinch.is_empty():
+			var pts: Array = _touches.values()
+			var d := maxf(1.0, (pts[0] - pts[1]).length())
+			var mid: Vector2 = (pts[0] + pts[1]) / 2
+			var z := clampf(_pinch.z * d / _pinch.d, 1.0, 3.0)
+			if z < 1.05:
+				z = 1.0
+			# zoom around the pinch midpoint, then follow the fingers
+			var anchor: Vector2 = _pinch.mid - size / 2 - _pinch.pan
+			zoom = z
+			pan = _pinch.pan + anchor * (1.0 - z / _pinch.z) + (mid - _pinch.mid)
+			_relayout()
+			return true
+		return false
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			_pressing = true
+			_moved = false
+			_gestured = _touches.size() >= 2
+			_press_pos = event.position
+			return true
+		if _pressing:
+			_pressing = false
+			if not _moved and not _gestured:
+				var p := slot_at(event.position)
+				if p.x >= 0:
+					grab_focus()
+					slot_pressed.emit(p)
+			return true
+	if event is InputEventMouseMotion and _pressing:
+		if (event.position - _press_pos).length() > 12.0:
+			_moved = true
+		if _moved and zoom > 1.0 and _touches.size() < 2:
+			pan += event.relative
+			_relayout()
+		return true
+	return false
+
+
 ## Keep the keyboard cursor on the same slot after a transpose.
 func transposed() -> void:
 	if _cursor.x >= 0:
 		_cursor = Vector2i(_cursor.y, _cursor.x)
 	_hover = Vector2i(-1, -1)
+	reset_zoom()
 	clear_fx()

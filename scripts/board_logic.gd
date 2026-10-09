@@ -22,6 +22,15 @@ const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "p
 ## Level map: each level is one fixed, fully solvable board scored with 1-3 stars.
 const LEVELS := {"id": "levels", "skin": "bright", "kind": "levels", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
 	"slots": 108, "shining": 2, "board": "", "waves": false}
+## Puzzle: a small board and just enough strikes to clear it.
+const PUZZLE := {"id": "puzzle", "skin": "bright", "kind": "puzzle", "kinds": 4, "per_kind": 6, "cols": 6, "rows": 8,
+	"slots": 48, "shining": 0, "board": "", "waves": false}
+## Duel: two players take turns on one board; the higher score wins.
+const DUEL := {"id": "duel", "skin": "bright", "kind": "duel", "kinds": 5, "per_kind": 12, "cols": 7, "rows": 12,
+	"slots": 84, "shining": 2, "board": "", "waves": false}
+## First-run tutorial on a small hand-made board.
+const TUTORIAL := {"id": "tutorial", "skin": "bright", "kind": "tutorial", "kinds": 4, "per_kind": 2, "cols": 5, "rows": 5,
+	"slots": 25, "shining": 0, "board": "", "waves": false}
 ## No timer: a budget of strikes instead; new boards add strikes.
 const ZEN := {"id": "zen", "skin": "bright", "kind": "zen", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
 	"slots": 108, "shining": 2, "board": "score_zen", "waves": true}
@@ -38,6 +47,8 @@ var solution: Array[Vector2i] = []
 var solution_groups: Array = []
 ## Hits a gem needs: 1 normally, 2 for a box (the first hit only cracks it).
 var hp := PackedByteArray()
+## Chain gems come in pairs: knocking one out also knocks out its partner (index), else -1.
+var chain := PackedInt32Array()
 
 
 func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds := KINDS, per_kind := PER_KIND) -> void:
@@ -56,6 +67,9 @@ func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds
 	hp = PackedByteArray()
 	hp.resize(cells.size())
 	hp.fill(1)
+	chain = PackedInt32Array()
+	chain.resize(cells.size())
+	chain.fill(-1)
 	solution.clear()
 	solution_groups.clear()
 	var gem_slots: Array[int] = []
@@ -79,6 +93,9 @@ func load_cells(c: int, r: int, data: PackedInt32Array) -> void:
 	hp = PackedByteArray()
 	hp.resize(cells.size())
 	hp.fill(1)
+	chain = PackedInt32Array()
+	chain.resize(cells.size())
+	chain.fill(-1)
 
 
 func kind_at(p: Vector2i) -> int:
@@ -159,14 +176,33 @@ func shining_count(ps: Array[Vector2i]) -> int:
 	return n
 
 
-func remove(ps: Array[Vector2i]) -> void:
-	for p in ps:
+## Remove a strike's gems. Boxes only crack; a chain gem pulls its partner out with it.
+## Returns the extra positions removed through chains.
+func remove(ps: Array[Vector2i]) -> Array[Vector2i]:
+	var extra: Array[Vector2i] = []
+	var queue: Array[Vector2i] = ps.duplicate()
+	var seen := {}
+	while not queue.is_empty():
+		var p: Vector2i = queue.pop_front()
 		var i := p.y * cols + p.x
+		if seen.has(i) or cells[i] == EMPTY:
+			continue
+		seen[i] = true
 		if hp.size() > i and hp[i] >= 2:
 			hp[i] -= 1  # a box cracks and stays
 			continue
 		cells[i] = EMPTY
 		shine[i] = 0
+		if chain.size() > i and chain[i] >= 0:
+			var j := chain[i]
+			chain[i] = -1
+			if chain[j] == i:
+				chain[j] = -1
+			if cells[j] != EMPTY:
+				var q := Vector2i(j % cols, j / cols)
+				extra.append(q)
+				queue.append(q)
+	return extra
 
 
 func has_any_move() -> bool:
@@ -212,7 +248,8 @@ func area(p: Vector2i, r := 1) -> Array[Vector2i]:
 ## Bright mode level: the board grows and gains kinds as levels go up.
 static func bright_level(level: int) -> Dictionary:
 	var lv := maxi(level, 1)
-	var slots := mini(36 + (lv - 1) * 12, 120)
+	var boss := lv % 10 == 0  # every tenth level is a boss: bigger, with more special gems
+	var slots := mini(36 + (lv - 1) * 12, 120) + (30 if boss else 0)
 	var kinds := 4 if lv <= 2 else (5 if lv <= 4 else 6)
 	# early boards are airier (more empty slots = more possible moves), later ones fill up
 	var density := minf(0.6 + 0.03 * (lv - 1), 0.78)
@@ -224,7 +261,12 @@ static func bright_level(level: int) -> Dictionary:
 	var max_moves := 999
 	return {"slots": slots, "kinds": kinds, "per_kind": per_kind, "min_moves": min_moves, "max_moves": max_moves,
 		"tries": 15,
-		"jokers": 0.25 if lv >= 6 else 0.0, "boxes": clampi(lv - 6, 0, 6)}
+		"jokers": (0.35 if boss else 0.25) if lv >= 6 else 0.0,
+		"boxes": 6 if boss else clampi(lv - 6, 0, 6),
+		"chains": (2 if boss else 0) + (mini(1 + (lv - 8) / 2, 4) if lv >= 8 else 0),
+		"boss": boss,
+		# some levels also ask to knock out every gem of one kind (index into the level's kinds)
+		"goal_kind": (lv * 7) % kinds if lv >= 5 and lv % 3 == 2 else -1}
 
 
 ## Build a board that can be cleared completely by the cross rule alone. It is made
@@ -243,6 +285,9 @@ func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, ki
 	hp = PackedByteArray()
 	hp.resize(c * r)
 	hp.fill(1)
+	chain = PackedInt32Array()
+	chain.resize(c * r)
+	chain.fill(-1)
 	solution.clear()
 	solution_groups.clear()
 	var used := PackedInt32Array()
@@ -421,6 +466,15 @@ func next_solution_move() -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## Puzzle n: a small board meant to be cleared in a counted number of strikes.
+static func puzzle_config(n: int) -> Dictionary:
+	var k := 3 if n < 5 else (4 if n < 12 else 5)
+	var slots := mini(30 + n * 2, 80)
+	return {"slots": slots, "kinds": k, "per_kind": maxi(2, int(round(slots * 0.7)) / k), "min_moves": 2,
+		"max_moves": 999, "tries": 15, "jokers": 0.2 if n >= 10 else 0.0, "boxes": 1 if n >= 15 else 0,
+		"chains": 1 if n >= 20 else 0, "boss": false, "goal_kind": -1}
+
+
 ## Deal repeatedly and keep the first layout whose number of opening moves falls in
 ## [min_moves, max_moves]; if none does in `tries`, keep the closest one. Returns its moves.
 func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, per_kind: int,
@@ -457,6 +511,72 @@ func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds
 	return best_moves
 
 
+func clone() -> BoardLogic:
+	var b := BoardLogic.new()
+	b.cols = cols
+	b.rows = rows
+	b.cells = cells.duplicate()
+	b.shine = shine.duplicate()
+	b.hp = hp.duplicate()
+	b.chain = chain.duplicate()
+	b.solution = solution.duplicate()
+	b.solution_groups = solution_groups.duplicate(true)
+	return b
+
+
+## True if playing the stored solution in reverse order (with all the real rules: boxes,
+## jokers, chains) knocks out every gem.
+func replay_clears() -> bool:
+	var b := clone()
+	for i in range(b.solution.size() - 1, -1, -1):
+		var p: Vector2i = b.solution[i]
+		if not b.is_empty(p):
+			continue  # its gems already went with a chain partner earlier
+		var g := b.matches_from(p)
+		if not g.is_empty():
+			b.remove(g)
+	return b.gems_left() == 0
+
+
+## Link up to `pairs` pairs of same-kind gems into chains, keeping only links that leave the
+## board fully clearable by its solution.
+func add_chains(rng: RandomNumberGenerator, pairs: int) -> int:
+	var made := 0
+	for attempt in pairs * 6:
+		if made >= pairs:
+			break
+		var by_kind := {}
+		for i in cells.size():
+			if cells[i] >= 0 and cells[i] != JOKER and hp[i] < 2 and chain[i] < 0:
+				if not by_kind.has(cells[i]):
+					by_kind[cells[i]] = []
+				by_kind[cells[i]].append(i)
+		var ks := by_kind.keys().filter(func(k): return by_kind[k].size() >= 2)
+		if ks.is_empty():
+			break
+		var list: Array = by_kind[ks[rng.randi_range(0, ks.size() - 1)]]
+		var a: int = list[rng.randi_range(0, list.size() - 1)]
+		var b2: int = list[rng.randi_range(0, list.size() - 1)]
+		if a == b2:
+			continue
+		chain[a] = b2
+		chain[b2] = a
+		if replay_clears():
+			made += 1
+		else:
+			chain[a] = -1
+			chain[b2] = -1
+	return made
+
+
+func count_kind(k: int) -> int:
+	var n := 0
+	for v in cells:
+		if v == k:
+			n += 1
+	return n
+
+
 func gems_left() -> int:
 	var n := 0
 	for k in cells:
@@ -478,8 +598,18 @@ func transpose() -> void:
 			out[x * rows + y] = cells[y * cols + x]
 			sh[x * rows + y] = shine[y * cols + x]
 			hh[x * rows + y] = hp[y * cols + x] if hp.size() == cells.size() else 1
+	var ch := PackedInt32Array()
+	ch.resize(cells.size())
+	ch.fill(-1)
+	if chain.size() == cells.size():
+		for y in rows:
+			for x in cols:
+				var j0 := chain[y * cols + x]
+				if j0 >= 0:
+					ch[x * rows + y] = (j0 % cols) * rows + (j0 / cols)
 	shine = sh
 	hp = hh
+	chain = ch
 	solution.clear()
 	solution_groups.clear()
 	var c := cols
@@ -490,6 +620,8 @@ func transpose() -> void:
 
 ## Re-deal the remaining gems over the whole board until at least one move exists.
 func shuffle_remaining(rng: RandomNumberGenerator) -> void:
+	if chain.size() == cells.size():
+		chain.fill(-1)  # chains don't survive a reshuffle
 	for attempt in 30:
 		# shuffle gems and their shine flags with the same permutation
 		for i in range(cells.size() - 1, 0, -1):

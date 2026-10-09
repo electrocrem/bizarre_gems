@@ -30,7 +30,16 @@ const BRIGHT := {
 	"level": preload("res://assets/audio/b_level.wav"), "clear": preload("res://assets/audio/b_clear.wav"),
 }
 
+## Announcer call-outs for big moments.
+const VOICES := {
+	"great": preload("res://assets/audio/voice_great.wav"), "super": preload("res://assets/audio/voice_super.wav"),
+	"amazing": preload("res://assets/audio/voice_amazing.wav"), "incredible": preload("res://assets/audio/voice_incredible.wav"),
+	"perfect": preload("res://assets/audio/voice_perfect.wav"), "clear": preload("res://assets/audio/voice_clear.wav"),
+	"levelup": preload("res://assets/audio/voice_levelup.wav"),
+}
+
 var skin := "classic"
+var _voice: AudioStreamPlayer
 
 var _pool: Array[AudioStreamPlayer] = []
 var _next := 0
@@ -44,6 +53,8 @@ func _ready() -> void:
 		var p := AudioStreamPlayer.new()
 		add_child(p)
 		_pool.append(p)
+	_voice = AudioStreamPlayer.new()
+	add_child(_voice)
 	_music = AudioStreamPlayer.new()
 	_music.stream = MUSIC
 	apply_volumes()
@@ -81,6 +92,15 @@ func set_skin(s: String) -> void:
 
 func apply_volumes() -> void:
 	_music.volume_db = -9.0 + linear_to_db(maxf(Save.music_volume, 0.001))
+
+
+## Speak a call-out; a newer one cuts off the one still talking.
+func voice(name: String) -> void:
+	if not Save.sound or not Save.voice or _platform_paused or not VOICES.has(name):
+		return
+	_voice.stream = VOICES[name]
+	_voice.volume_db = linear_to_db(maxf(Save.sound_volume, 0.001)) + 2.0
+	_voice.play()
 
 
 func update_music() -> void:

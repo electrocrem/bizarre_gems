@@ -204,6 +204,29 @@ func _init() -> void:
 	bxb.remove(bxb.matches_from(Vector2i(1, 0)))
 	check(bxb.kind_at(Vector2i(0, 0)) == 1 and bxb.kind_at(Vector2i(2, 0)) == -1 and not bxb.is_box(Vector2i(0, 0)), "a box cracks on the first hit")
 
+	var cb := board_from(["1.1", "...", "2.2"])
+	cb.chain[0] = 6
+	cb.chain[6] = 0
+	var extra := cb.remove(cb.matches_from(Vector2i(1, 0)))
+	check(extra.size() == 1 and cb.kind_at(Vector2i(0, 2)) == -1 and cb.gems_left() == 1, "a chain gem pulls its partner out")
+	var chained_ok := true
+	var made_total := 0
+	for lvn in [8, 10, 12]:
+		var lvd := BoardLogic.bright_level(lvn)
+		var dd := BoardLogic.best_dims(Vector2(360, 640), lvd.slots)
+		var cbd := BoardLogic.new()
+		cbd.setup_solvable(dd.x, dd.y, rng, 1, lvd.kinds, lvd.kinds * lvd.per_kind, lvd.jokers, lvd.boxes)
+		made_total += cbd.add_chains(rng, lvd.chains)
+		chained_ok = chained_ok and cbd.replay_clears()
+	check(chained_ok and made_total > 0, "chained boards stay fully clearable (%d chains)" % made_total)
+	check(BoardLogic.bright_level(10).boss and BoardLogic.bright_level(10).slots > BoardLogic.bright_level(9).slots,
+		"every tenth level is a bigger boss board")
+	var pz := BoardLogic.puzzle_config(3)
+	var pd := BoardLogic.best_dims(Vector2(360, 640), pz.slots)
+	var pb := BoardLogic.new()
+	pb.setup_tuned(pd.x, pd.y, rng, 0, pz.kinds, pz.per_kind, pz.min_moves, pz.max_moves, pz.tries, true)
+	check(pb.replay_clears() and pb.solution.size() >= 3, "puzzle boards clear in %d strikes" % pb.solution.size())
+
 	var tuned := BoardLogic.new()
 	var l3 := BoardLogic.bright_level(3)
 	var d3 := BoardLogic.best_dims(Vector2(360, 640), l3.slots)
