@@ -87,17 +87,20 @@ var skin := "classic":
 var _gem_tex: Array[Texture2D] = GEM_TEX
 ## Bright mode blocks: BLOCKS[palette][kind]; the palette changes on big combos.
 var BLOCKS: Array = []
-## -1: the original glossy gem tiles; 0..4: one of the block palettes.
-var palette := -1:
+## Bright mode look: 0 is the first palette, 1..5 the ones that follow on new levels and big
+## combos. Every look is the same glossy tile style with the same bold shapes.
+var palette := 0:
 	set(v):
-		palette = clampi(v, -1, BLOCKS.size() - 1)
+		palette = posmod(v, maxi(BLOCKS.size(), 1))
 		_apply_skin()
+## tile colour per kind for each look (used for crumbs and confetti), matches gen_assets
 const PALETTE_COLORS := [
-	["#ef5f67", "#f59e45", "#f6c94e", "#5cc87a", "#4b9cf0", "#a477e0"],
-	["#f0857a", "#f2b65a", "#5ccfb0", "#36b5d8", "#4a7fd6", "#8f7ae6"],
-	["#e0507f", "#f07f6a", "#f2c14e", "#8bc34a", "#5b8def", "#b05fd6"],
-	["#e86a5a", "#e9a03b", "#d9c64a", "#4fb36a", "#3f9fb0", "#7d6fd0"],
-	["#ff6b8b", "#ffa463", "#ffd966", "#6ed9a9", "#60a5fa", "#c084fc"],
+	["#ff4d5e", "#3d8bff", "#22c97a", "#ffcf33", "#ff9a2e", "#a35cff"],
+	["#ef5f67", "#4b9cf0", "#5cc87a", "#f6c94e", "#f59e45", "#a477e0"],
+	["#f0857a", "#4a7fd6", "#36b5d8", "#5ccfb0", "#f2b65a", "#8f7ae6"],
+	["#e0507f", "#5b8def", "#8bc34a", "#f2c14e", "#f07f6a", "#b05fd6"],
+	["#e86a5a", "#3f9fb0", "#4fb36a", "#d9c64a", "#e9a03b", "#7d6fd0"],
+	["#ff6b8b", "#60a5fa", "#6ed9a9", "#ffd966", "#ffa463", "#c084fc"],
 ]
 var _confetti: Array[Dictionary] = []
 var _glow := 0.0
@@ -127,7 +130,7 @@ func _ready() -> void:
 	for t in PALETTE_COLORS.size():
 		var set: Array[Texture2D] = []
 		for k in 6:
-			set.append(load("res://assets/tiles/block_%d_%d.png" % [t, k]))
+			set.append(load("res://assets/tiles/look_%d_%d.png" % [t, k]))
 		BLOCKS.append(set)
 	var sh := Shader.new()
 	sh.code = HUE_SHADER
@@ -138,7 +141,7 @@ func _ready() -> void:
 
 func _apply_skin() -> void:
 	var bright := skin == "bright"
-	var blocks := bright and palette >= 0 and not BLOCKS.is_empty()
+	var blocks := bright and not BLOCKS.is_empty()
 	_gem_tex = GEM_TEX
 	if bright:
 		_gem_tex = BLOCKS[palette] if blocks else TILE_TEX

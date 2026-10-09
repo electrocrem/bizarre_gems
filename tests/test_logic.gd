@@ -189,6 +189,11 @@ func _init() -> void:
 	r = k.hit(2, 5.0)
 	check(r.event == "" and k.precise_streak == 0, "a 2-gem strike ends the precise streak")
 
+	var tight := ScoreKeeper.new()
+	tight.time_bonuses = false
+	tight.hit(3, 0.0); tight.hit(4, 0.5); r = tight.hit(3, 1.0)
+	check(r.event == "precise" and r.time == 1.0, "without time bonuses only +1 s / +2 s for 3 / 4 gems remain")
+
 	k.reset()
 	r = k.hit(2, 0.0, 1)
 	check(r.points == 2 + ScoreKeeper.SHINE_POINTS and r.time == ScoreKeeper.SHINE_TIME, "a shining gem adds +5 points and +2 s")

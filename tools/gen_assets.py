@@ -204,7 +204,42 @@ def block_svg(base, cut, size=128):
     return "\n".join(out)
 
 
+# Bright mode looks: the first glossy tile style, with big bold silhouettes chosen to be as
+# different from each other as possible. Look 0 is the original palette, then five more.
+BRIGHT_SHAPES = ["heart", "kite", "triangle", "star", "round", "square"]
+BRIGHT_LOOKS = [["#ff4d5e", "#3d8bff", "#22c97a", "#ffcf33", "#ff9a2e", "#a35cff"]] + [
+    [p[0], p[4], p[3], p[2], p[1], p[5]] for p in BLOCK_PALETTES]
+
+
+def bright_tile_svg(base, cut, size=128):
+    """Glossy toy tile like the first look, with a large white silhouette outlined in the
+    tile's dark shade so the shape reads at a glance even without colour."""
+    c = size / 2
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}"><defs>',
+           f'<linearGradient id="b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="{shade(base, .3)}"/>'
+           f'<stop offset="0.55" stop-color="{base}"/><stop offset="1" stop-color="{shade(base, -.3)}"/></linearGradient>',
+           '<linearGradient id="w" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/>'
+           f'<stop offset="1" stop-color="{shade(base, .78)}"/></linearGradient></defs>',
+           '<rect x="7" y="11" width="114" height="112" rx="24" fill="#000" fill-opacity="0.32"/>',
+           f'<rect x="6" y="5" width="116" height="112" rx="24" fill="{shade(base, -.38)}"/>',
+           '<rect x="6" y="5" width="116" height="104" rx="24" fill="url(#b)"/>',
+           '<rect x="10" y="9" width="108" height="96" rx="20" fill="none" stroke="#fff" stroke-opacity="0.35" stroke-width="3"/>',
+           '<rect x="16" y="12" width="96" height="30" rx="14" fill="#fff" fill-opacity="0.22"/>']
+    R = 38
+    dark = shade(base, -.5)
+    if cut == "round":
+        out.append(f'<circle cx="{c}" cy="{c - 2}" r="{R * .8}" fill="url(#w)" stroke="{dark}" stroke-width="5"/>')
+    else:
+        P = [(c + x * R, c - 2 + y * R) for x, y in outline(cut)]
+        out.append(f'<polygon points="{pts(P)}" fill="url(#w)" stroke="{dark}" stroke-width="5" stroke-linejoin="round"/>')
+    out.append("</svg>")
+    return "\n".join(out)
+
+
 def make_tiles():
+    for look, pal in enumerate(BRIGHT_LOOKS):
+        for i, col in enumerate(pal):
+            svg_to_png(bright_tile_svg(col, BRIGHT_SHAPES[i]), A("tiles", f"look_{look}_{i}.png"), 128)
     for t, pal in enumerate(BLOCK_PALETTES):
         for i, col in enumerate(pal):
             svg_to_png(block_svg(col, BLOCK_SYMBOL[i]), A("tiles", f"block_{t}_{i}.png"), 128)
@@ -245,7 +280,7 @@ def make_previews():
         for gx in range(9):
             pb.alpha_composite(slot, (0 + gx * c, 10 + gy * c))
             if rnd.random() < 0.7:
-                t = Image.open(A("tiles", f"tile_{rnd.randrange(6)}.png")).convert("RGBA").resize((c - 2, c - 2), Image.LANCZOS)
+                t = Image.open(A("tiles", f"look_0_{rnd.randrange(6)}.png")).convert("RGBA").resize((c - 2, c - 2), Image.LANCZOS)
                 pb.alpha_composite(t, (1 + gx * c, 11 + gy * c))
     pb.save(A("ui", "preview_bright.png"))
 
@@ -463,38 +498,61 @@ def _hat(rng):
     return x * np.exp(-t / .012) * .5
 
 
+def _lead(freq, dur, vol=.12):
+    """Soft square-ish lead: odd harmonics, quick attack, gentle vibrato."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    vib = 1 + .004 * np.sin(2 * np.pi * 5.5 * t)
+    ph = 2 * np.pi * freq * vib * t
+    x = np.sin(ph) + np.sin(3 * ph) / 3 + np.sin(5 * ph) / 6
+    env_ = np.minimum(t / .01, 1) * np.exp(-t / (dur * .9))
+    return x * env_ * vol
+
+
 def make_bright_music():
-    """Upbeat 128 bpm loop, 8 bars: four-on-the-floor kick, offbeat hats, a bouncy bass and
-    a plucked arpeggio over I-V-vi-IV in C (an original pattern, not an existing tune)."""
-    rng = np.random.default_rng(21)
-    bpm = 128; beat = 60 / bpm; bars = 8
+    """Bright mode loop: a light funky groove in A minor at 112 bpm, 8 bars. Kick, snare with
+    ghost notes, swung hats, a syncopated bass and a pentatonic lead melody (original)."""
+    rng = np.random.default_rng(33)
+    bpm = 112; beat = 60 / bpm; bars = 8; step = beat / 4
     n = int(SR * beat * 4 * bars); x = np.zeros(n)
-    chords = [(261.63, 329.63, 392.0), (196.0, 246.94, 293.66), (220.0, 261.63, 329.63), (174.61, 220.0, 261.63)]
-    roots = [65.41, 49.0, 55.0, 43.65]
-    order = [0, 1, 2, 3, 0, 1, 3, 3]
-    arp = [0, 1, 2, 1, 0, 2, 1, 2]
     def put(sig, at, vol=1.0):
         s0 = int(at * SR)
         if s0 >= n: return
         x[s0:s0 + len(sig)] += sig[:n - s0] * vol
+    nA, nC, nD, nE, nG = 220.0, 261.63, 293.66, 329.63, 392.0
+    chords = [(nA, nC, nE), (nD, 349.23, nA * 2), (nC, nE, nG), (nG, 246.94, nD)]  # Am Dm C G
+    bass_roots = [55.0, 73.42, 65.41, 49.0]
+    # sixteenth-note bass rhythm (1 = play), same each bar, syncopated
+    bass_hits = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0]
+    # lead: (bar, step, semitone offset from A4, length in steps)
+    def note(semi): return 440.0 * 2 ** (semi / 12)
+    lead = [(0, 0, 0, 3), (0, 4, 3, 2), (0, 6, 5, 2), (0, 8, 7, 4), (0, 14, 5, 2),
+            (1, 0, 3, 3), (1, 4, 0, 2), (1, 8, -2, 4), (1, 12, 0, 4),
+            (2, 0, 7, 2), (2, 2, 10, 2), (2, 4, 12, 4), (2, 10, 10, 2), (2, 12, 7, 4),
+            (3, 0, 5, 3), (3, 4, 3, 3), (3, 8, 2, 6),
+            (4, 0, 0, 3), (4, 4, 3, 2), (4, 6, 5, 2), (4, 8, 7, 4), (4, 14, 10, 2),
+            (5, 0, 12, 3), (5, 4, 10, 2), (5, 8, 7, 4), (5, 12, 5, 4),
+            (6, 0, 3, 2), (6, 2, 5, 2), (6, 4, 7, 4), (6, 10, 5, 2), (6, 12, 3, 4),
+            (7, 0, 0, 6), (7, 8, -5, 2), (7, 12, -2, 4)]
     for bar in range(bars):
-        ci = order[bar]; ch = chords[ci]; t0 = bar * 4 * beat
+        ci = bar % 4; t0 = bar * 4 * beat
         for b in range(4):
-            put(_kick(), t0 + b * beat, .9)
-            put(_hat(rng), t0 + b * beat + beat / 2, .55)
+            put(_kick(), t0 + b * beat, .85 if b in (0, 2) else .55)
             if b in (1, 3):
                 put(_snare(rng), t0 + b * beat, .45)
-        for e in range(8):  # bass on eighths, octave bounce
-            f = roots[ci] * (2 if e % 2 else 1)
-            put(pluck(f * 2, beat * .45, .32, .5), t0 + e * beat / 2)
-        for e in range(8):  # arpeggio, an octave up, accent on the bar's first note
-            f = ch[arp[e]] * 2 * (2 if bar % 4 == 3 and e >= 6 else 1)
-            put(pluck(f, beat * .7, .16 if e else .22), t0 + e * beat / 2)
-        for f in ch:  # soft pad under it all
-            m = int(4 * beat * SR); tt = np.arange(m) / SR
-            pad = np.sin(2 * np.pi * f * tt) * .03 * np.minimum(1, np.minimum(tt / .3, (tt[-1] - tt + 1e-6) / .3))
-            put(pad, t0)
-    x = np.tanh(x * 1.1) * .75
+        for st in range(16):
+            swing = step * .12 if st % 2 else 0.0
+            put(_hat(rng), t0 + st * step + swing, .35 if st % 4 == 2 else .18)
+            if st in (7, 15):
+                put(_snare(rng), t0 + st * step, .12)  # ghost notes
+            if bass_hits[st]:
+                f = bass_roots[ci] * (2 if st in (6, 13) else 1)
+                put(pluck(f * 2, step * 1.8, .34, .6), t0 + st * step)
+        for f in chords[ci]:  # short chord stabs on the offbeats
+            for st in (2, 10):
+                put(pluck(f, step * 1.5, .06, .8), t0 + st * step)
+    for bar, st, semi, length in lead:
+        put(_lead(note(semi), step * length), bar * 4 * beat + st * step)
+    x = np.tanh(x * 1.15) * .75
     write_wav(A("audio", "music_bright.wav"), x)
 
 

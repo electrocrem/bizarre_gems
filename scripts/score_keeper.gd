@@ -24,6 +24,9 @@ const STREAK_TIME := 3.0     ## ...give this many seconds
 ## combo length -> multiplier (first entry whose length is reached, checked from the top)
 const TIERS := [[9, 4], [5, 3], [2, 2], [0, 1]]
 
+## Extra seconds for combos, streaks, precise/perfect combos and shining gems. Bright mode
+## turns them off (its timer also speeds up per level), so a round can't go on forever.
+var time_bonuses := true
 var score := 0
 var combo := 0
 var best_combo := 0
@@ -107,5 +110,7 @@ func hit(n: int, now: float, shining := 0) -> Dictionary:
 		time += TIER_TIME
 	if combo % STREAK_EVERY == 0:
 		time += STREAK_TIME
+	if not time_bonuses:
+		time = float(BoardLogic.bonus_for(n))  # only the basic +1 s / +2 s for 3 / 4 gems
 	score += points
 	return {"points": points, "time": time, "combo": combo, "mult": mult, "tier_up": mult > old_mult, "event": event, "shine": shining}

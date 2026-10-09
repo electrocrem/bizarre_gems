@@ -195,6 +195,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	score = 0
 	shown_score = 0.0
 	keeper.reset()
+	keeper.time_bonuses = mode.id != "bright"
 	play_time = 0.0
 	_update_combo_widget()
 	cleared = 0
@@ -255,6 +256,8 @@ func _deal_board() -> void:
 func _next_wave(at: Vector2i) -> void:
 	var full_clear := logic.gems_left() == 0
 	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
+	if mode.id == "bright":
+		bonus_t = 0.0  # no free seconds between levels; the clock only speeds up
 	var bonus_p := CLEAR_POINTS if full_clear else 0
 	time_left += bonus_t
 	if bonus_p > 0:
@@ -267,8 +270,10 @@ func _next_wave(at: Vector2i) -> void:
 	if mode.id == "bright":
 		title = L.t("level_up", {"n": wave})
 		_give_booster()
-	_banner(title, bonus_p, bonus_t, BRASS_LIGHT)
-	_flash_delta("+%d" % int(bonus_t), false)
+	var sub := L.t("faster", {"x": "%.2f" % _time_speed()}) if mode.id == "bright" else ""
+	_banner(title, bonus_p, bonus_t, BRASS_LIGHT, sub)
+	if bonus_t > 0.0:
+		_flash_delta("+%d" % int(bonus_t), false)
 	Sfx.play("precise")
 	board.play_burst(at, 50)
 	board.play_confetti(70)
@@ -291,7 +296,7 @@ func _set_theme(i: int, instant := false) -> void:
 	theme_i = posmod(i, THEMES.size())
 	var t: Dictionary = THEMES[theme_i]
 	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
-	board.palette = theme_i - 1  # -1 is the original tile look
+	board.palette = theme_i
 	if not instant:
 		board.flash(Color.WHITE, 0.35)
 		board.glow(1.0)
@@ -304,6 +309,13 @@ func _set_orientation(landscape: bool) -> void:
 		return
 	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE if landscape
 		else DisplayServer.SCREEN_SENSOR_PORTRAIT)
+
+
+## Bright mode: the clock runs faster on every level (+12% per level, at most x2.2).
+func _time_speed() -> float:
+	if mode.id != "bright":
+		return 1.0
+	return minf(1.0 + 0.12 * (wave - 1), 2.2)
 
 
 func _today() -> String:
@@ -469,7 +481,7 @@ func _process(delta: float) -> void:
 	score_label.text = str(int(round(shown_score)))
 	if state != State.PLAYING:
 		return
-	time_left -= delta
+	time_left -= delta * _time_speed()
 	play_time += delta
 	if keeper.update(play_time):
 		_combo_break()
@@ -557,7 +569,8 @@ func _detonate(p: Vector2i) -> void:
 	keeper.score += pts
 	score = keeper.score
 	cleared += gone.size()
-	time_left += nshine * ScoreKeeper.SHINE_TIME
+	if keeper.time_bonuses:
+		time_left += nshine * ScoreKeeper.SHINE_TIME
 	board.play_knock(p, gone, kinds, pts, 2, true)
 	board.play_burst(p, 30)
 	board.play_wave(p, 1.5)
@@ -1707,10 +1720,15 @@ func _combo_break() -> void:
 	tw.tween_property(combo_box, "modulate:a", 0.0, 0.35)
 
 
-func _banner(title: String, pts: int, secs: float, color: Color) -> void:
+func _banner(title: String, pts: int, secs: float, color: Color, sub := "") -> void:
 	banner_title.text = title
 	banner_title.add_theme_color_override("font_color", color)
-	banner_sub.text = L.t("bonus_line", {"p": pts, "s": int(secs)})
+	if sub != "":
+		banner_sub.text = sub
+	elif secs <= 0.0 or not keeper.time_bonuses:
+		banner_sub.text = L.t("points_only", {"p": pts}) if pts > 0 else ""
+	else:
+		banner_sub.text = L.t("bonus_line", {"p": pts, "s": int(secs)})
 	var vs := get_viewport_rect().size
 	banner_title.add_theme_font_size_override("font_size", int(clampf(vs.x / 13.0, 34.0, 64.0)))
 	banner_box.pivot_offset = banner_box.size / 2
