@@ -10,14 +10,21 @@ const PER_KIND := 27
 const LONG := 23
 const SHORT := 15
 const EMPTY := -1
+const JOKER := 99  ## wild gem: joins whichever kind is most common among a strike's hits
 const SHINING := 8  ## gems with a bonus on them at the start of a game
 ## Game modes. Classic is the original game: 270 gems, a wide 23x15 board on desktops (tall
 ## on phones), and the round ends when no moves are left. Bright is the toy-style mode: fewer,
 ## bigger tiles, a fresh board whenever moves run out. Each has its own leaderboard.
-const CLASSIC := {"id": "classic", "kinds": 10, "per_kind": 27, "cols": 23, "rows": 15, "slots": 345, "shining": 8,
-	"board": "score", "waves": false}
-const BRIGHT := {"id": "bright", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15, "slots": 108, "shining": 3,
-	"board": "score_bright", "waves": true}
+const CLASSIC := {"id": "classic", "skin": "classic", "kind": "classic", "kinds": 10, "per_kind": 27, "cols": 23,
+	"rows": 15, "slots": 345, "shining": 8, "board": "score", "waves": false}
+const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
+	"slots": 108, "shining": 3, "board": "score_bright", "waves": true}
+## Level map: each level is one fixed, fully solvable board scored with 1-3 stars.
+const LEVELS := {"id": "levels", "skin": "bright", "kind": "levels", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
+	"slots": 108, "shining": 2, "board": "", "waves": false}
+## No timer: a budget of strikes instead; new boards add strikes.
+const ZEN := {"id": "zen", "skin": "bright", "kind": "zen", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
+	"slots": 108, "shining": 2, "board": "score_zen", "waves": true}
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var cols := LONG
@@ -27,6 +34,10 @@ var shine := PackedByteArray()  ## 1 where the gem is a shining (bonus) gem
 ## For boards built by setup_solvable: strike slots in placement order. Playing them in
 ## reverse order knocks out every gem on the board.
 var solution: Array[Vector2i] = []
+## Gems each solution strike takes (same order as `solution`), used by the hint.
+var solution_groups: Array = []
+## Hits a gem needs: 1 normally, 2 for a box (the first hit only cracks it).
+var hp := PackedByteArray()
 
 
 func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds := KINDS, per_kind := PER_KIND) -> void:
@@ -42,6 +53,11 @@ func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds
 	cells = bag
 	shine = PackedByteArray()
 	shine.resize(cells.size())
+	hp = PackedByteArray()
+	hp.resize(cells.size())
+	hp.fill(1)
+	solution.clear()
+	solution_groups.clear()
 	var gem_slots: Array[int] = []
 	for i in cells.size():
 		if cells[i] != EMPTY:
@@ -60,6 +76,9 @@ func load_cells(c: int, r: int, data: PackedInt32Array) -> void:
 	cells = data.duplicate()
 	shine = PackedByteArray()
 	shine.resize(cells.size())
+	hp = PackedByteArray()
+	hp.resize(cells.size())
+	hp.fill(1)
 
 
 func kind_at(p: Vector2i) -> int:
@@ -90,13 +109,41 @@ func hits_from(p: Vector2i) -> Array[Vector2i]:
 func matches_from(p: Vector2i) -> Array[Vector2i]:
 	var hits := hits_from(p)
 	var count := {}
+	var jokers := 0
 	for h in hits:
 		var k := kind_at(h)
-		count[k] = count.get(k, 0) + 1
+		if k == JOKER:
+			jokers += 1
+		else:
+			count[k] = count.get(k, 0) + 1
+	# jokers join the most common kind among the hits (the first one on a tie)
+	var join := -1
+	for k in count:
+		if join < 0 or count[k] > count[join]:
+			join = k
+	if join >= 0:
+		count[join] += jokers
 	var out: Array[Vector2i] = []
 	for h in hits:
-		if count[kind_at(h)] >= 2:
+		var k := kind_at(h)
+		if k == JOKER:
+			if (join >= 0 and count[join] >= 2) or (join < 0 and jokers >= 2):
+				out.append(h)
+		elif count[k] >= 2:
 			out.append(h)
+	return out
+
+
+func is_box(p: Vector2i) -> bool:
+	return hp.size() > 0 and hp[p.y * cols + p.x] >= 2
+
+
+## The gems of `ps` that a strike actually removes (boxes only crack).
+func vanishing(ps: Array[Vector2i]) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for q in ps:
+		if not is_box(q):
+			out.append(q)
 	return out
 
 
@@ -114,8 +161,12 @@ func shining_count(ps: Array[Vector2i]) -> int:
 
 func remove(ps: Array[Vector2i]) -> void:
 	for p in ps:
-		cells[p.y * cols + p.x] = EMPTY
-		shine[p.y * cols + p.x] = 0
+		var i := p.y * cols + p.x
+		if hp.size() > i and hp[i] >= 2:
+			hp[i] -= 1  # a box cracks and stays
+			continue
+		cells[i] = EMPTY
+		shine[i] = 0
 
 
 func has_any_move() -> bool:
@@ -170,14 +221,16 @@ static func bright_level(level: int) -> Dictionary:
 	var min_moves := maxi(2, 10 - (lv - 1) * 2)
 	var max_moves := 8 if lv >= 8 else 999
 	return {"slots": slots, "kinds": kinds, "per_kind": per_kind, "min_moves": min_moves, "max_moves": max_moves,
-		"tries": 120 if lv >= 8 else 60}
+		"tries": 120 if lv >= 8 else 60,
+		"jokers": 0.25 if lv >= 6 else 0.0, "boxes": clampi(lv - 6, 0, 6)}
 
 
 ## Build a board that can be cleared completely by the cross rule alone. It is made
 ## backwards from an empty grid: each step picks an empty strike slot and puts 2-4 gems of
 ## one kind where that strike would hit first, making sure the strike would take exactly
 ## those gems. Undoing the steps in reverse order is then a full solution.
-func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, gems: int) -> int:
+func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, gems: int,
+		joker_rate := 0.0, boxes := 0) -> int:
 	cols = c
 	rows = r
 	cells = PackedInt32Array()
@@ -185,55 +238,46 @@ func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, ki
 	cells.fill(EMPTY)
 	shine = PackedByteArray()
 	shine.resize(c * r)
+	hp = PackedByteArray()
+	hp.resize(c * r)
+	hp.fill(1)
 	solution.clear()
+	solution_groups.clear()
 	var used := PackedInt32Array()
 	used.resize(kinds)
 	var placed := 0
+	var boxed := 0
 	var fails := 0
 	while placed < gems and fails < 3000:
+		# now and then, turn an existing gem into a box: a strike that hits it first cracks it
+		if boxed < boxes and placed >= 4 and rng.randf() < 0.3:
+			if _try_box_step(rng, gems - placed):
+				boxed += 1
+				placed = gems_left_count()
+				continue
 		var p := Vector2i(rng.randi_range(0, c - 1), rng.randi_range(0, r - 1))
 		if not is_empty(p):
 			fails += 1
 			continue
-		var cands: Array = []  # per direction: empty slots in front of the first gem
-		var hits: Array[int] = []  # per direction: kind of the first gem, or -2 at the edge
-		for d in DIRS:
-			var q := p + d
-			var ray: Array[Vector2i] = []
-			while in_bounds(q) and is_empty(q):
-				ray.append(q)
-				q += d
-			cands.append(ray)
-			hits.append(kind_at(q) if in_bounds(q) else -2)
+		var rays := _rays(p)
 		var open_dirs: Array[int] = []
-		for i in 4:
-			if not cands[i].is_empty():
-				open_dirs.append(i)
+		for d in 4:
+			if not rays.cands[d].is_empty():
+				open_dirs.append(d)
 		if open_dirs.size() < 2:
 			fails += 1
 			continue
 		var roll := rng.randf()
 		var want := 4 if roll < 0.06 else (3 if roll < 0.25 else 2)
+		if joker_rate > 0.0 and rng.randf() < joker_rate:
+			want = maxi(want, 3)  # a joker only ever completes a group of 3+
 		want = mini(mini(want, open_dirs.size()), gems - placed)
 		if want < 2:
 			break
-		for i in range(open_dirs.size() - 1, 0, -1):
-			var j := rng.randi_range(0, i)
-			var t := open_dirs[i]
-			open_dirs[i] = open_dirs[j]
-			open_dirs[j] = t
+		_shuffle_ints(open_dirs, rng)
 		var chosen := open_dirs.slice(0, want)
-		# the strike must take only the new gems: the other directions' first gems may not
-		# pair up with each other or with the new kind
-		var others: Array[int] = []
-		for i in 4:
-			if not (i in chosen) and hits[i] >= 0:
-				others.append(hits[i])
-		var dup := false
-		for i in others.size():
-			for j in range(i + 1, others.size()):
-				dup = dup or others[i] == others[j]
-		if dup:
+		var others := _other_hits(rays.hits, chosen)
+		if others.has(-1):
 			fails += 1
 			continue
 		var kind := -1
@@ -243,38 +287,152 @@ func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, ki
 		if kind < 0:
 			fails += 1
 			continue
-		for i in chosen:
-			var ray: Array = cands[i]
+		var group: Array[Vector2i] = []
+		for d in chosen:
+			var ray: Array = rays.cands[d]
 			var pos: Vector2i = ray[rng.randi_range(0, ray.size() - 1)]
 			cells[pos.y * cols + pos.x] = kind
+			group.append(pos)
+		if want >= 3 and joker_rate > 0.0 and rng.randf() < joker_rate:
+			var jpos: Vector2i = group[rng.randi_range(0, group.size() - 1)]
+			cells[jpos.y * cols + jpos.x] = JOKER
 		used[kind] += want
 		placed += want
 		solution.append(p)
+		solution_groups.append(group)
 	var gem_slots: Array[int] = []
-	for i in cells.size():
-		if cells[i] != EMPTY:
-			gem_slots.append(i)
+	for i2 in cells.size():
+		if cells[i2] != EMPTY and cells[i2] != JOKER and hp[i2] < 2:
+			gem_slots.append(i2)
 	for n in mini(shining, gem_slots.size()):
-		var j := rng.randi_range(n, gem_slots.size() - 1)
+		var j2 := rng.randi_range(n, gem_slots.size() - 1)
 		var t := gem_slots[n]
-		gem_slots[n] = gem_slots[j]
-		gem_slots[j] = t
+		gem_slots[n] = gem_slots[j2]
+		gem_slots[j2] = t
 		shine[gem_slots[n]] = 1
-	return placed
+	return gems_left_count()
+
+
+## Empty slots in front of the first gem in each direction from p, and that gem's kind
+## (-2 at the board edge).
+func _rays(p: Vector2i) -> Dictionary:
+	var cands: Array = []
+	var hits: Array[int] = []
+	for d in DIRS:
+		var q := p + d
+		var ray: Array[Vector2i] = []
+		while in_bounds(q) and is_empty(q):
+			ray.append(q)
+			q += d
+		cands.append(ray)
+		hits.append(kind_at(q) if in_bounds(q) else -2)
+	return {"cands": cands, "hits": hits}
+
+
+## Kinds of the first gems in the directions not chosen. A strike must take only the chosen
+## gems, so these may not pair up with each other or contain a joker; returns [-1] if they do.
+func _other_hits(hits: Array[int], chosen: Array) -> Array[int]:
+	var others: Array[int] = []
+	for d in 4:
+		if not (d in chosen) and hits[d] >= 0:
+			if hits[d] == JOKER or hits[d] in others:
+				return [-1]
+			others.append(hits[d])
+	return others
+
+
+## Make an existing gem X a box: find an empty strike slot whose first hit in one direction
+## is X and add gems of X's kind in other directions, so that strike cracks X.
+func _try_box_step(rng: RandomNumberGenerator, budget: int) -> bool:
+	var gems_at: Array[Vector2i] = []
+	for y in rows:
+		for x in cols:
+			var q := Vector2i(x, y)
+			if not is_empty(q) and kind_at(q) != JOKER and hp[y * cols + x] < 2:
+				gems_at.append(q)
+	if gems_at.is_empty() or budget < 1:
+		return false
+	var xpos: Vector2i = gems_at[rng.randi_range(0, gems_at.size() - 1)]
+	var kind := kind_at(xpos)
+	for attempt in 8:
+		var d := rng.randi_range(0, 3)
+		var p := xpos - DIRS[d] * rng.randi_range(1, maxi(cols, rows))
+		if not in_bounds(p) or not is_empty(p):
+			continue
+		var rays := _rays(p)
+		if rays.hits[d] != kind or rays.cands[d].size() != absi((xpos - p).x) + absi((xpos - p).y) - 1:
+			continue  # X must be the first gem that way
+		var open_dirs: Array[int] = []
+		for e in 4:
+			if e != d and not rays.cands[e].is_empty():
+				open_dirs.append(e)
+		if open_dirs.is_empty():
+			continue
+		_shuffle_ints(open_dirs, rng)
+		var chosen := open_dirs.slice(0, mini(1 + rng.randi_range(0, 1), mini(open_dirs.size(), budget)))
+		var all_chosen := chosen.duplicate()
+		all_chosen.append(d)
+		var others := _other_hits(rays.hits, all_chosen)
+		if others.has(-1) or kind in others:
+			continue
+		var group: Array[Vector2i] = [xpos]
+		for e in chosen:
+			var ray: Array = rays.cands[e]
+			var pos: Vector2i = ray[rng.randi_range(0, ray.size() - 1)]
+			cells[pos.y * cols + pos.x] = kind
+			group.append(pos)
+		hp[xpos.y * cols + xpos.x] = 2
+		solution.append(p)
+		solution_groups.append(group)
+		return true
+	return false
+
+
+func gems_left_count() -> int:
+	return gems_left()
+
+
+static func _shuffle_ints(a: Array, rng: RandomNumberGenerator) -> void:
+	for i in range(a.size() - 1, 0, -1):
+		var j := rng.randi_range(0, i)
+		var t = a[i]
+		a[i] = a[j]
+		a[j] = t
+
+
+## The next strike of the stored solution that is still exactly valid on the current board
+## (its slot is empty and it takes exactly its recorded gems), or (-1, -1).
+func next_solution_move() -> Vector2i:
+	for i in range(solution.size() - 1, -1, -1):
+		var p: Vector2i = solution[i]
+		if not in_bounds(p) or not is_empty(p):
+			continue
+		var want: Array = solution_groups[i]
+		var got := matches_from(p)
+		if got.size() != want.size():
+			continue
+		var same := true
+		for q in want:
+			same = same and q in got
+		if same:
+			return p
+	return Vector2i(-1, -1)
 
 
 ## Deal repeatedly and keep the first layout whose number of opening moves falls in
 ## [min_moves, max_moves]; if none does in `tries`, keep the closest one. Returns its moves.
 func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, per_kind: int,
-		min_moves: int, max_moves := 999, tries := 40, solvable := false) -> int:
+		min_moves: int, max_moves := 999, tries := 40, solvable := false, joker_rate := 0.0, boxes := 0) -> int:
 	var best_cells := PackedInt32Array()
 	var best_shine := PackedByteArray()
+	var best_hp := PackedByteArray()
+	var best_groups: Array = []
 	var best_solution: Array[Vector2i] = []
 	var best_gap := 1 << 30
 	var best_moves := 0
 	for t in tries:
 		if solvable:
-			setup_solvable(c, r, rng, shining, kinds, kinds * per_kind)
+			setup_solvable(c, r, rng, shining, kinds, kinds * per_kind, joker_rate, boxes)
 		else:
 			setup(c, r, rng, shining, kinds, per_kind)
 		var m := count_moves()
@@ -286,10 +444,14 @@ func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds
 			best_cells = cells.duplicate()
 			best_shine = shine.duplicate()
 			best_solution = solution.duplicate()
+			best_groups = solution_groups.duplicate(true)
+			best_hp = hp.duplicate()
 			best_moves = m
 	cells = best_cells
 	shine = best_shine
+	hp = best_hp
 	solution = best_solution
+	solution_groups = best_groups
 	return best_moves
 
 
@@ -307,11 +469,17 @@ func transpose() -> void:
 	out.resize(cells.size())
 	var sh := PackedByteArray()
 	sh.resize(cells.size())
+	var hh := PackedByteArray()
+	hh.resize(cells.size())
 	for y in rows:
 		for x in cols:
 			out[x * rows + y] = cells[y * cols + x]
 			sh[x * rows + y] = shine[y * cols + x]
+			hh[x * rows + y] = hp[y * cols + x] if hp.size() == cells.size() else 1
 	shine = sh
+	hp = hh
+	solution.clear()
+	solution_groups.clear()
 	var c := cols
 	cols = rows
 	rows = c
@@ -330,6 +498,10 @@ func shuffle_remaining(rng: RandomNumberGenerator) -> void:
 			var u := shine[i]
 			shine[i] = shine[j]
 			shine[j] = u
+			if hp.size() == cells.size():
+				var w := hp[i]
+				hp[i] = hp[j]
+				hp[j] = w
 		if has_any_move():
 			return
 

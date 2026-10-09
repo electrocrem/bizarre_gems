@@ -174,6 +174,36 @@ func _init() -> void:
 			sb.remove(g)
 		all_clear = all_clear and sb.gems_left() == 0
 	check(all_clear, "solvable boards clear completely by their own solution (%s)" % ", ".join(sizes))
+	var special_ok := true
+	var specials := []
+	for lvn in [6, 9, 12]:
+		var lvd := BoardLogic.bright_level(lvn)
+		var dd := BoardLogic.best_dims(Vector2(360, 640), lvd.slots)
+		var sb := BoardLogic.new()
+		sb.setup_solvable(dd.x, dd.y, rng, 1, lvd.kinds, lvd.kinds * lvd.per_kind, lvd.jokers, lvd.boxes)
+		var nj := 0
+		var nb := 0
+		for i in sb.cells.size():
+			if sb.cells[i] == BoardLogic.JOKER: nj += 1
+			if sb.hp[i] >= 2: nb += 1
+		specials.append("L%d: %d jokers, %d boxes" % [lvn, nj, nb])
+		var hint_ok := sb.next_solution_move() == sb.solution[sb.solution.size() - 1]
+		var steps := sb.solution.duplicate()
+		steps.reverse()
+		for sp in steps:
+			var g := sb.matches_from(sp)
+			special_ok = special_ok and not g.is_empty()
+			sb.remove(g)
+		special_ok = special_ok and sb.gems_left() == 0 and hint_ok
+	check(special_ok, "boards with jokers and boxes still clear fully, hint = next solution strike (%s)" % ", ".join(specials))
+	var jb := board_from([".1.", "2.2", ".1."])
+	jb.cells[1] = BoardLogic.JOKER  # top becomes a joker: hits are joker, 2, 2, 1
+	check(jb.matches_from(Vector2i(1, 1)).size() == 3, "a joker joins the most common kind")
+	var bxb := board_from(["1.1"])
+	bxb.hp[0] = 2
+	bxb.remove(bxb.matches_from(Vector2i(1, 0)))
+	check(bxb.kind_at(Vector2i(0, 0)) == 1 and bxb.kind_at(Vector2i(2, 0)) == -1 and not bxb.is_box(Vector2i(0, 0)), "a box cracks on the first hit")
+
 	var tuned := BoardLogic.new()
 	var l3 := BoardLogic.bright_level(3)
 	var d3 := BoardLogic.best_dims(Vector2(360, 640), l3.slots)

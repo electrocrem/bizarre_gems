@@ -128,6 +128,13 @@ ICONS = {  # 64x64 white glyphs
     "crown": '<path d="M8 46L12 18l13 13 7-17 7 17 13-13 4 28z"/><rect x="8" y="49" width="48" height="7" rx="2"/>',
     "back": '<path d="M40 10L18 32l22 22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
     "info": '<circle cx="32" cy="32" r="25" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="19" r="4"/><rect x="28.5" y="27" width="7" height="22" rx="3"/>',
+    "map": '<path d="M6 14l16-6 20 6 16-6v42l-16 6-20-6-16 6z" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="round"/><path d="M22 8v42M42 14v42" stroke="#fff" stroke-width="4"/>',
+    "tasks": '<rect x="10" y="6" width="44" height="52" rx="6" fill="none" stroke="#fff" stroke-width="5"/><path d="M18 22l5 5 9-10M18 40l5 5 9-10" fill="none" stroke="#fff" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/><rect x="36" y="22" width="12" height="4" rx="2"/><rect x="36" y="40" width="12" height="4" rx="2"/>',
+    "star": '<path d="M32 4l8.5 17.5 19.5 2.8-14 13.6 3.3 19.3L32 48l-17.3 9.2L18 37.9 4 24.3l19.5-2.8z"/>',
+    "lock": '<rect x="12" y="28" width="40" height="30" rx="6"/><path d="M20 28v-8a12 12 0 0 1 24 0v8" fill="none" stroke="#fff" stroke-width="6"/>',
+    "crystal": '<path d="M20 8h24l12 16-24 34L8 24z"/><path d="M8 24h48M20 8l12 16 12-16M32 24v34" fill="none" stroke="#000" stroke-opacity="0.25" stroke-width="3"/>',
+    "hint": '<path d="M32 6a18 18 0 0 0-10 33v7h20v-7A18 18 0 0 0 32 6z"/><rect x="23" y="49" width="18" height="5" rx="2"/><rect x="26" y="56" width="12" height="4" rx="2"/>',
+    "strikes": '<circle cx="32" cy="32" r="24" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="32" r="13" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="32" r="4"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 
@@ -232,6 +239,30 @@ def bright_tile_svg(base, cut, size=128):
         out.append(f'<polygon points="{pts(P)}" fill="url(#w)" stroke="{dark}" stroke-width="5" stroke-linejoin="round"/>')
     out.append("</svg>")
     return "\n".join(out)
+
+
+def make_specials():
+    """Joker tile (rainbow with a white star) and the crate overlay drawn on boxes."""
+    j = ('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs>'
+         '<linearGradient id="r" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5d7a"/>'
+         '<stop offset="0.3" stop-color="#ffc94d"/><stop offset="0.55" stop-color="#4fd18b"/>'
+         '<stop offset="0.8" stop-color="#4b9cf0"/><stop offset="1" stop-color="#a477e0"/></linearGradient></defs>'
+         '<rect x="7" y="11" width="114" height="112" rx="24" fill="#000" fill-opacity="0.32"/>'
+         '<rect x="6" y="5" width="116" height="112" rx="24" fill="#3a2a6a"/>'
+         '<rect x="6" y="5" width="116" height="104" rx="24" fill="url(#r)"/>'
+         '<rect x="10" y="9" width="108" height="96" rx="20" fill="none" stroke="#fff" stroke-opacity="0.5" stroke-width="3"/>'
+         '<rect x="16" y="12" width="96" height="30" rx="14" fill="#fff" fill-opacity="0.25"/>')
+    P = [(64 + x * 40, 58 + y * 40) for x, y in outline("star")]
+    j += f'<polygon points="{pts(P)}" fill="#fff" stroke="#3a2a6a" stroke-width="5" stroke-linejoin="round"/></svg>'
+    svg_to_png(j, A("tiles", "joker.png"), 128)
+    box = ('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">'
+           '<rect x="8" y="8" width="112" height="106" rx="14" fill="none" stroke="#8a5a2b" stroke-width="14"/>'
+           '<rect x="8" y="8" width="112" height="106" rx="14" fill="none" stroke="#c98a4a" stroke-width="8"/>'
+           '<path d="M16 16L112 106M112 16L16 106" stroke="#8a5a2b" stroke-width="12" stroke-linecap="round"/>'
+           '<path d="M16 16L112 106M112 16L16 106" stroke="#d99c5a" stroke-width="6" stroke-linecap="round"/>'
+           + "".join(f'<circle cx="{x}" cy="{y}" r="4" fill="#5b3a1a"/>' for x, y in ((14, 14), (114, 14), (14, 108), (114, 108)))
+           + '</svg>')
+    svg_to_png(box, A("tiles", "box.png"), 128)
 
 
 def make_tiles():
@@ -453,30 +484,53 @@ def pop(freq, dur=.16, vol=.5):
     return np.sin(ph) * np.exp(-t / (dur * .28)) * np.minimum(t / .002, 1) * vol
 
 
+def marimba(freq, dur=.5, vol=.4):
+    """Glassy marimba: fundamental plus a bright 4th partial, fast decay, soft mallet click."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    x = (np.sin(2 * np.pi * freq * t) * np.exp(-t / .25) + .35 * np.sin(2 * np.pi * freq * 3.98 * t) * np.exp(-t / .06)
+         + .15 * np.sin(2 * np.pi * freq * 9.1 * t) * np.exp(-t / .02))
+    return x * np.minimum(t / .002, 1) * vol
+
+
 def make_bright_sounds(rng):
-    """Bright mode: poppy, bouncy effects and a faster, drum-driven music loop."""
-    for k, base in ((2, 620), (3, 700), (4, 790)):
-        x = np.zeros(int(SR * .5))
-        for i in range(k - 1):
-            p = pop(base * (1.12 ** i), .18, .45); o = int(i * .045 * SR); x[o:o + len(p)] += p
-        b = bell(base * 2.5, .4, .12, .16); x[:len(b)] += b
+    """Bright mode: glassy marimba hits and bells. The knock is one note; the game plays it at
+    pentatonic pitches so a combo streak turns into a little tune."""
+    for k in (2, 3, 4):
+        x = marimba(523.25, .55, .42)
+        for i in range(k - 2):
+            m = marimba(523.25 * (1.5 if i == 0 else 2.0), .5, .2); o = int((i + 1) * .035 * SR); x[o:o + len(m)] += m[:len(x) - o]
         write_wav(A("audio", f"b_knock{k}.wav"), x)
-    write_wav(A("audio", "b_miss.wav"), pop(220, .2, .5) * .8)
-    write_wav(A("audio", "b_combo_up.wav"), arpeggio((1046.5, 1318.5, 1568, 2093), .045, .35, .15, .22))
-    write_wav(A("audio", "b_combo_break.wav"), pop(330, .25, .35))
-    x = arpeggio((784, 988, 1175, 1568, 1976), .06, .9, .25, .24); g = shimmer(rng, .9, .12); x[:len(g)] += g[:len(x)]
+    n = int(SR * .25); t = np.arange(n) / SR
+    write_wav(A("audio", "b_miss.wav"), np.sin(2 * np.pi * (180 - 60 * t / .25) * t) * np.exp(-t / .07) * .5)
+    write_wav(A("audio", "b_combo_up.wav"), arpeggio((1318.5, 1568, 2093, 2637), .04, .4, .18, .2))
+    cb = marimba(392, .4, .25)
+    m2 = np.pad(marimba(330, .3, .2), (int(.08 * SR), 0))
+    cb[:min(len(cb), len(m2))] += m2[:min(len(cb), len(m2))]
+    write_wav(A("audio", "b_combo_break.wav"), cb)
+    x = arpeggio((1046.5, 1318.5, 1568, 2093, 2637), .06, .9, .3, .22); g = shimmer(rng, .9, .1); x[:len(g)] += g[:len(x)]
     write_wav(A("audio", "b_precise.wav"), x)
-    n = int(SR * 1.6); x = np.zeros(n)
-    for i, f in enumerate((523, 659, 784, 1047, 1319, 1568, 2093, 2637)):
-        b = pluck(f, .5, .22); o = int(i * .05 * SR); x[o:o + len(b)] += b[:n - o]
-    for o in (0, .2, .4):
-        kk = _kick(); s0 = int(o * SR); x[s0:s0 + len(kk)] += kk[:n - s0] * .7
-    g = shimmer(rng, 1.6, .12); x[:len(g)] += g
-    write_wav(A("audio", "b_perfect.wav"), np.tanh(x * 1.3) * .8)
-    write_wav(A("audio", "b_start.wav"), arpeggio((659, 784, 988, 1319), .07, .5, .18, .25))
+    x = arpeggio((523, 659, 784, 1047, 1319, 1568, 2093, 2637), .055, 1.4, .45, .22); g = shimmer(rng, 1.8, .12)
+    x = np.pad(x, (0, max(0, len(g) - len(x)))); x[:len(g)] += g
+    write_wav(A("audio", "b_perfect.wav"), np.tanh(x * 1.2) * .8)
+    write_wav(A("audio", "b_start.wav"), arpeggio((784, 988, 1175, 1568), .06, .5, .2, .24))
     write_wav(A("audio", "b_bonus.wav"), arpeggio((1568, 2093), .06, .35, .12, .22))
     write_wav(A("audio", "b_over.wav"), arpeggio((784, 659, 523, 392), .12, .9, .3, .25))
-    write_wav(A("audio", "b_tick.wav"), pop(1400, .06, .3))
+    write_wav(A("audio", "b_tick.wav"), marimba(1760, .08, .25))
+    # new events
+    st = bell(1760, .6, .25, .35)
+    s2 = np.pad(bell(2637, .5, .2, .2), (int(.05 * SR), 0))
+    st[:min(len(st), len(s2))] += s2[:min(len(st), len(s2))]
+    write_wav(A("audio", "b_star.wav"), st)
+    write_wav(A("audio", "b_hint.wav"), arpeggio((1318.5, 1760), .08, .4, .2, .2))
+    x = arpeggio((523, 784, 1047, 1568, 2093), .07, 1.0, .35, .24); g = shimmer(rng, 1.2, .1)
+    x = np.pad(x, (0, max(0, len(g) - len(x)))); x[:len(g)] += g
+    write_wav(A("audio", "b_level.wav"), x)
+    n = int(SR * 1.8); t = np.arange(n) / SR
+    sweep = np.sin(2 * np.pi * np.cumsum(300 + 1800 * (t / 1.8) ** 1.5) / SR) * np.exp(-t / .9) * .15
+    x = sweep.copy()
+    a = arpeggio((1047, 1319, 1568, 2093, 2637, 3136), .09, 1.2, .5, .22); x[:min(n, len(a))] += a[:min(n, len(a))]
+    g = shimmer(rng, 1.8, .14); x[:len(g)] += g
+    write_wav(A("audio", "b_clear.wav"), np.tanh(x * 1.3) * .8)
     make_bright_music()
 
 
@@ -724,6 +778,7 @@ def main():
     make_icons()
     make_textures()
     make_tiles()
+    make_specials()
     make_previews()
     make_sounds()
     make_branding()

@@ -26,6 +26,8 @@ const BRIGHT := {
 	"precise": preload("res://assets/audio/b_precise.wav"), "perfect": preload("res://assets/audio/b_perfect.wav"),
 	"start": preload("res://assets/audio/b_start.wav"), "bonus": preload("res://assets/audio/b_bonus.wav"),
 	"over": preload("res://assets/audio/b_over.wav"), "tick": preload("res://assets/audio/b_tick.wav"),
+	"star": preload("res://assets/audio/b_star.wav"), "hint": preload("res://assets/audio/b_hint.wav"),
+	"level": preload("res://assets/audio/b_level.wav"), "clear": preload("res://assets/audio/b_clear.wav"),
 }
 
 var skin := "classic"
@@ -54,7 +56,12 @@ func play(name: String, pitch := 1.0, volume_db := 0.0) -> void:
 		return
 	var p := _pool[_next]
 	_next = (_next + 1) % _pool.size()
-	p.stream = BRIGHT[name] if skin == "bright" and BRIGHT.has(name) else SOUNDS[name]
+	if skin == "bright" and BRIGHT.has(name):
+		p.stream = BRIGHT[name]
+	elif SOUNDS.has(name):
+		p.stream = SOUNDS[name]
+	else:
+		p.stream = BRIGHT[name]  # bright-only events also play in classic
 	p.pitch_scale = pitch
 	p.volume_db = volume_db + linear_to_db(maxf(Save.sound_volume, 0.001))
 	p.play()

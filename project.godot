@@ -27,6 +27,7 @@ Yandex="*res://scripts/yandex.gd"
 Save="*res://scripts/save.gd"
 Sfx="*res://scripts/sfx.gd"
 Haptics="*res://scripts/haptics.gd"
+Progress="*res://scripts/progress.gd"
 
 [display]
 

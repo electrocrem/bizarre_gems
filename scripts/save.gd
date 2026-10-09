@@ -7,7 +7,8 @@ signal changed
 const PATH := "user://save.cfg"
 
 var best := 0          ## classic (desktop) board
-var best_bright := 0  ## bright mode
+var best_bright := 0  ## bright run
+var best_zen := 0     ## no-timer mode
 var mode := "bright" if OS.has_feature("android") else "classic"  ## last mode the player started
 var sound := true
 var music := true
@@ -23,6 +24,7 @@ func _ready() -> void:
 	if cfg.load(PATH) == OK:
 		best = int(cfg.get_value("game", "best", 0))
 		best_bright = int(cfg.get_value("game", "best_bright", cfg.get_value("game", "best_compact", 0)))
+		best_zen = int(cfg.get_value("game", "best_zen", 0))
 		mode = str(cfg.get_value("game", "mode", "classic"))
 		sound = bool(cfg.get_value("audio", "sound", true))
 		music = bool(cfg.get_value("audio", "music", true))
@@ -68,15 +70,26 @@ func daily_best_for(date: String) -> int:
 
 
 func best_for(mode: String) -> int:
-	return best_bright if mode == "bright" else best
+	match mode:
+		"bright":
+			return best_bright
+		"zen":
+			return best_zen
+		"levels":
+			return Progress.total_stars()
+	return best
 
 
 ## Returns true on a new record for this board mode.
 func submit(score: int, mode := "classic") -> bool:
 	if score <= best_for(mode):
 		return false
+	if mode == "levels":
+		return false
 	if mode == "bright":
 		best_bright = score
+	elif mode == "zen":
+		best_zen = score
 	else:
 		best = score
 	store()
@@ -98,6 +111,7 @@ func _write_local() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("game", "best", best)
 	cfg.set_value("game", "best_bright", best_bright)
+	cfg.set_value("game", "best_zen", best_zen)
 	cfg.set_value("game", "mode", mode)
 	cfg.set_value("audio", "sound", sound)
 	cfg.set_value("audio", "music", music)

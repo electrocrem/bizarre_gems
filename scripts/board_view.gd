@@ -103,6 +103,9 @@ const PALETTE_COLORS := [
 	["#ff6b8b", "#60a5fa", "#6ed9a9", "#ffd966", "#ffa463", "#c084fc"],
 ]
 var _confetti: Array[Dictionary] = []
+var _clear_t := 99.0  ## time since a full clear: a wave of light sweeps over the slots
+const JOKER_TEX := preload("res://assets/tiles/joker.png")
+const BOX_TEX := preload("res://assets/tiles/box.png")
 var _glow := 0.0
 var _slot_tex: Texture2D = SLOT_TEX
 var _colors: Array[Color] = CLASSIC_COLORS
@@ -243,7 +246,7 @@ func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points
 					"life": randf_range(0.35, 0.6), "s": randf_range(0.25, 0.5), "c": _spark_color(rainbow)})
 			continue
 		_pops.append({"p": h, "t": 0.0})
-		var base: Color = _colors[kinds[i]]
+		var base: Color = _col(kinds[i])
 		for j in 9:
 			var a := randf() * TAU
 			_shards.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2.5, 6.0) + Vector2(0, -cell * 3.0),
@@ -289,6 +292,19 @@ func _spark_color(rainbow: bool) -> Color:
 
 
 ## Big word of praise floating up from a slot ("Great!").
+func _tex(k: int) -> Texture2D:
+	return JOKER_TEX if k == BoardLogic.JOKER else _gem_tex[k % _gem_tex.size()]
+
+
+func _col(k: int) -> Color:
+	return Color(1, 1, 1) if k == BoardLogic.JOKER else _colors[k % _colors.size()]
+
+
+## Full clear: a ring of light runs out from the centre over every slot.
+func play_clear_wave() -> void:
+	_clear_t = 0.0
+
+
 ## Confetti raining over the board (bright mode celebrations).
 func play_confetti(count := 60) -> void:
 	for i in count:
@@ -346,6 +362,7 @@ func _process(delta: float) -> void:
 	_age(_waves, delta, 0.6)
 	_age(_pops, delta, 0.22)
 	_glow = maxf(0.0, _glow - delta * 1.5)
+	_clear_t += delta
 	if not _confetti.is_empty():
 		for cf in _confetti:
 			cf.t += delta
@@ -427,7 +444,9 @@ func _draw() -> void:
 			if gs <= 0.5:
 				continue
 			var ctr := origin + (Vector2(x, y) + Vector2(0.5, 0.5)) * cell
-			draw_texture_rect(_gem_tex[k], Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
+			draw_texture_rect(_tex(k), Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
+			if logic.hp.size() > i and logic.hp[i] >= 2:
+				draw_texture_rect(BOX_TEX, Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
 
 	if interactive and focus.x >= 0:
 		var col := Color(0.82, 0.67, 0.33, 1.0 if _keyboard else 0.6)
@@ -489,7 +508,7 @@ func _draw_fx() -> void:
 		c.draw_texture_rect(SPARKLE_TEX, Rect2(sp.p - Vector2.ONE * sz / 2, Vector2.ONE * sz), false, Color(sc, a))
 	for f in _flyers:  # classic: knocked-out gems fly off whole, spinning
 		c.draw_set_transform(f.p + off, f.r)
-		c.draw_texture_rect(_gem_tex[f.k], Rect2(-Vector2.ONE * gem / 2, Vector2.ONE * gem), false)
+		c.draw_texture_rect(_tex(f.k), Rect2(-Vector2.ONE * gem / 2, Vector2.ONE * gem), false)
 	c.draw_set_transform(off)
 	for pp in _pops:
 		var q: float = pp.t / 0.22
@@ -526,6 +545,16 @@ func _draw_fx() -> void:
 			var pos: Vector2 = Vector2(clampf(pr.p.x - w / 2, -w / 2 + size.x / 2, size.x / 2 - w / 2), pr.p.y - cell * 0.8 - q * cell * 1.8)
 			c.draw_string_outline(number_font, pos, pr.s, HORIZONTAL_ALIGNMENT_CENTER, w, fs, int(fs * 0.22), Color(0.05, 0.05, 0.15, a))
 			c.draw_string(number_font, pos, pr.s, HORIZONTAL_ALIGNMENT_CENTER, w, fs, Color(pr.c, a))
+	if _clear_t < 1.6:
+		var cc := Vector2(logic.cols - 1, logic.rows - 1) / 2.0
+		var far := cc.length() + 1.0
+		for y in logic.rows:
+			for x in logic.cols:
+				var d := Vector2(x, y).distance_to(cc) / far
+				var a := 1.0 - absf(_clear_t / 1.0 - d) * 5.0
+				if a > 0.0:
+					var pos := origin + Vector2(x, y) * cell
+					c.draw_rect(Rect2(pos + Vector2.ONE * 2, Vector2.ONE * (cell - 4)), Color(1, 0.95, 0.7, a * 0.7))
 	for cf in _confetti:
 		var a: float = clampf(4.0 - cf.t, 0.0, 1.0)
 		c.draw_set_transform(cf.p, cf.r, Vector2(1.0, absf(cos(cf.t * 6.0 + cf.ph))))
