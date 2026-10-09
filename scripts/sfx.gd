@@ -73,7 +73,7 @@ func play(name: String, pitch := 1.0, volume_db := 0.0) -> void:
 		p.stream = SOUNDS[name]
 	else:
 		p.stream = BRIGHT[name]  # bright-only events also play in classic
-	p.pitch_scale = pitch
+	p.pitch_scale = pitch * randf_range(0.985, 1.015)  # no two hits sound exactly alike
 	p.volume_db = volume_db + linear_to_db(maxf(Save.sound_volume, 0.001))
 	p.play()
 

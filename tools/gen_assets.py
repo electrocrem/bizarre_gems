@@ -395,6 +395,30 @@ def write_wav(path, x):
         w.writeframes((x * 32000).astype("<i2").tobytes())
 
 
+def liven(x, room=0.22, width=0.5, drive=1.4):
+    """Make a dry synth effect sound alive: a detuned double for width, a short room tail and
+    a touch of saturation, then normalise to the original peak."""
+    x = np.asarray(x, float)
+    peak = np.max(np.abs(x)) + 1e-9
+    d1, d2 = int(.009 * SR), int(.017 * SR)
+    idx = np.arange(len(x))
+    y = x.copy()
+    y[d1:] += width * .6 * np.interp(idx[: len(x) - d1] * 1.006, idx, x)
+    y[d2:] += width * .4 * np.interp(idx[: len(x) - d2] * .994, idx, x)
+    rng = np.random.default_rng(len(x))
+    n_ir = int(.45 * SR)
+    ir = rng.normal(0, 1, n_ir) * np.exp(-np.arange(n_ir) / (.11 * SR))
+    ir[: int(.004 * SR)] = 0  # pre-delay
+    wet = np.convolve(y, ir)[: len(y) + int(.35 * SR)] * room / np.sqrt(n_ir) * 6
+    y = np.pad(y, (0, len(wet) - len(y))) + wet
+    y = np.tanh(y * drive) / np.tanh(drive)
+    return y / (np.max(np.abs(y)) + 1e-9) * peak
+
+
+def write_sfx(path, x):
+    write_wav(path, liven(x))
+
+
 def env(n, attack=0.004, decay=0.25):
     t = np.arange(n) / SR
     return np.minimum(t / attack, 1) * np.exp(-t / decay)
@@ -417,29 +441,29 @@ def make_sounds():
             x[o:o + len(b)] += b[:n - o]
         click = rng.normal(0, 1, int(SR * .02)) * env(int(SR * .02), .0005, .004) * .35
         x[:len(click)] += click
-        write_wav(A("audio", f"knock{k}.wav"), x * .8)
+        write_sfx(A("audio", f"knock{k}.wav"), x * .8)
     # miss: dull thud on cloth
     n = int(SR * .22); t = np.arange(n) / SR
     thud = np.sin(2 * np.pi * (110 - 50 * t / .22) * t) * env(n, .002, .06)
     noise = rng.normal(0, 1, n) * env(n, .001, .02) * .25
-    write_wav(A("audio", "miss.wav"), (thud * .8 + noise) * .9)
+    write_sfx(A("audio", "miss.wav"), (thud * .8 + noise) * .9)
     # tick for the last seconds
     n = int(SR * .06)
-    write_wav(A("audio", "tick.wav"), bell(2400, .06, .015, .35)[:n])
+    write_sfx(A("audio", "tick.wav"), bell(2400, .06, .015, .35)[:n])
     # ui click
-    write_wav(A("audio", "click.wav"), bell(1800, .08, .02, .3))
+    write_sfx(A("audio", "click.wav"), bell(1800, .08, .02, .3))
     # start: rising arpeggio
     n = int(SR * .9); x = np.zeros(n)
     for i, f in enumerate((523.25, 659.25, 783.99, 1046.5)):
         o = int(i * .08 * SR); b = bell(f, .9 - i * .08, .25, .3); x[o:o + len(b)] += b
-    write_wav(A("audio", "start.wav"), x)
+    write_sfx(A("audio", "start.wav"), x)
     # game over: falling three notes
     n = int(SR * 1.3); x = np.zeros(n)
     for i, f in enumerate((783.99, 659.25, 523.25)):
         o = int(i * .16 * SR); b = bell(f, 1.3 - i * .16, .45, .32); x[o:o + len(b)] += b
-    write_wav(A("audio", "over.wav"), x)
+    write_sfx(A("audio", "over.wav"), x)
     # bonus time
-    write_wav(A("audio", "bonus.wav"), bell(1568, .5, .2, .3) + np.pad(bell(2093, .42, .2, .25), (int(.08 * SR), 0))[:int(SR * .5)])
+    write_sfx(A("audio", "bonus.wav"), bell(1568, .5, .2, .3) + np.pad(bell(2093, .42, .2, .25), (int(.08 * SR), 0))[:int(SR * .5)])
     make_combo_sounds(rng)
     make_voices()
     make_bright_sounds(rng)
@@ -464,13 +488,13 @@ def shimmer(rng, dur, vol=.12):
 
 def make_combo_sounds(rng):
     # combo tier up: quick rising fifth
-    write_wav(A("audio", "combo_up.wav"), arpeggio((1174.7, 1760, 2349.3), .05, .45, .2, .26))
+    write_sfx(A("audio", "combo_up.wav"), arpeggio((1174.7, 1760, 2349.3), .05, .45, .2, .26))
     # combo lost: soft falling pair
-    write_wav(A("audio", "combo_break.wav"), arpeggio((880, 659.25), .09, .35, .15, .18))
+    write_sfx(A("audio", "combo_break.wav"), arpeggio((880, 659.25), .09, .35, .15, .18))
     # precise combo: major arpeggio with glitter
     x = arpeggio((783.99, 987.77, 1174.7, 1567.98), .07, 1.0, .35, .26)
     x[:len(shimmer(rng, 1.0))] += shimmer(rng, 1.0)[:len(x)]
-    write_wav(A("audio", "precise.wav"), x * .85)
+    write_sfx(A("audio", "precise.wav"), x * .85)
     # perfect combo: two-octave fanfare, low thump, long glitter
     n = int(SR * 1.8)
     x = np.zeros(n)
@@ -478,7 +502,7 @@ def make_combo_sounds(rng):
     t = np.arange(int(SR * .35)) / SR
     x[:len(t)] += np.sin(2 * np.pi * (90 - 40 * t) * t) * np.exp(-t / .12) * .6
     g = shimmer(rng, 1.8, .14); x[:len(g)] += g
-    write_wav(A("audio", "perfect.wav"), np.tanh(x * 1.2) * .8)
+    write_sfx(A("audio", "perfect.wav"), np.tanh(x * 1.2) * .8)
 
 
 def pluck(freq, dur, vol=.3, bright=1.0):
@@ -510,38 +534,38 @@ def make_bright_sounds(rng):
         x = marimba(523.25, .55, .42)
         for i in range(k - 2):
             m = marimba(523.25 * (1.5 if i == 0 else 2.0), .5, .2); o = int((i + 1) * .035 * SR); x[o:o + len(m)] += m[:len(x) - o]
-        write_wav(A("audio", f"b_knock{k}.wav"), x)
+        write_sfx(A("audio", f"b_knock{k}.wav"), x)
     n = int(SR * .25); t = np.arange(n) / SR
-    write_wav(A("audio", "b_miss.wav"), np.sin(2 * np.pi * (180 - 60 * t / .25) * t) * np.exp(-t / .07) * .5)
-    write_wav(A("audio", "b_combo_up.wav"), arpeggio((1318.5, 1568, 2093, 2637), .04, .4, .18, .2))
+    write_sfx(A("audio", "b_miss.wav"), np.sin(2 * np.pi * (180 - 60 * t / .25) * t) * np.exp(-t / .07) * .5)
+    write_sfx(A("audio", "b_combo_up.wav"), arpeggio((1318.5, 1568, 2093, 2637), .04, .4, .18, .2))
     cb = marimba(392, .4, .25)
     m2 = np.pad(marimba(330, .3, .2), (int(.08 * SR), 0))
     cb[:min(len(cb), len(m2))] += m2[:min(len(cb), len(m2))]
-    write_wav(A("audio", "b_combo_break.wav"), cb)
+    write_sfx(A("audio", "b_combo_break.wav"), cb)
     x = arpeggio((1046.5, 1318.5, 1568, 2093, 2637), .06, .9, .3, .22); g = shimmer(rng, .9, .1); x[:len(g)] += g[:len(x)]
-    write_wav(A("audio", "b_precise.wav"), x)
+    write_sfx(A("audio", "b_precise.wav"), x)
     x = arpeggio((523, 659, 784, 1047, 1319, 1568, 2093, 2637), .055, 1.4, .45, .22); g = shimmer(rng, 1.8, .12)
     x = np.pad(x, (0, max(0, len(g) - len(x)))); x[:len(g)] += g
-    write_wav(A("audio", "b_perfect.wav"), np.tanh(x * 1.2) * .8)
-    write_wav(A("audio", "b_start.wav"), arpeggio((784, 988, 1175, 1568), .06, .5, .2, .24))
-    write_wav(A("audio", "b_bonus.wav"), arpeggio((1568, 2093), .06, .35, .12, .22))
-    write_wav(A("audio", "b_over.wav"), arpeggio((784, 659, 523, 392), .12, .9, .3, .25))
-    write_wav(A("audio", "b_tick.wav"), marimba(1760, .08, .25))
+    write_sfx(A("audio", "b_perfect.wav"), np.tanh(x * 1.2) * .8)
+    write_sfx(A("audio", "b_start.wav"), arpeggio((784, 988, 1175, 1568), .06, .5, .2, .24))
+    write_sfx(A("audio", "b_bonus.wav"), arpeggio((1568, 2093), .06, .35, .12, .22))
+    write_sfx(A("audio", "b_over.wav"), arpeggio((784, 659, 523, 392), .12, .9, .3, .25))
+    write_sfx(A("audio", "b_tick.wav"), marimba(1760, .08, .25))
     # new events
     st = bell(1760, .6, .25, .35)
     s2 = np.pad(bell(2637, .5, .2, .2), (int(.05 * SR), 0))
     st[:min(len(st), len(s2))] += s2[:min(len(st), len(s2))]
-    write_wav(A("audio", "b_star.wav"), st)
-    write_wav(A("audio", "b_hint.wav"), arpeggio((1318.5, 1760), .08, .4, .2, .2))
+    write_sfx(A("audio", "b_star.wav"), st)
+    write_sfx(A("audio", "b_hint.wav"), arpeggio((1318.5, 1760), .08, .4, .2, .2))
     x = arpeggio((523, 784, 1047, 1568, 2093), .07, 1.0, .35, .24); g = shimmer(rng, 1.2, .1)
     x = np.pad(x, (0, max(0, len(g) - len(x)))); x[:len(g)] += g
-    write_wav(A("audio", "b_level.wav"), x)
+    write_sfx(A("audio", "b_level.wav"), x)
     n = int(SR * 1.8); t = np.arange(n) / SR
     sweep = np.sin(2 * np.pi * np.cumsum(300 + 1800 * (t / 1.8) ** 1.5) / SR) * np.exp(-t / .9) * .15
     x = sweep.copy()
     a = arpeggio((1047, 1319, 1568, 2093, 2637, 3136), .09, 1.2, .5, .22); x[:min(n, len(a))] += a[:min(n, len(a))]
     g = shimmer(rng, 1.8, .14); x[:len(g)] += g
-    write_wav(A("audio", "b_clear.wav"), np.tanh(x * 1.3) * .8)
+    write_sfx(A("audio", "b_clear.wav"), np.tanh(x * 1.3) * .8)
     make_bright_music()
 
 

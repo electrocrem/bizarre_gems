@@ -156,6 +156,8 @@ const S := {
 	"season_claim": {"ru": "Забрать", "en": "Claim", "tr": "Al"},
 	"season_only": {"ru": "В сезон", "en": "In season", "tr": "Sezonda"},
 	"gift_only": {"ru": "За 7 дней", "en": "Day 7 gift", "tr": "7. gün"},
+	"leaders_local": {"ru": "Мои рекорды на этом устройстве", "en": "My best results on this device", "tr": "Bu cihazdaki en iyi sonuçlarım"},
+	"leaders_local_empty": {"ru": "Здесь появятся твои лучшие результаты", "en": "Your best results will show up here", "tr": "En iyi sonuçların burada görünecek"},
 	"settings": {"ru": "Настройки", "en": "Settings", "tr": "Ayarlar"},
 	"sounds": {"ru": "Звуки", "en": "Sound effects", "tr": "Ses efektleri"},
 	"music_opt": {"ru": "Музыка", "en": "Music", "tr": "Müzik"},

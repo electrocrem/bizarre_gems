@@ -610,8 +610,12 @@ func transpose() -> void:
 	shine = sh
 	hp = hh
 	chain = ch
-	solution.clear()
-	solution_groups.clear()
+	# the cross rule doesn't care about orientation, so the solution just turns with the board
+	for i in solution.size():
+		solution[i] = Vector2i(solution[i].y, solution[i].x)
+	for g in solution_groups:
+		for j in g.size():
+			g[j] = Vector2i(g[j].y, g[j].x)
 	var c := cols
 	cols = rows
 	rows = c

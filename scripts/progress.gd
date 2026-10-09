@@ -52,6 +52,8 @@ var gift_date := ""     ## last day the daily gift was opened
 var streak := 0         ## days in a row the gift was opened
 var puzzles := 0        ## puzzles solved (the next one is puzzles + 1)
 var tutorial := false   ## the first-run tutorial was completed
+## Local leaderboards (Android and anywhere without Yandex): board -> [{score, date}], best 10.
+var local_scores := {}
 var _dirty := false
 var _since := 0.0
 
@@ -73,6 +75,7 @@ func _ready() -> void:
 		streak = int(cfg.get_value("meta", "streak", 0))
 		puzzles = int(cfg.get_value("meta", "puzzles", 0))
 		tutorial = bool(cfg.get_value("meta", "tutorial", false))
+		local_scores = cfg.get_value("meta", "local_scores", {})
 	refresh_tasks()
 
 
@@ -92,6 +95,7 @@ func _save() -> void:
 	cfg.set_value("meta", "streak", streak)
 	cfg.set_value("meta", "puzzles", puzzles)
 	cfg.set_value("meta", "tutorial", tutorial)
+	cfg.set_value("meta", "local_scores", local_scores)
 	cfg.save(PATH)
 	Yandex.save_data(Save.cloud_data())
 	changed.emit()
@@ -307,6 +311,23 @@ func solved_puzzle(n: int) -> void:
 		puzzles = n
 		report("puzzles")
 	_save()
+
+
+## Keep a result in this device's top 10 for a board ("score", "score_bright", "stars", ...).
+func add_local_score(board: String, value: int) -> void:
+	if board == "" or value <= 0:
+		return
+	var list: Array = local_scores.get(board, [])
+	if board == "stars":
+		list = []  # one entry: the current total
+	list.append({"score": value, "date": Time.get_date_string_from_system()})
+	list.sort_custom(func(a, b): return int(a.score) > int(b.score))
+	local_scores[board] = list.slice(0, 10)
+	_save()
+
+
+func local_top(board: String) -> Array:
+	return local_scores.get(board, [])
 
 
 func finish_tutorial() -> void:

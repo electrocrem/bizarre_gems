@@ -227,6 +227,13 @@ func _init() -> void:
 	pb.setup_tuned(pd.x, pd.y, rng, 0, pz.kinds, pz.per_kind, pz.min_moves, pz.max_moves, pz.tries, true)
 	check(pb.replay_clears() and pb.solution.size() >= 3, "puzzle boards clear in %d strikes" % pb.solution.size())
 
+	var tb := BoardLogic.new()
+	var tl3 := BoardLogic.bright_level(5)
+	var td := BoardLogic.best_dims(Vector2(360, 640), tl3.slots)
+	tb.setup_solvable(td.x, td.y, rng, 1, tl3.kinds, tl3.kinds * tl3.per_kind, 0.25, 2)
+	tb.transpose()
+	check(tb.replay_clears() and tb.next_solution_move().x >= 0, "a turned board keeps a working solution and hint")
+
 	var tuned := BoardLogic.new()
 	var l3 := BoardLogic.bright_level(3)
 	var d3 := BoardLogic.best_dims(Vector2(360, 640), l3.slots)

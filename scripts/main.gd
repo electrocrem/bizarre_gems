@@ -166,6 +166,7 @@ var collection_panel: PanelContainer
 var gift_panel: PanelContainer
 var ach_panel: PanelContainer
 var leaders_board := "score"
+var map_kind := "levels"  ## the map screen lists "levels" or "puzzle"
 var settings_from_game := false  ## settings opened mid-game: Done goes straight back to playing
 var _stuck_t := 0.0
 ## Lists that scroll by dragging anywhere on them (touch screens start drags on buttons).
@@ -182,6 +183,7 @@ func _ready() -> void:
 	theme = _make_theme()
 	_build()
 	_apply_ui_scale()
+	_set_orientation(false)
 	get_window().size_changed.connect(_apply_ui_scale)
 	get_viewport().size_changed.connect(_on_viewport_resized)
 	board.slot_pressed.connect(_on_slot)
@@ -225,6 +227,10 @@ func _debug_start() -> void:
 		start_level(maxi(1, int(q.substr(5))))
 	elif q in ["zen", "bright", "classic", "duel", "tutorial"]:
 		start_game(q)
+	var t := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('t') || ''"))
+	if t != "" and state == State.PLAYING:
+		time_left = float(t)
+		strikes = mini(strikes, int(t))
 	elif q == "puzzle":
 		start_puzzle(1)
 	elif q == "gift":
@@ -502,6 +508,7 @@ func _end_level() -> void:
 	if BoardLogic.bright_level(level_n).boss and gained > 0:
 		Progress.crystals += gained * Progress.STAR_CRYSTALS * 2  # bosses pay triple
 		Progress.flush()
+	Progress.add_local_score("stars", Progress.total_stars())
 	if Yandex.is_authorized():
 		Yandex.submit_score(Progress.total_stars(), "stars")
 	ui.level_title.text = L.t("level_n", {"n": level_n})
@@ -623,6 +630,8 @@ func _today() -> String:
 
 
 func _resume_play() -> void:
+	if mode.skin == "bright":
+		_set_orientation(false)  # bright modes are played upright on phones
 	state = State.PLAYING
 	idle = 0.0
 	last_tick = -1
@@ -692,6 +701,7 @@ func end_game(reason: String) -> void:
 		is_best = Save.submit_daily(score, _today())
 	else:
 		is_best = Save.submit(score, mode.id)
+		Progress.add_local_score(mode.board, score)
 		if Yandex.is_authorized() and mode.board != "":
 			Yandex.submit_score(Save.best_for(mode.id), mode.board)
 	Sfx.play("over")
@@ -1124,8 +1134,13 @@ func _refresh_leaders() -> void:
 		c.queue_free()
 	ui.btn_login.visible = false
 	if not Yandex.available:
-		ui.leaders_status.text = L.t("leaders_offline")
+		# Android / no Yandex: this device's own best results
+		var top := Progress.local_top(leaders_board)
+		ui.leaders_status.text = L.t("leaders_local") if not top.is_empty() else L.t("leaders_local_empty")
 		ui.leaders_status.visible = true
+		for i in top.size():
+			list.add_child(_leader_row({"rank": i + 1, "score": top[i].score, "name": str(top[i].date), "me": i == 0}))
+		_fit_panels.call_deferred()
 		return
 	ui.leaders_status.text = L.t("leaders_loading")
 	ui.leaders_status.visible = true
@@ -1417,6 +1432,7 @@ func _build() -> void:
 	board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	board.number_font = f_num
 	col.add_child(board)
+	board.resized.connect(func(): _relayout_board.call_deferred())
 
 	# ---- combo banner (above the board, below panels) ----
 	var bc := CenterContainer.new()
@@ -1831,7 +1847,7 @@ func _build_modes() -> void:
 		if id == "levels":
 			ui["card_play_" + id] = _button("", "map", true, func(): Sfx.play("click"); _open_map())
 		elif id == "puzzle":
-			ui["card_play_" + id] = _button("", "puzzle", true, func(): Sfx.play("click"); start_puzzle(Progress.puzzles + 1))
+			ui["card_play_" + id] = _button("", "puzzle", true, func(): Sfx.play("click"); _open_map("puzzle"))
 		elif id == "duel":
 			ui["card_play_" + id] = _button("", "duel", true, func(): Sfx.play("click"); start_game("duel"))
 		else:
@@ -1901,9 +1917,11 @@ func _refresh_map() -> void:
 	var grid: GridContainer = ui.map_grid
 	for c in grid.get_children():
 		c.queue_free()
-	var top := Progress.max_unlocked()
+	var puzzles := map_kind == "puzzle"
+	var top := Progress.puzzles + 1 if puzzles else Progress.max_unlocked()
 	var shown := int(ceil((top + 10) / 5.0)) * 5
-	ui.map_stars.text = str(Progress.total_stars())
+	ui.map_title.text = L.t("mode_puzzle" if puzzles else "mode_levels")
+	ui.map_stars.text = str(Progress.puzzles) if puzzles else str(Progress.total_stars())
 	for n in range(1, shown + 1):
 		var cell := VBoxContainer.new()
 		cell.add_theme_constant_override("separation", 2)
@@ -1919,17 +1937,20 @@ func _refresh_map() -> void:
 		else:
 			b.text = str(n)
 			var lvl: int = n
-			b.pressed.connect(func(): Sfx.play("click"); start_level(lvl))
+			if puzzles:
+				b.pressed.connect(func(): Sfx.play("click"); start_puzzle(lvl))
+			else:
+				b.pressed.connect(func(): Sfx.play("click"); start_level(lvl))
 			if n == top:
 				b.theme_type_variation = "PrimaryButton"
-			if n % 10 == 0:
+			if n % 10 == 0 and not puzzles:
 				b.icon = ICONS["medal"]
 				b.add_theme_constant_override("icon_max_width", 18)
 		cell.add_child(b)
 		var srow := HBoxContainer.new()
 		srow.alignment = BoxContainer.ALIGNMENT_CENTER
 		srow.add_theme_constant_override("separation", 0)
-		var got := Progress.stars_for(n)
+		var got := (3 if n <= Progress.puzzles else 0) if puzzles else Progress.stars_for(n)
 		for i in 3:
 			srow.add_child(_icon_tex("star", 18, BRASS if i < got else Color(1, 1, 1, 0.15)))
 		cell.add_child(srow)
@@ -1970,15 +1991,12 @@ func _build_level_result() -> void:
 			start_level(level_n))
 	ui.level_map = _button("", "map", false, func():
 		Sfx.play("click")
-		if mode.kind == "puzzle":
-			state = State.MENU
-			_show_panel(mode_panel)
-		else:
-			_open_map())
+		_open_map("puzzle" if mode.kind == "puzzle" else "levels"))
 	v.add_child(_row([ui.level_next, ui.level_retry, ui.level_map]))
 
 
-func _open_map() -> void:
+func _open_map(kind := "levels") -> void:
+	map_kind = kind
 	_set_orientation(false)
 	state = State.MENU
 	_refresh_map()
@@ -2464,7 +2482,7 @@ func _apply_texts() -> void:
 	for id in ["classic", "levels", "bright", "zen", "puzzle", "duel"]:
 		ui["card_name_" + id].text = L.t("mode_" + id)
 		ui["card_desc_" + id].text = L.t("mode_%s_desc" % id)
-		ui["card_play_" + id].text = L.t("open_map" if id == "levels" else "play")
+		ui["card_play_" + id].text = L.t("open_map" if id == "levels" or id == "puzzle" else "play")
 	ui.map_title.text = L.t("mode_levels")
 	ui.level_next.text = L.t("next")
 	ui.level_retry.text = L.t("again")
@@ -2687,6 +2705,15 @@ func _relayout_board() -> void:
 			_deal_board()
 			board.clear_fx()
 		elif Vector2i(logic.rows, logic.cols) == d:
+			logic.transpose()
+			board.transposed()
+	# a board dealt before the screen turned (Android leaving a sideways classic game) gets
+	# turned to match: a tall screen gets a tall board, a wide one a wide board
+	var area := get_viewport_rect().size  # the screen itself; the board may not have caught up yet
+	var screen_tall := area.y > area.x * 1.15
+	var screen_wide := area.x > area.y * 1.15
+	if (screen_tall and logic.cols > logic.rows) or (screen_wide and logic.rows > logic.cols):
+		if not (mode.id == "classic" and not _is_touch_device()):
 			logic.transpose()
 			board.transposed()
 	board.refresh()
