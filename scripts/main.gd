@@ -45,6 +45,8 @@ const ICONS := {
 	"calendar": preload("res://assets/ui/icon_calendar.png"),
 	"rotate": preload("res://assets/ui/icon_rotate.png"),
 	"crown": preload("res://assets/ui/icon_crown.png"),
+	"back": preload("res://assets/ui/icon_back.png"),
+	"info": preload("res://assets/ui/icon_info.png"),
 }
 
 var logic := BoardLogic.new()
@@ -118,7 +120,9 @@ var toast: Label
 var bar_fill: StyleBoxFlat
 var bar_fill_low: StyleBoxFlat
 
-var menu_panel: PanelContainer
+var menu_panel: Control  ## the home screen (full screen)
+var mode_panel: Control  ## mode selection (full screen)
+var _menu_t := 0.0
 var pause_panel: PanelContainer
 var over_panel: PanelContainer
 var leaders_panel: PanelContainer
@@ -404,6 +408,15 @@ func _on_slot(p: Vector2i) -> void:
 
 
 func _process(delta: float) -> void:
+	if menu_panel.visible:
+		_menu_t += delta
+		for i in ui.home_gems.size():
+			var g: TextureRect = ui.home_gems[i]
+			g.rotation = sin(_menu_t * 1.3 + i * 1.7) * 0.12
+			g.scale = Vector2.ONE * (1.0 + 0.06 * sin(_menu_t * 2.0 + i * 2.1))
+		var pb: Button = ui.btn_home_play
+		pb.pivot_offset = pb.size / 2
+		pb.scale = Vector2.ONE * (1.0 + 0.035 * sin(_menu_t * 3.0))
 	if absf(score - shown_score) > 0.5:
 		shown_score = lerpf(shown_score, score, minf(1.0, delta * 10.0))
 	else:
@@ -510,7 +523,7 @@ func _notification(what: int) -> void:
 func _on_back() -> void:
 	if settings_panel.visible:
 		_close_settings()
-	elif rules_panel.visible:
+	elif rules_panel.visible or mode_panel.visible:
 		_show_panel(menu_panel)
 	elif leaders_panel.visible:
 		_show_panel(leaders_return)
@@ -1037,27 +1050,187 @@ func _row(children: Array) -> HFlowContainer:
 	return r
 
 
+## Home screen: floating gems over a big title, one big Play button, the best score, and a row
+## of round buttons (leaderboard, daily board, how to play, settings).
 func _build_menu() -> void:
-	var pv := _panel()
-	menu_panel = pv[0]
-	var v: VBoxContainer = pv[1]
-	ui.menu_title = _label("", f_display, 44, BRASS)
+	var home := MarginContainer.new()
+	home.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		home.add_theme_constant_override("margin_" + side, 24)
+	menu_panel = home
+	add_child(home)
+	move_child(home, center.get_index())
+	var v := VBoxContainer.new()
+	v.alignment = BoxContainer.ALIGNMENT_CENTER
+	v.add_theme_constant_override("separation", 18)
+	home.add_child(v)
+
+	var gems := HBoxContainer.new()
+	gems.alignment = BoxContainer.ALIGNMENT_CENTER
+	gems.add_theme_constant_override("separation", 22)
+	ui.home_gems = []
+	for k in [1, 0, 2]:
+		var t := TextureRect.new()
+		t.texture = load("res://assets/gems/gem_%d.png" % k)
+		t.custom_minimum_size = Vector2(76, 76)
+		t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		t.pivot_offset = Vector2(38, 38)
+		gems.add_child(t)
+		ui.home_gems.append(t)
+	v.add_child(gems)
+
+	ui.menu_title = _label("", f_display, 64, BRASS)
 	ui.menu_title.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	ui.menu_title.add_theme_constant_override("outline_size", 16)
+	ui.menu_title.add_theme_color_override("font_outline_color", Color(0.04, 0.05, 0.15, 0.85))
 	ui.menu_tag = _para("")
 	ui.menu_tag.add_theme_color_override("font_color", MUTED)
 	v.add_child(ui.menu_title)
 	v.add_child(ui.menu_tag)
-	v.add_child(HSeparator.new())
-	# short on purpose so it fits any screen; the rules live in their own panel
-	ui.btn_play = _button("", "play", true, func(): start_game("classic"))
-	ui.btn_bright = _button("", "play", true, func(): Sfx.play("click"); start_game("bright"))
-	v.add_child(_row([ui.btn_play, ui.btn_bright]))
-	ui.btn_daily = _button("", "calendar", false, func(): Sfx.play("click"); start_game("", true))
-	ui.btn_leaders_menu = _button("", "trophy", false, func(): _open_leaders(menu_panel))
-	ui.btn_rules = _button("", "", false, func(): Sfx.play("click"); _show_panel(rules_panel))
-	ui.btn_settings_menu = _icon_button("settings", func(): _open_settings(menu_panel))
-	v.add_child(_row([ui.btn_daily, ui.btn_leaders_menu, ui.btn_rules, ui.btn_settings_menu]))
+
+	var gap := Control.new()
+	gap.custom_minimum_size.y = 12
+	v.add_child(gap)
+	ui.btn_home_play = _button("", "play", true, func(): Sfx.play("click"); _show_panel(mode_panel))
+	ui.btn_home_play.custom_minimum_size = Vector2(280, 78)
+	ui.btn_home_play.add_theme_font_size_override("font_size", 32)
+	ui.btn_home_play.add_theme_constant_override("icon_max_width", 34)
+	ui.btn_home_play.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	v.add_child(ui.btn_home_play)
+	var brow := HBoxContainer.new()
+	brow.alignment = BoxContainer.ALIGNMENT_CENTER
+	brow.add_theme_constant_override("separation", 8)
+	brow.add_child(_crown(24))
+	ui.home_best = _label("", f_num, 22, BRASS)
+	brow.add_child(ui.home_best)
+	v.add_child(brow)
+
+	var gap2 := Control.new()
+	gap2.custom_minimum_size.y = 18
+	v.add_child(gap2)
+	var row := HBoxContainer.new()
+	row.alignment = BoxContainer.ALIGNMENT_CENTER
+	row.add_theme_constant_override("separation", 16)
+	ui.home_leaders = _round_button("trophy", func(): _open_leaders(menu_panel))
+	ui.home_daily = _round_button("calendar", func(): Sfx.play("click"); start_game("", true))
+	ui.home_rules = _round_button("info", func(): Sfx.play("click"); _show_panel(rules_panel))
+	ui.home_settings = _round_button("settings", func(): _open_settings(menu_panel))
+	for b in [ui.home_leaders, ui.home_daily, ui.home_rules, ui.home_settings]:
+		row.add_child(b)
+	v.add_child(row)
+	_build_modes()
 	_build_rules()
+
+
+func _crown(px: int) -> TextureRect:
+	var c := TextureRect.new()
+	c.texture = ICONS["crown"]
+	c.custom_minimum_size = Vector2(px, px)
+	c.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	c.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	c.modulate = BRASS
+	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	return c
+
+
+## Round icon button with a caption under it, for the home screen's bottom row.
+func _round_button(icon_name: String, cb: Callable) -> VBoxContainer:
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 6)
+	var b := Button.new()
+	b.icon = ICONS[icon_name]
+	b.icon_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	b.custom_minimum_size = Vector2(68, 68)
+	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	b.add_theme_constant_override("icon_max_width", 30)
+	for st in ["normal", "hover", "pressed", "focus"]:
+		var sb: StyleBoxFlat = (theme.get_stylebox(st, "Button") as StyleBoxFlat).duplicate()
+		sb.set_corner_radius_all(34)
+		b.add_theme_stylebox_override(st, sb)
+	b.pressed.connect(cb)
+	var cap := _label("", f_bold, 14, MUTED)
+	cap.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	box.add_child(b)
+	box.add_child(cap)
+	box.set_meta("caption", cap)
+	return box
+
+
+## Mode selection: a card per mode with a preview, a short description, its best and Play.
+func _build_modes() -> void:
+	var root := MarginContainer.new()
+	root.set_anchors_preset(Control.PRESET_FULL_RECT)
+	for side in ["left", "right", "top", "bottom"]:
+		root.add_theme_constant_override("margin_" + side, 16)
+	mode_panel = root
+	add_child(root)
+	move_child(root, center.get_index())
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	root.add_child(v)
+	var head := HBoxContainer.new()
+	var back := _icon_button("back", func(): Sfx.play("click"); _show_panel(menu_panel))
+	ui.mode_title = _label("", f_display, 34, BRASS)
+	ui.mode_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ui.mode_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	var balance := Control.new()
+	balance.custom_minimum_size = Vector2(52, 52)
+	head.add_child(back)
+	head.add_child(ui.mode_title)
+	head.add_child(balance)
+	v.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var cc := CenterContainer.new()
+	cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	cc.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	var flow := HFlowContainer.new()
+	flow.alignment = FlowContainer.ALIGNMENT_CENTER
+	flow.add_theme_constant_override("h_separation", 20)
+	flow.add_theme_constant_override("v_separation", 20)
+	ui.mode_cards = []
+	for id in ["classic", "bright"]:
+		var card := PanelContainer.new()
+		var accent := BRASS if id == "classic" else Color("#3d8bff")
+		card.add_theme_stylebox_override("panel", _box(PANEL, accent, 3, 20, Vector4(16, 16, 16, 18)))
+		var cv := VBoxContainer.new()
+		cv.add_theme_constant_override("separation", 10)
+		var pv := TextureRect.new()
+		pv.texture = load("res://assets/ui/preview_%s.png" % id)
+		pv.custom_minimum_size = Vector2(0, 150)
+		pv.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pv.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
+		pv.clip_contents = true
+		cv.add_child(pv)
+		ui["card_name_" + id] = _label("", f_display, 28, accent.lightened(0.2))
+		ui["card_desc_" + id] = _para("")
+		ui["card_desc_" + id].add_theme_font_size_override("font_size", 17)
+		ui["card_desc_" + id].add_theme_color_override("font_color", MUTED)
+		cv.add_child(ui["card_name_" + id])
+		cv.add_child(ui["card_desc_" + id])
+		var br := HBoxContainer.new()
+		br.add_theme_constant_override("separation", 6)
+		br.add_child(_crown(20))
+		ui["card_best_" + id] = _label("", f_num, 18, BRASS)
+		br.add_child(ui["card_best_" + id])
+		cv.add_child(br)
+		var mode_id: String = id
+		ui["card_play_" + id] = _button("", "play", true, func(): Sfx.play("click"); start_game(mode_id))
+		cv.add_child(ui["card_play_" + id])
+		card.add_child(cv)
+		flow.add_child(card)
+		ui.mode_cards.append(card)
+	cc.add_child(flow)
+	scroll.add_child(cc)
+	v.add_child(scroll)
+
+
+func _refresh_menu_bests() -> void:
+	ui.home_best.text = L.t("best") + ": " + str(Save.best_for(str(Save.mode)))
+	for id in ["classic", "bright"]:
+		ui["card_best_" + id].text = L.t("best") + ": " + str(Save.best_for(id))
 
 
 func _build_rules() -> void:
@@ -1238,7 +1411,7 @@ func _close_settings() -> void:
 
 
 func _current_panel() -> Control:
-	for p in [menu_panel, pause_panel, over_panel, leaders_panel, rules_panel]:
+	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel]:
 		if p.visible:
 			return p
 	return null
@@ -1260,13 +1433,17 @@ func _apply_texts() -> void:
 	ui.how.text = L.t("how_title")
 	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
 		ui[k].text = L.t(k)
-	ui.btn_play.text = L.t("mode_classic")
-	ui.btn_rules.text = L.t("how_title")
+	ui.btn_home_play.text = L.t("play")
+	ui.mode_title.text = L.t("choose_mode")
+	for id in ["classic", "bright"]:
+		ui["card_name_" + id].text = L.t("mode_" + id)
+		ui["card_desc_" + id].text = L.t("mode_%s_desc" % id)
+		ui["card_play_" + id].text = L.t("play")
+	for pair in [[ui.home_leaders, "leaders"], [ui.home_daily, "daily"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"]]:
+		(pair[0].get_meta("caption") as Label).text = L.t(pair[1])
+	_refresh_menu_bests()
 	ui.btn_close_rules.text = L.t("close")
-	ui.btn_bright.text = L.t("mode_bright")
 	ui.btn_shuffle.text = L.t("shuffle_ad")
-	ui.btn_leaders_menu.text = L.t("leaders")
-	ui.btn_daily.text = L.t("daily")
 	ui.pause_title.text = L.t("paused")
 	ui.btn_resume.text = L.t("resume")
 	ui.btn_menu_pause.text = L.t("menu")
@@ -1296,7 +1473,11 @@ func _pop(c: Control, k := 1.25) -> void:
 
 func _show_panel(p: Control) -> void:
 	var was_dim := dim.visible
-	for x in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
+	var on_menu := p == menu_panel or p == mode_panel
+	if on_menu:
+		_refresh_menu_bests()
+	margin.visible = not on_menu  # the game layer stays out of sight behind the menus
+	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
@@ -1312,7 +1493,7 @@ func _show_panel(p: Control) -> void:
 		var tw := create_tween().set_parallel()
 		tw.tween_property(p, "modulate:a", 1.0, 0.18)
 		tw.tween_property(p, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		var first := _first_button(p)
+		var first: Button = ui["card_play_" + str(Save.mode)] if p == mode_panel else _first_button(p)
 		if first:
 			first.grab_focus.call_deferred()
 
@@ -1459,10 +1640,12 @@ func _on_viewport_resized() -> void:
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
-	for p in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
+	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
-	ui.menu_title.add_theme_font_size_override("font_size", 34 if compact else 44)
+	ui.menu_title.add_theme_font_size_override("font_size", 46 if s.x < 600 else 64)
+	for card in ui.mode_cards:
+		card.custom_minimum_size.x = clampf(s.x - 48, 260, 380)
 	ui.over_score.add_theme_font_size_override("font_size", 52 if compact else 72)
 	board.frame_pad = 5.0 if compact else 10.0
 	_relayout_board.call_deferred()

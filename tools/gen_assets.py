@@ -126,6 +126,8 @@ ICONS = {  # 64x64 white glyphs
     "calendar": '<rect x="8" y="12" width="48" height="44" rx="6" fill="none" stroke="#fff" stroke-width="5"/><rect x="8" y="12" width="48" height="12" rx="4"/><rect x="18" y="5" width="6" height="14" rx="2"/><rect x="40" y="5" width="6" height="14" rx="2"/><rect x="18" y="31" width="9" height="8" rx="1.5"/><rect x="31" y="31" width="9" height="8" rx="1.5"/><rect x="18" y="42" width="9" height="8" rx="1.5"/>',
     "rotate": '<rect x="20" y="6" width="24" height="42" rx="5" fill="none" stroke="#fff" stroke-width="4"/><rect x="28" y="40" width="8" height="3" rx="1.5"/><path d="M10 40c0 8 6 14 14 16" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><path d="M20 50l6 7-9 2z"/>',
     "crown": '<path d="M8 46L12 18l13 13 7-17 7 17 13-13 4 28z"/><rect x="8" y="49" width="48" height="7" rx="2"/>',
+    "back": '<path d="M40 10L18 32l22 22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
+    "info": '<circle cx="32" cy="32" r="25" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="19" r="4"/><rect x="28.5" y="27" width="7" height="22" rx="3"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 
@@ -179,6 +181,38 @@ def make_tiles():
             '<rect x="6" y="6" width="84" height="84" rx="18" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>'
             '<rect x="10" y="10" width="76" height="14" rx="7" fill="#000" fill-opacity="0.18"/></svg>')
     svg_to_png(slot, A("ui", "slot_tile.png"), 96)
+
+
+def make_previews():
+    """Small board previews for the mode cards, built from the game's own gem art."""
+    w, h, c = 360, 220, 40
+    rnd = random.Random(11)
+    # classic: faceted gems on velvet
+    velvet = Image.open(A("ui", "velvet.png")).convert("RGBA")
+    pv = Image.new("RGBA", (w, h))
+    for yy in range(0, h, 256):
+        for xx in range(0, w, 256):
+            pv.paste(velvet, (xx, yy))
+    pv.alpha_composite(Image.open(A("ui", "vignette.png")).resize((w, h)))
+    for gy in range(5):
+        for gx in range(9):
+            if rnd.random() < 0.78:
+                g = Image.open(A("gems", f"gem_{rnd.randrange(10)}.png")).convert("RGBA").resize((c - 2, c - 2), Image.LANCZOS)
+                pv.alpha_composite(g, (3 + gx * c, 12 + gy * c))
+    pv.save(A("ui", "preview_classic.png"))
+    # bright: glossy tiles on a blue gradient
+    y = np.linspace(0, 1, h)[:, None]
+    top, bot = np.array([61, 99, 224]), np.array([27, 44, 140])
+    grad = (top * (1 - y) + bot * y)[:, None, :].repeat(w, 1).reshape(h, w, 3)
+    pb = Image.fromarray(np.dstack([grad, np.full((h, w), 255)]).astype(np.uint8), "RGBA")
+    slot = Image.open(A("ui", "slot_tile.png")).convert("RGBA").resize((c, c), Image.LANCZOS)
+    for gy in range(5):
+        for gx in range(9):
+            pb.alpha_composite(slot, (0 + gx * c, 10 + gy * c))
+            if rnd.random() < 0.7:
+                t = Image.open(A("tiles", f"tile_{rnd.randrange(6)}.png")).convert("RGBA").resize((c - 2, c - 2), Image.LANCZOS)
+                pb.alpha_composite(t, (1 + gx * c, 11 + gy * c))
+    pb.save(A("ui", "preview_bright.png"))
 
 
 def make_icons():
@@ -506,6 +540,7 @@ def main():
     make_icons()
     make_textures()
     make_tiles()
+    make_previews()
     make_sounds()
     make_branding()
     print("assets written")
