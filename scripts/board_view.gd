@@ -484,6 +484,10 @@ func _draw_fx() -> void:
 		var sz: float = cell * sp.s * (0.6 + a * 0.6)
 		var sc: Color = sp.get("c", Color(1, 0.95, 0.8))
 		c.draw_texture_rect(SPARKLE_TEX, Rect2(sp.p - Vector2.ONE * sz / 2, Vector2.ONE * sz), false, Color(sc, a))
+	for f in _flyers:  # classic: knocked-out gems fly off whole, spinning
+		c.draw_set_transform(f.p + off, f.r)
+		c.draw_texture_rect(_gem_tex[f.k], Rect2(-Vector2.ONE * gem / 2, Vector2.ONE * gem), false)
+	c.draw_set_transform(off)
 	for pp in _pops:
 		var q: float = pp.t / 0.22
 		c.draw_circle(pp.p, cell * (0.3 + q * 0.35), Color(1, 1, 1, (1.0 - q) * 0.75))
