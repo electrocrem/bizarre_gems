@@ -133,6 +133,67 @@ func find_move() -> Vector2i:
 	return Vector2i(-1, -1)
 
 
+## How many empty slots are a valid move right now.
+func count_moves() -> int:
+	var n := 0
+	for y in rows:
+		for x in cols:
+			var p := Vector2i(x, y)
+			if is_empty(p) and not matches_from(p).is_empty():
+				n += 1
+	return n
+
+
+## Gems in the square of side 2r+1 around p (the bomb booster).
+func area(p: Vector2i, r := 1) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for dy in range(-r, r + 1):
+		for dx in range(-r, r + 1):
+			var q := p + Vector2i(dx, dy)
+			if in_bounds(q) and not is_empty(q):
+				out.append(q)
+	return out
+
+
+## Bright mode level: the board grows and gains kinds as levels go up.
+static func bright_level(level: int) -> Dictionary:
+	var lv := maxi(level, 1)
+	var slots := mini(36 + (lv - 1) * 12, 120)
+	var kinds := 4 if lv <= 2 else (5 if lv <= 4 else 6)
+	# early boards are airier (more empty slots = more possible moves), later ones fill up
+	var density := minf(0.6 + 0.03 * (lv - 1), 0.78)
+	var per_kind := maxi(2, int(round(slots * density)) / kinds)
+	# early levels promise many opening moves; from level 8 the deal leans stingy
+	var min_moves := maxi(2, 10 - (lv - 1) * 2)
+	var max_moves := 8 if lv >= 8 else 999
+	return {"slots": slots, "kinds": kinds, "per_kind": per_kind, "min_moves": min_moves, "max_moves": max_moves,
+		"tries": 120 if lv >= 8 else 60}
+
+
+## Deal repeatedly and keep the first layout whose number of opening moves falls in
+## [min_moves, max_moves]; if none does in `tries`, keep the closest one. Returns its moves.
+func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, per_kind: int,
+		min_moves: int, max_moves := 999, tries := 40) -> int:
+	var best_cells := PackedInt32Array()
+	var best_shine := PackedByteArray()
+	var best_gap := 1 << 30
+	var best_moves := 0
+	for t in tries:
+		setup(c, r, rng, shining, kinds, per_kind)
+		var m := count_moves()
+		if m >= min_moves and m <= max_moves:
+			return m
+		var gap := (min_moves - m) if m < min_moves else (m - max_moves)
+		if gap < best_gap:
+			best_gap = gap
+			best_cells = cells.duplicate()
+			best_shine = shine.duplicate()
+			best_moves = m
+	cells = best_cells
+	shine = best_shine
+	return best_moves
+
+
 func gems_left() -> int:
 	var n := 0
 	for k in cells:

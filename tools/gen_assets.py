@@ -128,6 +128,8 @@ ICONS = {  # 64x64 white glyphs
     "crown": '<path d="M8 46L12 18l13 13 7-17 7 17 13-13 4 28z"/><rect x="8" y="49" width="48" height="7" rx="2"/>',
     "back": '<path d="M40 10L18 32l22 22" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>',
     "info": '<circle cx="32" cy="32" r="25" fill="none" stroke="#fff" stroke-width="5"/><circle cx="32" cy="19" r="4"/><rect x="28.5" y="27" width="7" height="22" rx="3"/>',
+    "bomb": '<circle cx="28" cy="38" r="20"/><rect x="34" y="12" width="10" height="12" rx="2" transform="rotate(35 39 18)"/><path d="M44 12c4-6 10-6 12-2" fill="none" stroke="#fff" stroke-width="4" stroke-linecap="round"/><circle cx="21" cy="31" r="5" fill="#000" fill-opacity="0.25"/>',
+    "clock": '<circle cx="32" cy="34" r="24" fill="none" stroke="#fff" stroke-width="6"/><path d="M32 20v15l10 7" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/><rect x="24" y="2" width="16" height="7" rx="3"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 

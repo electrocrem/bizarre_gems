@@ -46,6 +46,8 @@ const ICONS := {
 	"calendar": preload("res://assets/ui/icon_calendar.png"),
 	"rotate": preload("res://assets/ui/icon_rotate.png"),
 	"crown": preload("res://assets/ui/icon_crown.png"),
+	"bomb": preload("res://assets/ui/icon_bomb.png"),
+	"clock": preload("res://assets/ui/icon_clock.png"),
 	"back": preload("res://assets/ui/icon_back.png"),
 	"info": preload("res://assets/ui/icon_info.png"),
 }
@@ -58,6 +60,11 @@ var wave := 1
 var theme_i := 0
 var hue_total := 0.0
 var dealing := false
+## bright mode boosters held this game, and whether the bomb is waiting for a target
+var boosters := {"bomb": 1, "shuffle": 1, "time": 1}
+var aiming := false
+var booster_bar: HBoxContainer
+var level_label: Label
 var ambient: Ambient
 var shown_score := 0.0
 var play_time := 0.0
@@ -180,6 +187,8 @@ func start_game(mode_id := "", is_daily := false) -> void:
 		Save.mode = mode.id
 		Save.store()
 	wave = 1
+	boosters = {"bomb": 1, "shuffle": 1, "time": 1}
+	aiming = false
 	_set_orientation(mode.id == "classic")
 	_deal_board()
 	_set_theme(0, true)
@@ -192,6 +201,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	time_left = START_TIME
 	used_continue = false
 	used_shuffle = false
+	_refresh_boosters()
 	board.clear_fx()
 	board.refresh()
 	board.deal_in()
@@ -218,6 +228,18 @@ func _use_mode(id: String) -> void:
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
 ## date seed (plus the wave number), so everyone on the same kind of device gets the same one.
 func _deal_board() -> void:
+	if mode.id == "bright":
+		# bright: the board for this level, dealt until it opens with the level's number of moves
+		var lv := BoardLogic.bright_level(wave)
+		var r := rng
+		var area := _board_area()
+		if daily:
+			r = RandomNumberGenerator.new()
+			r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
+			area = Vector2(360, 640)
+		var d := BoardLogic.best_dims(area, lv.slots)
+		logic.setup_tuned(d.x, d.y, r, mode.shining, lv.kinds, lv.per_kind, lv.min_moves, lv.max_moves, lv.tries)
+		return
 	if daily:
 		var r := RandomNumberGenerator.new()
 		r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
@@ -241,7 +263,11 @@ func _next_wave(at: Vector2i) -> void:
 	wave += 1
 	dealing = true
 	board.interactive = false
-	_banner(L.t("clear_board" if full_clear else "new_board"), bonus_p, bonus_t, BRASS_LIGHT)
+	var title := L.t("clear_board" if full_clear else "new_board")
+	if mode.id == "bright":
+		title = L.t("level_up", {"n": wave})
+		_give_booster()
+	_banner(title, bonus_p, bonus_t, BRASS_LIGHT)
 	_flash_delta("+%d" % int(bonus_t), false)
 	Sfx.play("precise")
 	board.play_burst(at, 50)
@@ -340,6 +366,9 @@ func end_game(reason: String) -> void:
 
 
 func _on_slot(p: Vector2i) -> void:
+	if state == State.PLAYING and not dealing and aiming:
+		_detonate(p)
+		return
 	if state != State.PLAYING or dealing or not logic.is_empty(p):
 		return
 	board.ripple(p)
@@ -408,6 +437,7 @@ func _on_slot(p: Vector2i) -> void:
 		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
 		if mode.id == "bright":
 			board.play_confetti(90)
+			_give_booster()
 		_set_theme(theme_i + 1)
 	_update_combo_widget(res.tier_up)
 	if autoplay and (event != "" or res.tier_up):
@@ -479,6 +509,84 @@ func _auto_move() -> void:
 					best = q
 	if best.x >= 0:
 		_on_slot(best)
+
+
+# ================= boosters (bright mode) =================
+
+func _use_booster(kind: String) -> void:
+	if state != State.PLAYING or dealing or int(boosters.get(kind, 0)) <= 0:
+		Sfx.play("miss", 1.2, -6.0)
+		return
+	Sfx.play("click")
+	match kind:
+		"bomb":
+			aiming = not aiming
+			board.glow(1.0)
+			if aiming:
+				_toast(L.t("bomb_aim"))
+		"time":
+			boosters.time -= 1
+			time_left += 10.0
+			_flash_delta("+10", false)
+			Sfx.play("bonus")
+			ambient.pulse(BRASS_LIGHT, 0.6)
+		"shuffle":
+			boosters.shuffle -= 1
+			aiming = false
+			logic.shuffle_remaining(rng)
+			board.clear_fx()
+			board.deal_in()
+			Sfx.play("start")
+	_refresh_boosters()
+
+
+## Bomb: knock out every gem in the 3x3 square around p.
+func _detonate(p: Vector2i) -> void:
+	aiming = false
+	var gone := logic.area(p, 1)
+	if gone.is_empty():
+		_refresh_boosters()
+		return
+	boosters.bomb -= 1
+	var kinds: Array[int] = []
+	for g in gone:
+		kinds.append(logic.kind_at(g))
+	var nshine := logic.shining_count(gone)
+	logic.remove(gone)
+	var pts := gone.size() + nshine * ScoreKeeper.SHINE_POINTS
+	keeper.score += pts
+	score = keeper.score
+	cleared += gone.size()
+	time_left += nshine * ScoreKeeper.SHINE_TIME
+	board.play_knock(p, gone, kinds, pts, 2, true)
+	board.play_burst(p, 30)
+	board.play_wave(p, 1.5)
+	board.shake(0.25)
+	Sfx.play("perfect", 1.15, -3.0)
+	Haptics.buzz("precise")
+	_pop(score_label, 1.3)
+	_refresh_boosters()
+	_update_hud()
+	if not logic.has_any_move():
+		_next_wave(p)
+
+
+## One random booster as a reward.
+func _give_booster() -> void:
+	var kind: String = ["bomb", "shuffle", "time"][randi() % 3]
+	boosters[kind] = int(boosters[kind]) + 1
+	_toast(L.t("booster_got", {"name": L.t("b_" + kind)}))
+	_refresh_boosters()
+
+
+func _refresh_boosters() -> void:
+	for k in ["bomb", "shuffle", "time"]:
+		var b: Button = ui["booster_" + k]
+		var n := int(boosters[k])
+		b.text = "×%d" % n
+		b.disabled = n <= 0
+		b.theme_type_variation = "PrimaryButton" if (k == "bomb" and aiming) else ""
+		b.tooltip_text = L.t("b_" + k)
 
 
 func _on_continue() -> void:
@@ -805,6 +913,8 @@ func _build() -> void:
 	best_label = _label("0", f_num, 20, BRASS)
 	brow.add_child(crown)
 	brow.add_child(best_label)
+	level_label = _label("", f_bold, 16, MUTED)
+	brow.add_child(level_label)
 	mid.add_child(brow)
 	hud.add_child(mid)
 	hud_balance = Control.new()
@@ -857,7 +967,19 @@ func _build() -> void:
 	combo_box.modulate.a = 0.0
 	crow.add_child(combo_box)
 	col.add_child(crow)
-	hud_sets["bright"] = {"roots": [hud, trow, crow], "score": score_label, "best": best_label, "time": time_label,
+	booster_bar = HBoxContainer.new()
+	booster_bar.alignment = BoxContainer.ALIGNMENT_CENTER
+	booster_bar.add_theme_constant_override("separation", 14)
+	for kind in [["bomb", "bomb"], ["shuffle", "shuffle"], ["time", "clock"]]:
+		var k: String = kind[0]
+		var b := _button("", kind[1], false, func(): _use_booster(k))
+		b.custom_minimum_size = Vector2(96, 56)
+		b.add_theme_constant_override("icon_max_width", 28)
+		b.add_theme_font_override("font", f_num)
+		b.add_theme_font_size_override("font_size", 22)
+		ui["booster_" + k] = b
+		booster_bar.add_child(b)
+	hud_sets["bright"] = {"roots": [hud, trow, crow, booster_bar], "score": score_label, "best": best_label, "time": time_label,
 		"bar": time_bar, "delta": time_delta, "combo_box": combo_box, "combo_style": combo_style, "combo_mult": combo_mult,
 		"combo_count": combo_count, "combo_bar": combo_bar, "pause": btn_pause, "restart": btn_restart, "settings": btn_settings}
 	_build_classic_hud(col)
@@ -868,6 +990,7 @@ func _build() -> void:
 	board.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	board.number_font = f_num
 	col.add_child(board)
+	col.add_child(booster_bar)
 
 	# ---- combo banner (above the board, below panels) ----
 	var bc := CenterContainer.new()
@@ -1533,6 +1656,8 @@ func _update_hud() -> void:
 	time_bar.add_theme_stylebox_override("fill", bar_fill_low if low else bar_fill)
 	time_bar.value = clampf(time_left / START_TIME, 0.0, 1.0) * 100.0
 	best_label.text = str(maxi(Save.best_for(mode.id), score))
+	if level_label:
+		level_label.text = "· " + L.t("level_short", {"n": wave})
 	btn_pause.disabled = state != State.PLAYING
 	btn_restart.disabled = state != State.PLAYING and state != State.PAUSED
 
@@ -1606,10 +1731,15 @@ func _banner(title: String, pts: int, secs: float, color: Color) -> void:
 func _dims() -> Vector2i:
 	if mode.id == "classic" and (not _is_touch_device() or OS.has_feature("android")):
 		return Vector2i(mode.cols, mode.rows)  # the original wide board (desktop, Android turned sideways)
+	var slots: int = BoardLogic.bright_level(wave).slots if mode.id == "bright" else mode.slots
+	return BoardLogic.best_dims(_board_area(), slots)
+
+
+func _board_area() -> Vector2:
 	var a := board.size - Vector2.ONE * board.frame_pad * 2.0
 	if a.x < 50.0 or a.y < 50.0:
 		a = get_viewport_rect().size - Vector2(32, 200)
-	return BoardLogic.best_dims(a, mode.slots)
+	return a
 
 
 ## Fit the board to its area. Before a game starts the board is re-dealt in the best shape;

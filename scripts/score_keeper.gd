@@ -18,6 +18,9 @@ const PERFECT_POINTS := 20
 const PERFECT_TIME := 5.0
 const SHINE_POINTS := 5
 const SHINE_TIME := 2.0
+const TIER_TIME := 2.0       ## seconds for reaching a new combo multiplier
+const STREAK_EVERY := 10     ## every this many hits in a row...
+const STREAK_TIME := 3.0     ## ...give this many seconds
 ## combo length -> multiplier (first entry whose length is reached, checked from the top)
 const TIERS := [[9, 4], [5, 3], [2, 2], [0, 1]]
 
@@ -100,5 +103,9 @@ func hit(n: int, now: float, shining := 0) -> Dictionary:
 		precise_streak = 0
 	points += shining * SHINE_POINTS
 	time += shining * SHINE_TIME
+	if mult > old_mult and mult > 1:
+		time += TIER_TIME
+	if combo % STREAK_EVERY == 0:
+		time += STREAK_TIME
 	score += points
 	return {"points": points, "time": time, "combo": combo, "mult": mult, "tier_up": mult > old_mult, "event": event, "shine": shining}
