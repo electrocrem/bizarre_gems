@@ -99,6 +99,8 @@ var banner_title: Label
 var banner_sub: Label
 var btn_pause: Button
 var btn_settings: Button
+var btn_restart: Button
+var hud_balance: Control  ## empty slot on the right so the score stays centred
 var settings_return: Control
 var compact := false
 var ui_scale_info := ""
@@ -740,6 +742,9 @@ func _build() -> void:
 	btn_pause = _icon_button("pause", func(): Sfx.play("click"); pause_game())
 	btn_pause.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hud.add_child(btn_pause)
+	btn_restart = _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily))
+	btn_restart.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hud.add_child(btn_restart)
 	var mid := VBoxContainer.new()
 	mid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	mid.add_theme_constant_override("separation", 0)
@@ -762,6 +767,10 @@ func _build() -> void:
 	brow.add_child(best_label)
 	mid.add_child(brow)
 	hud.add_child(mid)
+	hud_balance = Control.new()
+	hud_balance.custom_minimum_size = Vector2(52, 52)
+	hud_balance.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	hud.add_child(hud_balance)
 	btn_settings = _icon_button("settings", _open_settings_from_hud)
 	btn_settings.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hud.add_child(btn_settings)
@@ -965,8 +974,7 @@ func _build_pause() -> void:
 	ui.btn_resume = _button("", "play", true, func(): Sfx.play("click"); _resume_play())
 	ui.btn_menu_pause = _button("", "home", false, func(): Sfx.play("click"); go_menu())
 	ui.btn_settings_pause = _icon_button("settings", func(): _open_settings(pause_panel))
-	ui.btn_restart_pause = _button("", "restart", false, func(): Sfx.play("click"); start_game(mode.id, daily))
-	v.add_child(_row([ui.btn_resume, ui.btn_restart_pause, ui.btn_menu_pause, ui.btn_settings_pause]))
+	v.add_child(_row([ui.btn_resume, ui.btn_menu_pause, ui.btn_settings_pause]))
 
 
 func _build_over() -> void:
@@ -1130,7 +1138,6 @@ func _apply_texts() -> void:
 	ui.pause_title.text = L.t("paused")
 	ui.btn_resume.text = L.t("resume")
 	ui.btn_menu_pause.text = L.t("menu")
-	ui.btn_restart_pause.text = L.t("restart")
 	ui.over_best.text = L.t("new_best")
 	ui.btn_continue.text = L.t("continue_ad")
 	ui.btn_again.text = L.t("again")
@@ -1161,6 +1168,7 @@ func _show_panel(p: Control) -> void:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
+	btn_restart.disabled = state != State.PLAYING and state != State.PAUSED
 	if p:
 		# fade and grow in; the dim layer only fades when it was hidden before
 		if not was_dim:
@@ -1196,6 +1204,7 @@ func _update_hud() -> void:
 	time_bar.value = clampf(time_left / START_TIME, 0.0, 1.0) * 100.0
 	best_label.text = str(maxi(Save.best_for(mode.id), score))
 	btn_pause.disabled = state != State.PLAYING
+	btn_restart.disabled = state != State.PLAYING and state != State.PAUSED
 
 
 func _flash_delta(text: String, negative: bool) -> void:
@@ -1300,6 +1309,7 @@ func _on_viewport_resized() -> void:
 			hud.move_child(btn_settings, hud.get_child_count() - 1)
 		combo_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	combo_row.visible = not wide
+	hud_balance.visible = not wide
 	var m := 6 if compact else 16
 	var inset := _safe_insets()
 	margin.add_theme_constant_override("margin_left", m + int(inset.position.x))
