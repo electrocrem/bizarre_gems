@@ -17,8 +17,8 @@ const SHINING := 8  ## gems with a bonus on them at the start of a game
 ## bigger tiles, a fresh board whenever moves run out. Each has its own leaderboard.
 const CLASSIC := {"id": "classic", "skin": "classic", "kind": "classic", "kinds": 10, "per_kind": 27, "cols": 23,
 	"rows": 15, "slots": 345, "shining": 8, "board": "score", "waves": false}
-const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
-	"slots": 108, "shining": 3, "board": "score_bright", "waves": true}
+const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "per_kind": 21, "cols": 10, "rows": 16,
+	"slots": 160, "shining": 6, "board": "score_bright", "waves": true}
 ## Level map: each level is one fixed, fully solvable board scored with 1-3 stars.
 const LEVELS := {"id": "levels", "skin": "bright", "kind": "levels", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
 	"slots": 108, "shining": 2, "board": "", "waves": false}
@@ -219,9 +219,11 @@ static func bright_level(level: int) -> Dictionary:
 	var per_kind := maxi(2, int(round(slots * density)) / kinds)
 	# early levels promise many opening moves; from level 8 the deal leans stingy
 	var min_moves := maxi(2, 10 - (lv - 1) * 2)
-	var max_moves := 8 if lv >= 8 else 999
+	# no upper cap: solvable boards almost never open with few moves, and chasing that made
+	# late deals take seconds; difficulty comes from size, kinds, density, boxes and jokers
+	var max_moves := 999
 	return {"slots": slots, "kinds": kinds, "per_kind": per_kind, "min_moves": min_moves, "max_moves": max_moves,
-		"tries": 120 if lv >= 8 else 60,
+		"tries": 15,
 		"jokers": 0.25 if lv >= 6 else 0.0, "boxes": clampi(lv - 6, 0, 6)}
 
 

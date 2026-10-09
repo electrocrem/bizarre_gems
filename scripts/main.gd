@@ -228,7 +228,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	score = 0
 	shown_score = 0.0
 	keeper.reset()
-	keeper.time_bonuses = mode.skin != "bright"
+	keeper.time_bonuses = mode.kind == "classic" or mode.kind == "run"
 	play_time = 0.0
 	_update_combo_widget()
 	cleared = 0
@@ -236,7 +236,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	if mode.kind == "levels":
 		level_n = pending_level
 		time_left = _level_time(level_n)
-	strikes_max = 30
+	strikes_max = 20
 	strikes = strikes_max
 	hints = 1
 	used_continue = false
@@ -280,6 +280,10 @@ func _deal_board() -> void:
 		# map levels and the daily board use a fixed seed and shape, so everyone gets the same one
 		var lvn := _level()
 		var lv := BoardLogic.bright_level(lvn)
+		if mode.kind == "run":
+			# the run plays like classic: one big board for the whole clock, a touch of jokers and boxes
+			lv = {"slots": 160, "kinds": 6, "per_kind": 21, "min_moves": 6, "max_moves": 999, "tries": 30,
+				"jokers": 0.15, "boxes": 2}
 		var r := rng
 		var area := _board_area()
 		if daily or mode.kind == "levels":
@@ -307,9 +311,11 @@ func _next_wave(at: Vector2i) -> void:
 	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
 	if mode.kind == "zen":
 		bonus_t = 0.0
-		var add := int(round(BoardLogic.bright_level(wave + 1).per_kind * BoardLogic.bright_level(wave + 1).kinds * 0.45))
+		var nl := BoardLogic.bright_level(wave + 1)
+		var add := int(round(nl.per_kind * nl.kinds * 0.33))
 		strikes += add
 		strikes_max = maxi(strikes_max, strikes)
+		_flash_delta("+%d" % add, false, "steps")
 		Progress.report("zen_boards")
 	if full_clear:
 		board.play_clear_wave()
@@ -325,8 +331,8 @@ func _next_wave(at: Vector2i) -> void:
 	board.interactive = false
 	var title := L.t("clear_board" if full_clear else "new_board")
 	if mode.skin == "bright":
-		title = L.t("level_up", {"n": wave})
-	var sub := L.t("faster", {"x": "%.2f" % _time_speed()}) if mode.kind == "run" else ""
+		title = L.t("level_up", {"n": wave}) if mode.kind == "zen" else title
+	var sub := ""
 	_banner(title, bonus_p, bonus_t, BRASS_LIGHT, sub)
 	if bonus_t > 0.0:
 		_flash_delta("+%d" % int(bonus_t), false)
@@ -369,9 +375,7 @@ func _set_orientation(landscape: bool) -> void:
 
 ## Bright mode: the clock runs faster on every level (+12% per level, at most x2.2).
 func _time_speed() -> float:
-	if mode.kind != "run":
-		return 1.0
-	return minf(1.0 + 0.12 * (wave - 1), 2.2)
+	return 1.0  # the clock runs at normal speed everywhere now
 
 
 ## Board level: the map level, or the current board number in runs.
@@ -492,9 +496,9 @@ func _on_slot(p: Vector2i) -> void:
 	if state != State.PLAYING or dealing or not logic.is_empty(p):
 		return
 	board.ripple(p)
-	if mode.kind == "zen":
-		strikes -= 1
 	var gone := logic.matches_from(p)
+	if mode.kind == "zen":
+		strikes -= 1 if not gone.is_empty() else 2  # a miss costs two steps
 	if gone.is_empty():
 		if mode.kind != "zen":
 			time_left = maxf(0.0, time_left - 1.0)
@@ -530,7 +534,8 @@ func _on_slot(p: Vector2i) -> void:
 	if res.tier_up and res.mult >= 3:
 		board.praise(L.t("praise_super" if res.mult == 3 else "praise_wow"), p, COMBO_COLORS[res.mult - 1].lightened(0.35), 1.2)
 	cleared += n
-	time_left += res.time
+	if mode.kind != "zen":
+		time_left += res.time
 	idle = 0.0
 	var event: String = res.event
 	var vkinds: Array[int] = []
@@ -548,7 +553,7 @@ func _on_slot(p: Vector2i) -> void:
 	Progress.report("gems", vanish.size())
 	if res.tier_up and res.mult == 4:
 		Progress.report("combo4")
-	if res.time > 0:
+	if res.time > 0 and mode.kind != "zen":
 		_flash_delta("+%d" % int(res.time), false)
 	if res.tier_up:
 		Sfx.play("combo_up", 1.0, -2.0)
@@ -598,6 +603,8 @@ func _on_slot(p: Vector2i) -> void:
 	if not logic.has_any_move():
 		if mode.kind == "levels":
 			_end_level()
+		elif mode.kind == "run" and logic.gems_left() > 0:
+			end_game("stuck")  # like classic: out of moves ends the run (a rewarded shuffle may save it)
 		elif mode.waves:
 			_next_wave(p)
 		else:
@@ -2023,7 +2030,7 @@ func _update_hud() -> void:
 	var secs := int(ceil(time_left))
 	time_label.text = str(secs)
 	if mode.kind == "zen":
-		time_label.text = str(strikes)
+		time_label.text = L.t("steps_n", {"n": maxi(strikes, 0)})
 	var low := state == State.PLAYING and secs <= 15
 	time_label.add_theme_color_override("font_color", DANGER if low else CREAM)
 	time_bar.add_theme_stylebox_override("fill", bar_fill_low if low else bar_fill)
@@ -2035,12 +2042,16 @@ func _update_hud() -> void:
 	best_label.text = str(maxi(Save.best_for(mode.id), score))
 	if level_label:
 		level_label.text = "· " + L.t("level_short", {"n": _level()})
+		level_label.visible = mode.kind == "levels" or mode.kind == "zen"
 	btn_pause.disabled = state != State.PLAYING
 	btn_restart.disabled = state != State.PLAYING and state != State.PAUSED
 
 
-func _flash_delta(text: String, negative: bool) -> void:
-	time_delta.text = text + (" с" if L.lang == "ru" else (" sn" if L.lang == "tr" else " s"))
+func _flash_delta(text: String, negative: bool, unit := "time") -> void:
+	if unit == "steps":
+		time_delta.text = text + " " + L.t("steps_unit")
+	else:
+		time_delta.text = text + (" с" if L.lang == "ru" else (" sn" if L.lang == "tr" else " s"))
 	time_delta.add_theme_color_override("font_color", DANGER if negative else BRASS)
 	time_delta.modulate.a = 1.0
 	var tw := create_tween()
@@ -2113,7 +2124,11 @@ func _banner(title: String, pts: int, secs: float, color: Color, sub := "") -> v
 func _dims() -> Vector2i:
 	if mode.id == "classic" and (not _is_touch_device() or OS.has_feature("android")):
 		return Vector2i(mode.cols, mode.rows)  # the original wide board (desktop, Android turned sideways)
-	var slots: int = BoardLogic.bright_level(_level()).slots if mode.skin == "bright" else mode.slots
+	var slots: int = mode.slots
+	if mode.kind == "run":
+		slots = 160
+	elif mode.skin == "bright":
+		slots = BoardLogic.bright_level(_level()).slots
 	return BoardLogic.best_dims(_board_area(), slots)
 
 

@@ -113,8 +113,8 @@ func _init() -> void:
 	var cnt := {}
 	for kk in small.cells:
 		cnt[kk] = cnt.get(kk, 0) + 1
-	check(phone.y > phone.x and phone.x * phone.y >= 99 and phone.x * phone.y <= 116,
-		"compact phone board %s has about 108 slots" % [phone])
+	check(phone.y > phone.x and absi(phone.x * phone.y - cm.slots) <= cm.slots * 0.08,
+		"bright phone board %s has about %d slots" % [phone, cm.slots])
 	check(cnt.size() == cm.kinds + 1 and cnt.get(0, 0) == cm.per_kind, "compact board: 6 kinds x 14 gems")
 
 	var sh := BoardLogic.new()
@@ -154,7 +154,7 @@ func _init() -> void:
 	check(mv1 >= l1.min_moves and tl.count_moves() == mv1, "level 1 opens with %d+ moves (%d on %s)" % [l1.min_moves, mv1, d1])
 	var d9 := BoardLogic.best_dims(Vector2(360, 640), l9.slots)
 	var mv9 := tl.setup_tuned(d9.x, d9.y, rng, 1, l9.kinds, l9.per_kind, l9.min_moves, l9.max_moves, l9.tries)
-	check(mv9 <= l9.max_moves + 3, "level 9 deals a stingy board (%d moves)" % mv9)
+	check(mv9 >= l9.min_moves, "level 9 deal opens with at least %d moves (%d)" % [l9.min_moves, mv9])
 	var bx := board_from(["123", "4.5", "678"])
 	check(bx.area(Vector2i(1, 1)).size() == 8 and bx.area(Vector2i(0, 0)).size() == 3, "bomb area is 3x3 and clipped at edges")
 
