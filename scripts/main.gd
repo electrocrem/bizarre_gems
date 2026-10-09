@@ -101,6 +101,10 @@ var btn_pause: Button
 var btn_settings: Button
 var btn_restart: Button
 var hud_balance: Control  ## empty slot on the right so the score stays centred
+var hud_classic: HBoxContainer
+var time_row: HBoxContainer
+## Each mode has its own HUD; the shared widget variables point at the active one.
+var hud_sets := {}
 var settings_return: Control
 var compact := false
 var ui_scale_info := ""
@@ -119,6 +123,7 @@ var pause_panel: PanelContainer
 var over_panel: PanelContainer
 var leaders_panel: PanelContainer
 var settings_panel: PanelContainer
+var rules_panel: PanelContainer
 var ui := {}  # widgets that carry translated text
 
 
@@ -194,7 +199,12 @@ func _use_mode(id: String) -> void:
 	mode = BoardLogic.BRIGHT if id == "bright" else BoardLogic.CLASSIC
 	board.skin = mode.id
 	ambient.set_skin(mode.id)
+	if hud_sets.has(mode.id):
+		_apply_hud(mode.id)
+		_update_combo_widget()
 	_update_hud()
+	if is_inside_tree() and margin:
+		_on_viewport_resized.call_deferred()
 
 
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
@@ -500,6 +510,8 @@ func _notification(what: int) -> void:
 func _on_back() -> void:
 	if settings_panel.visible:
 		_close_settings()
+	elif rules_panel.visible:
+		_show_panel(menu_panel)
 	elif leaders_panel.visible:
 		_show_panel(leaders_return)
 	elif state == State.PLAYING:
@@ -774,16 +786,8 @@ func _build() -> void:
 	btn_settings = _icon_button("settings", _open_settings_from_hud)
 	btn_settings.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hud.add_child(btn_settings)
-	# captions and title are kept for layout code but not shown in this HUD
-	title_label = _label("", f_display, 30, BRASS)
-	time_caption = _caption("")
-	score_caption = _caption("")
-	best_caption = _caption("")
-	for hidden in [title_label, time_caption, score_caption, best_caption]:
-		hidden.visible = false
-		hud.add_child(hidden)
-
 	var trow := HBoxContainer.new()
+	time_row = trow
 	trow.add_theme_constant_override("separation", 10)
 	time_bar = ProgressBar.new()
 	time_bar.show_percentage = false
@@ -825,6 +829,10 @@ func _build() -> void:
 	combo_box.modulate.a = 0.0
 	crow.add_child(combo_box)
 	col.add_child(crow)
+	hud_sets["bright"] = {"roots": [hud, trow, crow], "score": score_label, "best": best_label, "time": time_label,
+		"bar": time_bar, "delta": time_delta, "combo_box": combo_box, "combo_style": combo_style, "combo_mult": combo_mult,
+		"combo_count": combo_count, "combo_bar": combo_bar, "pause": btn_pause, "restart": btn_restart, "settings": btn_settings}
+	_build_classic_hud(col)
 
 	# ---- board ----
 	board = BoardView.new()
@@ -907,6 +915,109 @@ func _build() -> void:
 	rotate_overlay = ro
 
 
+## Classic HUD, as in the first version: title, time with its bar, score, best, a small
+## combo counter, then pause / restart / settings.
+func _build_classic_hud(col: VBoxContainer) -> void:
+	hud_classic = HBoxContainer.new()
+	hud_classic.add_theme_constant_override("separation", 18)
+	col.add_child(hud_classic)
+	col.move_child(hud_classic, 0)
+	title_label = _label("", f_display, 30, BRASS)
+	title_label.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	hud_classic.add_child(title_label)
+
+	var tbox := VBoxContainer.new()
+	tbox.add_theme_constant_override("separation", 3)
+	tbox.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	tbox.size_flags_stretch_ratio = 2.0
+	tbox.custom_minimum_size.x = 110
+	time_caption = _caption("")
+	var tr := HBoxContainer.new()
+	tr.add_theme_constant_override("separation", 10)
+	var c_time := _label("120", f_num, 28)
+	var c_delta := _label("", f_num, 18, BRASS)
+	c_delta.modulate.a = 0.0
+	tr.add_child(c_time)
+	tr.add_child(c_delta)
+	var c_bar := ProgressBar.new()
+	c_bar.show_percentage = false
+	c_bar.custom_minimum_size.y = 6
+	c_bar.max_value = 100
+	tbox.add_child(time_caption)
+	tbox.add_child(tr)
+	tbox.add_child(c_bar)
+	hud_classic.add_child(tbox)
+
+	var sbox := VBoxContainer.new()
+	sbox.add_theme_constant_override("separation", 3)
+	score_caption = _caption("")
+	var c_score := _label("0", f_num, 28)
+	sbox.add_child(score_caption)
+	sbox.add_child(c_score)
+	hud_classic.add_child(sbox)
+	var bbox := VBoxContainer.new()
+	bbox.add_theme_constant_override("separation", 3)
+	best_caption = _caption("")
+	var c_best := _label("0", f_num, 28)
+	bbox.add_child(best_caption)
+	bbox.add_child(c_best)
+	hud_classic.add_child(bbox)
+
+	var c_combo := PanelContainer.new()
+	var c_style := _box(Color(0, 0, 0, 0), Color(0, 0, 0, 0), 0, 0, Vector4.ZERO)
+	c_combo.add_theme_stylebox_override("panel", c_style)
+	c_combo.custom_minimum_size.x = 80
+	c_combo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var ccv := VBoxContainer.new()
+	ccv.add_theme_constant_override("separation", 2)
+	var c_count := _caption("")
+	var c_mult := _label("", f_display, 30, BRASS)
+	var c_cbar := ProgressBar.new()
+	c_cbar.show_percentage = false
+	c_cbar.custom_minimum_size.y = 4
+	ccv.add_child(c_count)
+	ccv.add_child(c_mult)
+	ccv.add_child(c_cbar)
+	c_combo.add_child(ccv)
+	c_combo.modulate.a = 0.0
+	hud_classic.add_child(c_combo)
+
+	var btns := HBoxContainer.new()
+	btns.add_theme_constant_override("separation", 8)
+	btns.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var c_pause := _icon_button("pause", func(): Sfx.play("click"); pause_game())
+	var c_restart := _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily))
+	var c_settings := _icon_button("settings", _open_settings_from_hud)
+	btns.add_child(c_pause)
+	btns.add_child(c_restart)
+	btns.add_child(c_settings)
+	hud_classic.add_child(btns)
+	hud_sets["classic"] = {"roots": [hud_classic], "score": c_score, "best": c_best, "time": c_time, "bar": c_bar,
+		"delta": c_delta, "combo_box": c_combo, "combo_style": c_style, "combo_mult": c_mult, "combo_count": c_count,
+		"combo_bar": c_cbar, "pause": c_pause, "restart": c_restart, "settings": c_settings}
+
+
+## Show the HUD that belongs to `id` and point the shared widget variables at it.
+func _apply_hud(id: String) -> void:
+	for k in hud_sets:
+		for n in hud_sets[k].roots:
+			n.visible = k == id
+	var set: Dictionary = hud_sets[id]
+	score_label = set.score
+	best_label = set.best
+	time_label = set.time
+	time_bar = set.bar
+	time_delta = set.delta
+	combo_box = set.combo_box
+	combo_style = set.combo_style
+	combo_mult = set.combo_mult
+	combo_count = set.combo_count
+	combo_bar = set.combo_bar
+	btn_pause = set.pause
+	btn_restart = set.restart
+	btn_settings = set.settings
+
+
 func _panel() -> Array:
 	var p := PanelContainer.new()
 	var v := VBoxContainer.new()
@@ -937,7 +1048,24 @@ func _build_menu() -> void:
 	v.add_child(ui.menu_title)
 	v.add_child(ui.menu_tag)
 	v.add_child(HSeparator.new())
-	# the rules scroll inside the panel so the title and buttons always fit the screen
+	# short on purpose so it fits any screen; the rules live in their own panel
+	ui.btn_play = _button("", "play", true, func(): start_game("classic"))
+	ui.btn_bright = _button("", "play", true, func(): Sfx.play("click"); start_game("bright"))
+	v.add_child(_row([ui.btn_play, ui.btn_bright]))
+	ui.btn_daily = _button("", "calendar", false, func(): Sfx.play("click"); start_game("", true))
+	ui.btn_leaders_menu = _button("", "trophy", false, func(): _open_leaders(menu_panel))
+	ui.btn_rules = _button("", "", false, func(): Sfx.play("click"); _show_panel(rules_panel))
+	ui.btn_settings_menu = _icon_button("settings", func(): _open_settings(menu_panel))
+	v.add_child(_row([ui.btn_daily, ui.btn_leaders_menu, ui.btn_rules, ui.btn_settings_menu]))
+	_build_rules()
+
+
+func _build_rules() -> void:
+	var pv := _panel()
+	rules_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.how = _label("", f_display, 36, BRASS)
+	v.add_child(ui.how)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	ui.menu_scroll = scroll
@@ -947,8 +1075,6 @@ func _build_menu() -> void:
 	scroll.add_child(rules)
 	ui.menu_rules = rules
 	v.add_child(scroll)
-	ui.how = _caption("")
-	rules.add_child(ui.how)
 	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright"]:
 		ui[k] = _para("")
 		rules.add_child(ui[k])
@@ -959,12 +1085,8 @@ func _build_menu() -> void:
 		ui[k].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		pay.add_child(ui[k])
 	rules.add_child(pay)
-	ui.btn_play = _button("", "play", true, func(): start_game("classic"))
-	ui.btn_bright = _button("", "play", false, func(): Sfx.play("click"); start_game("bright"))
-	ui.btn_leaders_menu = _button("", "trophy", false, func(): _open_leaders(menu_panel))
-	ui.btn_settings_menu = _icon_button("settings", func(): _open_settings(menu_panel))
-	ui.btn_daily = _button("", "calendar", false, func(): Sfx.play("click"); start_game("", true))
-	v.add_child(_row([ui.btn_play, ui.btn_bright, ui.btn_daily, ui.btn_leaders_menu, ui.btn_settings_menu]))
+	ui.btn_close_rules = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
+	v.add_child(_row([ui.btn_close_rules]))
 
 
 func _build_pause() -> void:
@@ -1116,7 +1238,7 @@ func _close_settings() -> void:
 
 
 func _current_panel() -> Control:
-	for p in [menu_panel, pause_panel, over_panel, leaders_panel]:
+	for p in [menu_panel, pause_panel, over_panel, leaders_panel, rules_panel]:
 		if p.visible:
 			return p
 	return null
@@ -1124,7 +1246,7 @@ func _current_panel() -> Control:
 
 func _center_panel_headings() -> void:
 	for l in [ui.menu_title, ui.menu_tag, ui.pause_title, ui.over_title, ui.over_score, ui.over_best, ui.over_line,
-			ui.leaders_title, ui.settings_title]:
+			ui.leaders_title, ui.settings_title, ui.how]:
 		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 
 
@@ -1139,6 +1261,8 @@ func _apply_texts() -> void:
 	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
 		ui[k].text = L.t(k)
 	ui.btn_play.text = L.t("mode_classic")
+	ui.btn_rules.text = L.t("how_title")
+	ui.btn_close_rules.text = L.t("close")
 	ui.btn_bright.text = L.t("mode_bright")
 	ui.btn_shuffle.text = L.t("shuffle_ad")
 	ui.btn_leaders_menu.text = L.t("leaders")
@@ -1172,7 +1296,7 @@ func _pop(c: Control, k := 1.25) -> void:
 
 func _show_panel(p: Control) -> void:
 	var was_dim := dim.visible
-	for x in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel]:
+	for x in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
@@ -1240,9 +1364,13 @@ func _update_combo_widget(pulse := false) -> void:
 		combo_box.modulate.a = 0.0
 		return
 	var m := ScoreKeeper.multiplier_for(c)
-	combo_mult.text = "%s ×%d" % [L.t("combo").to_upper(), m]
 	combo_count.text = L.t("combo_count", {"n": c})
-	combo_style.bg_color = COMBO_COLORS[clampi(m, 1, 4) - 1]
+	if mode.id == "classic":
+		combo_mult.text = "×%d" % m
+		combo_mult.add_theme_color_override("font_color", COMBO_COLORS[clampi(m, 1, 4) - 1].lightened(0.3))
+	else:
+		combo_mult.text = "%s ×%d" % [L.t("combo").to_upper(), m]
+		combo_style.bg_color = COMBO_COLORS[clampi(m, 1, 4) - 1]
 	combo_box.modulate.a = 1.0
 	if pulse:
 		combo_box.pivot_offset = combo_box.size / 2
@@ -1309,15 +1437,19 @@ func _on_viewport_resized() -> void:
 	compact = s.x < 640 or s.y < 600
 	# wide screens: the combo badge moves up into the HUD so the board gets that height
 	var wide := s.x > s.y
+	var b_combo: Control = hud_sets.bright.combo_box
+	var b_settings: Control = hud_sets.bright.settings
 	var target: Node = hud if wide else combo_row
-	if combo_box.get_parent() != target:
-		combo_box.reparent(target, false)
+	if b_combo.get_parent() != target:
+		b_combo.reparent(target, false)
 		if wide:
-			hud.move_child(combo_box, hud.get_child_count() - 1)
-			hud.move_child(btn_settings, hud.get_child_count() - 1)
-		combo_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	combo_row.visible = not wide
+			hud.move_child(b_combo, hud.get_child_count() - 1)
+			hud.move_child(b_settings, hud.get_child_count() - 1)
+		b_combo.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	combo_row.visible = not wide and mode.id == "bright"
 	hud_balance.visible = not wide
+	title_label.visible = s.x >= 980
+	hud_classic.add_theme_constant_override("separation", 10 if compact else 18)
 	var m := 6 if compact else 16
 	var inset := _safe_insets()
 	margin.add_theme_constant_override("margin_left", m + int(inset.position.x))
@@ -1327,7 +1459,7 @@ func _on_viewport_resized() -> void:
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
-	for p in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel]:
+	for p in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
 	ui.menu_title.add_theme_font_size_override("font_size", 34 if compact else 44)
@@ -1340,7 +1472,7 @@ func _on_viewport_resized() -> void:
 ## Shrink the scrolling middle of tall panels so the whole panel fits the screen.
 func _fit_panels() -> void:
 	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
-	for pair in [[menu_panel, ui.menu_scroll, ui.menu_rules], [leaders_panel, ui.leaders_scroll, ui.leaders_list]]:
+	for pair in [[rules_panel, ui.menu_scroll, ui.menu_rules], [leaders_panel, ui.leaders_scroll, ui.leaders_list]]:
 		var panel: Control = pair[0]
 		var scroll: ScrollContainer = pair[1]
 		var content: Control = pair[2]
