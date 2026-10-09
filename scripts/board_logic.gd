@@ -24,6 +24,9 @@ var cols := LONG
 var rows := SHORT
 var cells := PackedInt32Array()
 var shine := PackedByteArray()  ## 1 where the gem is a shining (bonus) gem
+## For boards built by setup_solvable: strike slots in placement order. Playing them in
+## reverse order knocks out every gem on the board.
+var solution: Array[Vector2i] = []
 
 
 func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds := KINDS, per_kind := PER_KIND) -> void:
@@ -170,16 +173,110 @@ static func bright_level(level: int) -> Dictionary:
 		"tries": 120 if lv >= 8 else 60}
 
 
+## Build a board that can be cleared completely by the cross rule alone. It is made
+## backwards from an empty grid: each step picks an empty strike slot and puts 2-4 gems of
+## one kind where that strike would hit first, making sure the strike would take exactly
+## those gems. Undoing the steps in reverse order is then a full solution.
+func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, gems: int) -> int:
+	cols = c
+	rows = r
+	cells = PackedInt32Array()
+	cells.resize(c * r)
+	cells.fill(EMPTY)
+	shine = PackedByteArray()
+	shine.resize(c * r)
+	solution.clear()
+	var used := PackedInt32Array()
+	used.resize(kinds)
+	var placed := 0
+	var fails := 0
+	while placed < gems and fails < 3000:
+		var p := Vector2i(rng.randi_range(0, c - 1), rng.randi_range(0, r - 1))
+		if not is_empty(p):
+			fails += 1
+			continue
+		var cands: Array = []  # per direction: empty slots in front of the first gem
+		var hits: Array[int] = []  # per direction: kind of the first gem, or -2 at the edge
+		for d in DIRS:
+			var q := p + d
+			var ray: Array[Vector2i] = []
+			while in_bounds(q) and is_empty(q):
+				ray.append(q)
+				q += d
+			cands.append(ray)
+			hits.append(kind_at(q) if in_bounds(q) else -2)
+		var open_dirs: Array[int] = []
+		for i in 4:
+			if not cands[i].is_empty():
+				open_dirs.append(i)
+		if open_dirs.size() < 2:
+			fails += 1
+			continue
+		var roll := rng.randf()
+		var want := 4 if roll < 0.06 else (3 if roll < 0.25 else 2)
+		want = mini(mini(want, open_dirs.size()), gems - placed)
+		if want < 2:
+			break
+		for i in range(open_dirs.size() - 1, 0, -1):
+			var j := rng.randi_range(0, i)
+			var t := open_dirs[i]
+			open_dirs[i] = open_dirs[j]
+			open_dirs[j] = t
+		var chosen := open_dirs.slice(0, want)
+		# the strike must take only the new gems: the other directions' first gems may not
+		# pair up with each other or with the new kind
+		var others: Array[int] = []
+		for i in 4:
+			if not (i in chosen) and hits[i] >= 0:
+				others.append(hits[i])
+		var dup := false
+		for i in others.size():
+			for j in range(i + 1, others.size()):
+				dup = dup or others[i] == others[j]
+		if dup:
+			fails += 1
+			continue
+		var kind := -1
+		for k in kinds:
+			if not (k in others) and (kind < 0 or used[k] < used[kind]):
+				kind = k
+		if kind < 0:
+			fails += 1
+			continue
+		for i in chosen:
+			var ray: Array = cands[i]
+			var pos: Vector2i = ray[rng.randi_range(0, ray.size() - 1)]
+			cells[pos.y * cols + pos.x] = kind
+		used[kind] += want
+		placed += want
+		solution.append(p)
+	var gem_slots: Array[int] = []
+	for i in cells.size():
+		if cells[i] != EMPTY:
+			gem_slots.append(i)
+	for n in mini(shining, gem_slots.size()):
+		var j := rng.randi_range(n, gem_slots.size() - 1)
+		var t := gem_slots[n]
+		gem_slots[n] = gem_slots[j]
+		gem_slots[j] = t
+		shine[gem_slots[n]] = 1
+	return placed
+
+
 ## Deal repeatedly and keep the first layout whose number of opening moves falls in
 ## [min_moves, max_moves]; if none does in `tries`, keep the closest one. Returns its moves.
 func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds: int, per_kind: int,
-		min_moves: int, max_moves := 999, tries := 40) -> int:
+		min_moves: int, max_moves := 999, tries := 40, solvable := false) -> int:
 	var best_cells := PackedInt32Array()
 	var best_shine := PackedByteArray()
+	var best_solution: Array[Vector2i] = []
 	var best_gap := 1 << 30
 	var best_moves := 0
 	for t in tries:
-		setup(c, r, rng, shining, kinds, per_kind)
+		if solvable:
+			setup_solvable(c, r, rng, shining, kinds, kinds * per_kind)
+		else:
+			setup(c, r, rng, shining, kinds, per_kind)
 		var m := count_moves()
 		if m >= min_moves and m <= max_moves:
 			return m
@@ -188,9 +285,11 @@ func setup_tuned(c: int, r: int, rng: RandomNumberGenerator, shining: int, kinds
 			best_gap = gap
 			best_cells = cells.duplicate()
 			best_shine = shine.duplicate()
+			best_solution = solution.duplicate()
 			best_moves = m
 	cells = best_cells
 	shine = best_shine
+	solution = best_solution
 	return best_moves
 
 

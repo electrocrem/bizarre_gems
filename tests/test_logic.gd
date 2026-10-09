@@ -158,6 +158,28 @@ func _init() -> void:
 	var bx := board_from(["123", "4.5", "678"])
 	check(bx.area(Vector2i(1, 1)).size() == 8 and bx.area(Vector2i(0, 0)).size() == 3, "bomb area is 3x3 and clipped at edges")
 
+	var all_clear := true
+	var sizes := []
+	for lvn in [1, 3, 5, 8]:
+		var lvd := BoardLogic.bright_level(lvn)
+		var dd := BoardLogic.best_dims(Vector2(360, 640), lvd.slots)
+		var sb := BoardLogic.new()
+		var placed := sb.setup_solvable(dd.x, dd.y, rng, 1, lvd.kinds, lvd.kinds * lvd.per_kind)
+		sizes.append("L%d %dx%d %d gems" % [lvn, dd.x, dd.y, placed])
+		var steps := sb.solution.duplicate()
+		steps.reverse()
+		for sp in steps:
+			var g := sb.matches_from(sp)
+			all_clear = all_clear and not g.is_empty()
+			sb.remove(g)
+		all_clear = all_clear and sb.gems_left() == 0
+	check(all_clear, "solvable boards clear completely by their own solution (%s)" % ", ".join(sizes))
+	var tuned := BoardLogic.new()
+	var l3 := BoardLogic.bright_level(3)
+	var d3 := BoardLogic.best_dims(Vector2(360, 640), l3.slots)
+	var m3 := tuned.setup_tuned(d3.x, d3.y, rng, 1, l3.kinds, l3.per_kind, l3.min_moves, l3.max_moves, l3.tries, true)
+	check(m3 >= 1 and not tuned.solution.is_empty(), "tuned solvable deal keeps its solution (%d opening moves)" % m3)
+
 	print("ScoreKeeper")
 	var k := ScoreKeeper.new()
 	var r := k.hit(2, 0.0)
