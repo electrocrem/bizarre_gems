@@ -867,6 +867,7 @@ func _build() -> void:
 	_build_over()
 	_build_leaders()
 	_build_settings()
+	_center_panel_headings()
 
 	toast = _label("", f_bold, 20, INK)
 	var tsb := _box(BRASS_LIGHT, BRASS_LIGHT, 0, 10, Vector4(18, 10, 18, 10))
@@ -917,6 +918,7 @@ func _panel() -> Array:
 
 func _row(children: Array) -> HFlowContainer:
 	var r := HFlowContainer.new()
+	r.alignment = FlowContainer.ALIGNMENT_CENTER
 	r.add_theme_constant_override("h_separation", 10)
 	r.add_theme_constant_override("v_separation", 10)
 	for c in children:
@@ -1120,6 +1122,12 @@ func _current_panel() -> Control:
 	return null
 
 
+func _center_panel_headings() -> void:
+	for l in [ui.menu_title, ui.menu_tag, ui.pause_title, ui.over_title, ui.over_score, ui.over_best, ui.over_line,
+			ui.leaders_title, ui.settings_title]:
+		l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+
+
 func _apply_texts() -> void:
 	title_label.text = L.t("title")
 	time_caption.text = L.t("time")
@@ -1318,7 +1326,7 @@ func _on_viewport_resized() -> void:
 	margin.add_theme_constant_override("margin_bottom", m + int(inset.size.y))
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
-	var w := clampf(s.x - (16 if compact else 40), 280, 620)
+	var w := clampf(s.x - (24 if compact else 40), 260, 620)
 	for p in [menu_panel, pause_panel, over_panel, leaders_panel, settings_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
