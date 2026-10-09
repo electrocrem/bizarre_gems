@@ -46,6 +46,17 @@ python3 tools/serve.py          # http://127.0.0.1:8060/  (?lang=en, ?lang=tr)
 
 Перегенерировать ассеты: `python3 tools/gen_assets.py` (нужны rsvg-convert, Pillow, numpy).
 
+## Тестовая версия в браузере (GitHub Pages)
+
+Играть: https://electrocrem.github.io/bizarre_gems/  (язык: `?lang=en`, `?lang=tr`; автоигра: `?autoplay`)
+
+```sh
+./tools/deploy_pages.sh         # debug-сборка в ветку gh-pages, Pages обновится за 1–2 минуты
+```
+
+Здесь нет SDK Яндекса: реклама за награду выдаётся сразу, межстраничной нет, таблица лидеров
+работает только в Яндекс Играх. В настройках внизу видна строка с размером экрана и масштабом.
+
 ## Тестовая сборка для Android
 
 ```sh
