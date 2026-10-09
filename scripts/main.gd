@@ -21,6 +21,7 @@ const PANEL := Color(0.08, 0.11, 0.3, 0.97)
 ## Palettes the screen cycles through on big combos and new boards: background top/bottom
 ## and how far the board's hue is rotated (gems change colour with it).
 const THEMES := [
+	{"top": Color("#3d63e0"), "bottom": Color("#1b2c8c")},  # original glossy tiles
 	{"top": Color("#4a6fd8"), "bottom": Color("#22337f")},  # candy
 	{"top": Color("#2f9bb3"), "bottom": Color("#164a6b")},  # ocean
 	{"top": Color("#9c4a8f"), "bottom": Color("#45204f")},  # berry
@@ -179,6 +180,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 		Save.mode = mode.id
 		Save.store()
 	wave = 1
+	_set_orientation(mode.id == "classic")
 	_deal_board()
 	_set_theme(0, true)
 	score = 0
@@ -220,8 +222,8 @@ func _deal_board() -> void:
 		var r := RandomNumberGenerator.new()
 		r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
 		logic.setup(mode.cols, mode.rows, r, mode.shining, mode.kinds, mode.per_kind)
-		if mode.id == "classic" and _is_touch_device():
-			logic.transpose()  # the same daily board, upright on phones
+		if mode.id == "classic" and _is_touch_device() and not OS.has_feature("android"):
+			logic.transpose()  # the same daily board, upright in mobile browsers
 	else:
 		var d := _dims()
 		logic.setup(d.x, d.y, rng, mode.shining, mode.kinds, mode.per_kind)
@@ -263,10 +265,19 @@ func _set_theme(i: int, instant := false) -> void:
 	theme_i = posmod(i, THEMES.size())
 	var t: Dictionary = THEMES[theme_i]
 	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
-	board.palette = theme_i
+	board.palette = theme_i - 1  # -1 is the original tile look
 	if not instant:
 		board.flash(Color.WHITE, 0.35)
 		board.glow(1.0)
+
+
+## Android: the app is upright, but the classic board is wide, so the screen turns
+## sideways while a classic game is on and back upright for the menus and bright mode.
+func _set_orientation(landscape: bool) -> void:
+	if not OS.has_feature("android"):
+		return
+	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE if landscape
+		else DisplayServer.SCREEN_SENSOR_PORTRAIT)
 
 
 func _today() -> String:
@@ -1477,6 +1488,8 @@ func _pop(c: Control, k := 1.25) -> void:
 
 func _show_panel(p: Control) -> void:
 	var was_dim := dim.visible
+	if p == menu_panel or p == mode_panel:
+		_set_orientation(false)
 	var on_menu := p == menu_panel or p == mode_panel
 	if on_menu:
 		_refresh_menu_bests()
@@ -1591,8 +1604,8 @@ func _banner(title: String, pts: int, secs: float, color: Color) -> void:
 ## Board shape for the current screen: wide screens get 23x15, tall ones 15x23.
 ## Board shape for the free space under the HUD: tall phones get tall boards, wide screens wide ones.
 func _dims() -> Vector2i:
-	if mode.id == "classic" and not _is_touch_device():
-		return Vector2i(mode.cols, mode.rows)  # the original wide board on desktops
+	if mode.id == "classic" and (not _is_touch_device() or OS.has_feature("android")):
+		return Vector2i(mode.cols, mode.rows)  # the original wide board (desktop, Android turned sideways)
 	var a := board.size - Vector2.ONE * board.frame_pad * 2.0
 	if a.x < 50.0 or a.y < 50.0:
 		a = get_viewport_rect().size - Vector2(32, 200)

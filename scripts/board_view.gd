@@ -87,9 +87,10 @@ var skin := "classic":
 var _gem_tex: Array[Texture2D] = GEM_TEX
 ## Bright mode blocks: BLOCKS[palette][kind]; the palette changes on big combos.
 var BLOCKS: Array = []
-var palette := 0:
+## -1: the original glossy gem tiles; 0..4: one of the block palettes.
+var palette := -1:
 	set(v):
-		palette = posmod(v, maxi(BLOCKS.size(), 1))
+		palette = clampi(v, -1, BLOCKS.size() - 1)
 		_apply_skin()
 const PALETTE_COLORS := [
 	["#ef5f67", "#f59e45", "#f6c94e", "#5cc87a", "#4b9cf0", "#a477e0"],
@@ -137,14 +138,19 @@ func _ready() -> void:
 
 func _apply_skin() -> void:
 	var bright := skin == "bright"
-	_gem_tex = BLOCKS[palette] if bright and not BLOCKS.is_empty() else GEM_TEX
+	var blocks := bright and palette >= 0 and not BLOCKS.is_empty()
+	_gem_tex = GEM_TEX
+	if bright:
+		_gem_tex = BLOCKS[palette] if blocks else TILE_TEX
 	_slot_tex = SLOT_TILE_TEX if bright else SLOT_TEX
 	_colors = CLASSIC_COLORS
 	if bright:
-		var cols: Array[Color] = []
-		for hexc in PALETTE_COLORS[palette]:
-			cols.append(Color(hexc))
-		_colors = cols
+		_colors = GEM_GLOW
+		if blocks:
+			var cols: Array[Color] = []
+			for hexc in PALETTE_COLORS[palette]:
+				cols.append(Color(hexc))
+			_colors = cols
 	material = null  # palettes are real colour sets now, no hue rotation
 	if not bright:
 		hue = 0.0
