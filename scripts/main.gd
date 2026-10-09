@@ -64,6 +64,7 @@ var time_left := START_TIME
 var score := 0
 var cleared := 0
 var used_continue := false
+var used_shuffle := false
 var idle := 0.0
 var end_reason := ""
 var last_tick := -1
@@ -133,9 +134,10 @@ func _ready() -> void:
 	Save.changed.connect(_update_hud)
 	L.language_changed.connect(_apply_texts)
 
-	var d := _dims()
-	logic.setup(d.x, d.y, rng)
 	board.logic = logic
+	_use_mode(str(Save.mode))
+	var d := _dims()
+	logic.setup(d.x, d.y, rng, mode.shining, mode.kinds, mode.per_kind)
 	_apply_texts()
 	_on_viewport_resized()
 	_show_panel(menu_panel)
@@ -159,9 +161,12 @@ func _on_sdk_ready() -> void:
 
 # ================= game flow =================
 
-func start_game(is_daily := false) -> void:
+func start_game(mode_id := "", is_daily := false) -> void:
 	daily = is_daily
-	mode = BoardLogic.COMPACT if _is_touch_device() else BoardLogic.CLASSIC
+	_use_mode(mode_id if mode_id != "" else str(Save.mode))
+	if Save.mode != mode.id:
+		Save.mode = mode.id
+		Save.store()
 	wave = 1
 	_deal_board()
 	_set_theme(0, true)
@@ -173,12 +178,21 @@ func start_game(is_daily := false) -> void:
 	cleared = 0
 	time_left = START_TIME
 	used_continue = false
+	used_shuffle = false
 	board.clear_fx()
 	board.refresh()
 	board.deal_in()
 	ambient.pulse(BRASS, 0.6)
 	Sfx.play("start")
 	_resume_play()
+
+
+## Switch rules and look: "classic" is the original game, "bright" the toy-style mode.
+func _use_mode(id: String) -> void:
+	mode = BoardLogic.BRIGHT if id == "bright" else BoardLogic.CLASSIC
+	board.skin = mode.id
+	ambient.set_skin(mode.id)
+	_update_hud()
 
 
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
@@ -188,6 +202,8 @@ func _deal_board() -> void:
 		var r := RandomNumberGenerator.new()
 		r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
 		logic.setup(mode.cols, mode.rows, r, mode.shining, mode.kinds, mode.per_kind)
+		if mode.id == "classic" and _is_touch_device():
+			logic.transpose()  # the same daily board, upright on phones
 	else:
 		var d := _dims()
 		logic.setup(d.x, d.y, rng, mode.shining, mode.kinds, mode.per_kind)
@@ -223,6 +239,8 @@ func _next_wave(at: Vector2i) -> void:
 
 ## Switch to palette i: background gradient and board hue fade over.
 func _set_theme(i: int, instant := false) -> void:
+	if mode.id != "bright":
+		return  # the classic look keeps its colours
 	var step := i - theme_i
 	theme_i = posmod(i, THEMES.size())
 	var t: Dictionary = THEMES[theme_i]
@@ -289,6 +307,7 @@ func end_game(reason: String) -> void:
 	if daily:
 		ui.over_line.text = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(_today())}) + "\n" + ui.over_line.text
 	ui.btn_continue.visible = reason == "time" and not used_continue
+	ui.btn_shuffle.visible = reason == "stuck" and not used_shuffle and logic.gems_left() > 1
 	_show_panel(over_panel)
 	_update_hud()
 
@@ -366,7 +385,10 @@ func _on_slot(p: Vector2i) -> void:
 			_auto_t = -2.0  # hold still so the banner can be captured
 	_update_hud()
 	if not logic.has_any_move():
-		_next_wave(p)
+		if mode.waves:
+			_next_wave(p)
+		else:
+			end_game("stuck")
 
 
 func _process(delta: float) -> void:
@@ -432,12 +454,28 @@ func _on_continue() -> void:
 		_resume_play())
 
 
+func _on_shuffle() -> void:
+	Sfx.play("click")
+	Yandex.show_rewarded(func(ok: bool):
+		if not ok:
+			_toast(L.t("ad_failed"))
+			return
+		used_shuffle = true
+		logic.shuffle_remaining(rng)
+		board.clear_fx()
+		board.deal_in()
+		if logic.has_any_move():
+			_resume_play()
+		else:
+			end_game("stuck"))
+
+
 func _on_again() -> void:
 	Sfx.play("click")
 	ui.btn_again.disabled = true
 	Yandex.show_fullscreen(func(_shown: bool):
 		ui.btn_again.disabled = false
-		start_game(daily))
+		start_game(mode.id, daily))
 
 
 func _on_platform_pause() -> void:
@@ -900,7 +938,7 @@ func _build_menu() -> void:
 	v.add_child(scroll)
 	ui.how = _caption("")
 	rules.add_child(ui.how)
-	for k in ["rule1", "rule2", "rule3", "rule4", "rule5"]:
+	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright"]:
 		ui[k] = _para("")
 		rules.add_child(ui[k])
 	var pay := VBoxContainer.new()
@@ -910,11 +948,12 @@ func _build_menu() -> void:
 		ui[k].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		pay.add_child(ui[k])
 	rules.add_child(pay)
-	ui.btn_play = _button("", "play", true, func(): start_game())
+	ui.btn_play = _button("", "play", true, func(): start_game("classic"))
+	ui.btn_bright = _button("", "play", false, func(): Sfx.play("click"); start_game("bright"))
 	ui.btn_leaders_menu = _button("", "trophy", false, func(): _open_leaders(menu_panel))
 	ui.btn_settings_menu = _icon_button("settings", func(): _open_settings(menu_panel))
-	ui.btn_daily = _button("", "calendar", false, func(): Sfx.play("click"); start_game(true))
-	v.add_child(_row([ui.btn_play, ui.btn_daily, ui.btn_leaders_menu, ui.btn_settings_menu]))
+	ui.btn_daily = _button("", "calendar", false, func(): Sfx.play("click"); start_game("", true))
+	v.add_child(_row([ui.btn_play, ui.btn_bright, ui.btn_daily, ui.btn_leaders_menu, ui.btn_settings_menu]))
 
 
 func _build_pause() -> void:
@@ -926,7 +965,7 @@ func _build_pause() -> void:
 	ui.btn_resume = _button("", "play", true, func(): Sfx.play("click"); _resume_play())
 	ui.btn_menu_pause = _button("", "home", false, func(): Sfx.play("click"); go_menu())
 	ui.btn_settings_pause = _icon_button("settings", func(): _open_settings(pause_panel))
-	ui.btn_restart_pause = _button("", "restart", false, func(): Sfx.play("click"); start_game(daily))
+	ui.btn_restart_pause = _button("", "restart", false, func(): Sfx.play("click"); start_game(mode.id, daily))
 	v.add_child(_row([ui.btn_resume, ui.btn_restart_pause, ui.btn_menu_pause, ui.btn_settings_pause]))
 
 
@@ -945,6 +984,8 @@ func _build_over() -> void:
 	v.add_child(ui.over_line)
 	ui.btn_continue = _button("", "video", false, _on_continue)
 	v.add_child(ui.btn_continue)
+	ui.btn_shuffle = _button("", "shuffle", false, _on_shuffle)
+	v.add_child(ui.btn_shuffle)
 	ui.btn_again = _button("", "restart", true, _on_again)
 	ui.btn_leaders_over = _button("", "trophy", false, func(): _open_leaders(over_panel))
 	ui.btn_menu_over = _button("", "home", false, func(): Sfx.play("click"); go_menu())
@@ -1079,9 +1120,11 @@ func _apply_texts() -> void:
 	ui.menu_title.text = L.t("title")
 	ui.menu_tag.text = L.t("tagline")
 	ui.how.text = L.t("how_title")
-	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
+	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
 		ui[k].text = L.t(k)
-	ui.btn_play.text = L.t("play")
+	ui.btn_play.text = L.t("mode_classic")
+	ui.btn_bright.text = L.t("mode_bright")
+	ui.btn_shuffle.text = L.t("shuffle_ad")
 	ui.btn_leaders_menu.text = L.t("leaders")
 	ui.btn_daily.text = L.t("daily")
 	ui.pause_title.text = L.t("paused")
@@ -1218,7 +1261,7 @@ func _banner(title: String, pts: int, secs: float, color: Color) -> void:
 ## Board shape for the current screen: wide screens get 23x15, tall ones 15x23.
 ## Board shape for the free space under the HUD: tall phones get tall boards, wide screens wide ones.
 func _dims() -> Vector2i:
-	if mode.id == "classic":
+	if mode.id == "classic" and not _is_touch_device():
 		return Vector2i(mode.cols, mode.rows)  # the original wide board on desktops
 	var a := board.size - Vector2.ONE * board.frame_pad * 2.0
 	if a.x < 50.0 or a.y < 50.0:
@@ -1232,7 +1275,6 @@ func _relayout_board() -> void:
 	var d := _dims()
 	if Vector2i(logic.cols, logic.rows) != d:
 		if state == State.MENU:
-			mode = BoardLogic.COMPACT if _is_touch_device() else BoardLogic.CLASSIC
 			_deal_board()
 			board.clear_fx()
 		elif Vector2i(logic.rows, logic.cols) == d:
@@ -1259,8 +1301,11 @@ func _on_viewport_resized() -> void:
 		combo_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	combo_row.visible = not wide
 	var m := 6 if compact else 16
-	for side in ["left", "right", "top", "bottom"]:
-		margin.add_theme_constant_override("margin_" + side, m)
+	var inset := _safe_insets()
+	margin.add_theme_constant_override("margin_left", m + int(inset.position.x))
+	margin.add_theme_constant_override("margin_top", m + int(inset.position.y))
+	margin.add_theme_constant_override("margin_right", m + int(inset.size.x))
+	margin.add_theme_constant_override("margin_bottom", m + int(inset.size.y))
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (16 if compact else 40), 280, 620)
@@ -1303,6 +1348,25 @@ func _apply_ui_scale() -> void:
 	ui_scale_info = "%dx%d px, base %d, touch %s" % [int(px.x), int(px.y), base, _is_touch_device()]
 	if win.content_scale_size != Vector2i(base, base):
 		win.content_scale_size = Vector2i(base, base)
+
+
+## Screen areas covered by a camera cutout, rounded corners or the gesture bar, in logical
+## pixels: position = (left, top), size = (right, bottom). Only the Android app needs this;
+## browsers already keep the page inside the safe area.
+func _safe_insets() -> Rect2:
+	if not OS.has_feature("android"):
+		return Rect2()
+	var win := get_window()
+	var safe := DisplayServer.get_display_safe_area()
+	var screen := Rect2i(win.position, win.size)
+	if safe.size.x <= 0 or screen.size.y <= 0:
+		return Rect2()
+	var k := get_viewport_rect().size.y / float(screen.size.y)
+	var left := maxi(0, safe.position.x - screen.position.x)
+	var top := maxi(0, safe.position.y - screen.position.y)
+	var right := maxi(0, screen.end.x - safe.end.x)
+	var bottom := maxi(0, screen.end.y - safe.end.y)
+	return Rect2(left * k, top * k, right * k, bottom * k)
 
 
 func _is_touch_device() -> bool:

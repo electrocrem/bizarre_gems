@@ -172,13 +172,13 @@ def tile_svg(base, cut, size=128):
 
 def make_tiles():
     for i, (name, _base, cut) in enumerate(GEMS):
-        svg_to_png(tile_svg(TOY[i], cut), A("gems", f"gem_{i}.png"), 128)
+        svg_to_png(tile_svg(TOY[i], cut), A("tiles", f"tile_{i}.png"), 128)
     # empty slot: a soft rounded hollow
     slot = ('<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">'
             '<rect x="6" y="6" width="84" height="84" rx="18" fill="#000" fill-opacity="0.28"/>'
             '<rect x="6" y="6" width="84" height="84" rx="18" fill="none" stroke="#fff" stroke-opacity="0.08" stroke-width="3"/>'
             '<rect x="10" y="10" width="76" height="14" rx="7" fill="#000" fill-opacity="0.18"/></svg>')
-    svg_to_png(slot, A("ui", "slot.png"), 96)
+    svg_to_png(slot, A("ui", "slot_tile.png"), 96)
 
 
 def make_icons():
@@ -499,7 +499,7 @@ def make_branding():
 
 
 def main():
-    for d in ("gems", "ui", "fx", "audio"):
+    for d in ("gems", "tiles", "ui", "fx", "audio"):
         os.makedirs(A(d), exist_ok=True)
     for i, (name, base, cut) in enumerate(GEMS):
         svg_to_png(gem_svg(name, base, cut, 128), A("gems", f"gem_{i}.png"), 128)

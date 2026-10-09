@@ -11,10 +11,13 @@ const LONG := 23
 const SHORT := 15
 const EMPTY := -1
 const SHINING := 8  ## gems with a bonus on them at the start of a game
-## Board presets. Classic is the original wide board (desktop); compact has fewer, bigger
-## cells for phones and picks its shape from the screen. Each has its own leaderboard.
-const CLASSIC := {"id": "classic", "kinds": 10, "per_kind": 27, "cols": 23, "rows": 15, "slots": 345, "shining": 8, "board": "score"}
-const COMPACT := {"id": "compact", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15, "slots": 108, "shining": 3, "board": "score_mobile"}
+## Game modes. Classic is the original game: 270 gems, a wide 23x15 board on desktops (tall
+## on phones), and the round ends when no moves are left. Bright is the toy-style mode: fewer,
+## bigger tiles, a fresh board whenever moves run out. Each has its own leaderboard.
+const CLASSIC := {"id": "classic", "kinds": 10, "per_kind": 27, "cols": 23, "rows": 15, "slots": 345, "shining": 8,
+	"board": "score", "waves": false}
+const BRIGHT := {"id": "bright", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15, "slots": 108, "shining": 3,
+	"board": "score_bright", "waves": true}
 const DIRS: Array[Vector2i] = [Vector2i(1, 0), Vector2i(-1, 0), Vector2i(0, 1), Vector2i(0, -1)]
 
 var cols := LONG

@@ -7,7 +7,8 @@ signal changed
 const PATH := "user://save.cfg"
 
 var best := 0          ## classic (desktop) board
-var best_compact := 0  ## compact (phone) board
+var best_bright := 0  ## bright mode
+var mode := "classic"  ## last mode the player started
 var sound := true
 var music := true
 var vibration := true
@@ -21,7 +22,8 @@ func _ready() -> void:
 	var cfg := ConfigFile.new()
 	if cfg.load(PATH) == OK:
 		best = int(cfg.get_value("game", "best", 0))
-		best_compact = int(cfg.get_value("game", "best_compact", 0))
+		best_bright = int(cfg.get_value("game", "best_bright", cfg.get_value("game", "best_compact", 0)))
+		mode = str(cfg.get_value("game", "mode", "classic"))
 		sound = bool(cfg.get_value("audio", "sound", true))
 		music = bool(cfg.get_value("audio", "music", true))
 		vibration = bool(cfg.get_value("audio", "vibration", true))
@@ -40,8 +42,8 @@ func sync_cloud() -> void:
 		if int(d.get("best", 0)) > best:
 			best = int(d.get("best", 0))
 			newer = true
-		if int(d.get("best_compact", 0)) > best_compact:
-			best_compact = int(d.get("best_compact", 0))
+		if int(d.get("best_bright", 0)) > best_bright:
+			best_bright = int(d.get("best_bright", 0))
 			newer = true
 		if newer:
 			_write_local()
@@ -66,15 +68,15 @@ func daily_best_for(date: String) -> int:
 
 
 func best_for(mode: String) -> int:
-	return best_compact if mode == "compact" else best
+	return best_bright if mode == "bright" else best
 
 
 ## Returns true on a new record for this board mode.
 func submit(score: int, mode := "classic") -> bool:
 	if score <= best_for(mode):
 		return false
-	if mode == "compact":
-		best_compact = score
+	if mode == "bright":
+		best_bright = score
 	else:
 		best = score
 	store()
@@ -88,14 +90,15 @@ func store() -> void:
 
 
 func _data() -> Dictionary:
-	return {"best": best, "best_compact": best_compact, "sound": sound, "music": music, "vibration": vibration,
+	return {"best": best, "best_bright": best_bright, "mode": mode, "sound": sound, "music": music, "vibration": vibration,
 		"sound_volume": sound_volume, "music_volume": music_volume, "daily_date": daily_date, "daily_best": daily_best}
 
 
 func _write_local() -> void:
 	var cfg := ConfigFile.new()
 	cfg.set_value("game", "best", best)
-	cfg.set_value("game", "best_compact", best_compact)
+	cfg.set_value("game", "best_bright", best_bright)
+	cfg.set_value("game", "mode", mode)
 	cfg.set_value("audio", "sound", sound)
 	cfg.set_value("audio", "music", music)
 	cfg.set_value("audio", "vibration", vibration)

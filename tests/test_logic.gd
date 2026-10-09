@@ -106,7 +106,7 @@ func _init() -> void:
 	for kk in sq.cells:
 		if kk >= 0: gems += 1
 	check(gems == 270, "270 gems on a %dx%d board" % [tall.x, tall.y])
-	var cm := BoardLogic.COMPACT
+	var cm := BoardLogic.BRIGHT
 	var phone := BoardLogic.best_dims(Vector2(540, 1150), cm.slots)
 	var small := BoardLogic.new()
 	small.setup(phone.x, phone.y, rng, cm.shining, cm.kinds, cm.per_kind)

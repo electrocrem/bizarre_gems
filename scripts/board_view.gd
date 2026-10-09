@@ -11,7 +11,18 @@ const GEM_TEX: Array[Texture2D] = [
 	preload("res://assets/gems/gem_6.png"), preload("res://assets/gems/gem_7.png"),
 	preload("res://assets/gems/gem_8.png"), preload("res://assets/gems/gem_9.png"),
 ]
+const TILE_TEX: Array[Texture2D] = [
+	preload("res://assets/tiles/tile_0.png"), preload("res://assets/tiles/tile_1.png"),
+	preload("res://assets/tiles/tile_2.png"), preload("res://assets/tiles/tile_3.png"),
+	preload("res://assets/tiles/tile_4.png"), preload("res://assets/tiles/tile_5.png"),
+	preload("res://assets/tiles/tile_6.png"), preload("res://assets/tiles/tile_7.png"),
+	preload("res://assets/tiles/tile_8.png"), preload("res://assets/tiles/tile_9.png"),
+]
 const SLOT_TEX := preload("res://assets/ui/slot.png")
+const SLOT_TILE_TEX := preload("res://assets/ui/slot_tile.png")
+## colour of each gem kind in the classic skin (faceted gems), used for shards
+const CLASSIC_COLORS: Array[Color] = [Color("#e2334c"), Color("#2f6ff0"), Color("#17a866"), Color("#9a4fe6"), Color("#f28a22"),
+	Color("#f4c62e"), Color("#ece8f2"), Color("#f25fae"), Color("#3fd6dc"), Color("#a6dc3a")]
 const SPARKLE_TEX := preload("res://assets/fx/sparkle.png")
 const GLOW_TEX := preload("res://assets/fx/glow.png")
 ## tile colour per gem kind, matches the tile art (used for shards)
@@ -68,6 +79,14 @@ var _shards: Array[Dictionary] = []
 var _pops: Array[Dictionary] = []
 var _praise: Array[Dictionary] = []
 var _hue_mat := ShaderMaterial.new()
+## "classic": faceted gems in round hollows on velvet; "bright": glossy tiles, colour shifts.
+var skin := "classic":
+	set(v):
+		skin = v
+		_apply_skin()
+var _gem_tex: Array[Texture2D] = GEM_TEX
+var _slot_tex: Texture2D = SLOT_TEX
+var _colors: Array[Color] = CLASSIC_COLORS
 var hue := 0.0:
 	set(v):
 		hue = v
@@ -92,8 +111,29 @@ func _ready() -> void:
 	var sh := Shader.new()
 	sh.code = HUE_SHADER
 	_hue_mat.shader = sh
-	material = _hue_mat
 	_fx.use_parent_material = true
+	_apply_skin()
+
+
+func _apply_skin() -> void:
+	var bright := skin == "bright"
+	_gem_tex = TILE_TEX if bright else GEM_TEX
+	_slot_tex = SLOT_TILE_TEX if bright else SLOT_TEX
+	_colors = GEM_GLOW if bright else CLASSIC_COLORS
+	material = _hue_mat if bright else null
+	if not bright:
+		hue = 0.0
+	if bright:
+		_frame.bg_color = Color(0.04, 0.07, 0.2, 0.55)
+		_frame.border_color = Color(1, 1, 1, 0.14)
+		_frame.set_border_width_all(3)
+		_frame.set_corner_radius_all(20)
+	else:
+		_frame.bg_color = Color(0.05, 0.13, 0.14, 0.55)
+		_frame.border_color = Color(0.82, 0.67, 0.33, 0.55)
+		_frame.set_border_width_all(2)
+		_frame.set_corner_radius_all(14)
+	queue_redraw()
 
 
 func _relayout() -> void:
@@ -158,7 +198,7 @@ func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points
 		var h := slot_center(gone[i])
 		_beams.append({"a": c, "b": h, "t": 0.0, "rainbow": rainbow, "w": 1.0 + (mult - 1) * 0.5})
 		_pops.append({"p": h, "t": 0.0})
-		var base: Color = GEM_GLOW[kinds[i]]
+		var base: Color = _colors[kinds[i]]
 		for j in 7:
 			var a := randf() * TAU
 			_shards.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2.5, 6.0) + Vector2(0, -cell * 3.0),
@@ -303,11 +343,14 @@ func _draw() -> void:
 		draw_rect(Rect2(origin.x, origin.y + focus.y * cell, grid_size.x, cell), lane)
 		draw_rect(Rect2(origin.x + focus.x * cell, origin.y, cell, grid_size.y), lane)
 
-	var gem := cell * 0.96
+	var gem := cell * (0.96 if skin == "bright" else 0.97)
+	var slot := cell * (0.96 if skin == "bright" else 0.84)
 	for y in logic.rows:
 		for x in logic.cols:
+			if skin != "bright" and logic.cells[y * logic.cols + x] >= 0:
+				continue  # classic hollows only show where a gem is missing
 			var ctr := origin + (Vector2(x, y) + Vector2(0.5, 0.5)) * cell
-			draw_texture_rect(SLOT_TEX, Rect2(ctr - Vector2.ONE * cell * 0.48, Vector2.ONE * cell * 0.96), false)
+			draw_texture_rect(_slot_tex, Rect2(ctr - Vector2.ONE * slot / 2, Vector2.ONE * slot), false)
 	for y in logic.rows:
 		for x in logic.cols:
 			var i := y * logic.cols + x
@@ -318,7 +361,7 @@ func _draw() -> void:
 			if gs <= 0.5:
 				continue
 			var ctr := origin + (Vector2(x, y) + Vector2(0.5, 0.5)) * cell
-			draw_texture_rect(GEM_TEX[k], Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
+			draw_texture_rect(_gem_tex[k], Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
 
 	if interactive and focus.x >= 0:
 		var col := Color(0.82, 0.67, 0.33, 1.0 if _keyboard else 0.6)
