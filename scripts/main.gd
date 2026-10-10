@@ -2083,7 +2083,7 @@ func _build_collection() -> void:
 	ui.coll_hint.add_theme_font_size_override("font_size", 16)
 	v.add_child(ui.coll_hint)
 	ui.coll_grid = GridContainer.new()
-	ui.coll_grid.columns = 2
+	ui.coll_grid.columns = 3
 	ui.coll_grid.add_theme_constant_override("h_separation", 10)
 	ui.coll_grid.add_theme_constant_override("v_separation", 10)
 	v.add_child(ui.coll_grid)
@@ -2095,6 +2095,7 @@ func _refresh_collection() -> void:
 	ui.coll_crystals.text = str(Progress.crystals)
 	var grid: GridContainer = ui.coll_grid
 	for c in grid.get_children():
+		grid.remove_child(c)  # out of the layout right away so the panel can be measured
 		c.queue_free()
 	for i in Progress.LOOK_PRICES.size():
 		var card := VBoxContainer.new()
@@ -2104,7 +2105,7 @@ func _refresh_collection() -> void:
 		for k in [0, 2, 4]:
 			var t := TextureRect.new()
 			t.texture = load("res://assets/tiles/look_%d_%d.png" % [i, k])
-			t.custom_minimum_size = Vector2(40, 40)
+			t.custom_minimum_size = Vector2(34, 34)
 			t.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
 			t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			tiles.add_child(t)
@@ -2138,8 +2139,13 @@ func _refresh_collection() -> void:
 				_refresh_menu_bests())
 			b.disabled = Progress.crystals < int(Progress.LOOK_PRICES[i])
 		b.add_theme_font_size_override("font_size", 15)
+		b.custom_minimum_size.x = 0  # three cards a row: let the buttons be as narrow as their text
+		b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		card.add_child(b)
+		card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		grid.add_child(card)
+	if collection_panel.visible:
+		_fit_panels.call_deferred()
 
 
 func _build_gift() -> void:
@@ -2564,10 +2570,15 @@ func _show_panel(p: Control) -> void:
 			create_tween().tween_property(dim, "modulate:a", 1.0, 0.2)
 		p.modulate.a = 0.0
 		p.scale = Vector2.ONE * 0.94
+		await get_tree().process_frame  # let wrapped text settle so the panel's height is real
+		if not p.visible:
+			return
 		p.pivot_offset = p.size / 2
+		var fit := _panel_fit(p)
+		p.scale = Vector2.ONE * fit * 0.94
 		var tw := create_tween().set_parallel()
 		tw.tween_property(p, "modulate:a", 1.0, 0.18)
-		tw.tween_property(p, "scale", Vector2.ONE, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		tw.tween_property(p, "scale", Vector2.ONE * fit, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		var first: Button = ui["card_play_" + str(Save.mode)] if p == mode_panel else _first_button(p)
 		if first:
 			first.grab_focus.call_deferred()
@@ -2765,6 +2776,15 @@ func _on_viewport_resized() -> void:
 	_fit_panels.call_deferred()
 
 
+## Scale for a panel that is taller than the screen, so all of it shows (1 when it fits).
+func _panel_fit(p: Control) -> float:
+	if p == menu_panel or p == mode_panel or p == map_panel:
+		return 1.0  # full-screen layouts arrange themselves
+	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
+	var h := p.size.y
+	return clampf(avail / maxf(h, 1.0), 0.5, 1.0)
+
+
 ## Shrink the scrolling middle of tall panels so the whole panel fits the screen.
 func _fit_panels() -> void:
 	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
@@ -2776,6 +2796,11 @@ func _fit_panels() -> void:
 		var fixed := panel.get_combined_minimum_size().y
 		var want := content.get_combined_minimum_size().y
 		scroll.custom_minimum_size.y = clampf(avail - fixed, 80.0, maxf(80.0, want))
+	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
+			gift_panel, ach_panel]:
+		if p.visible:
+			p.pivot_offset = p.size / 2
+			p.scale = Vector2.ONE * _panel_fit(p)
 
 
 ## Pick the logical resolution from the kind of device, not from DPI (DPI reports are
