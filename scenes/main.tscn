@@ -1,10 +1,10 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://ccexsd0v2qnb4"]
 
-[ext_resource type="Script" path="res://scripts/main.gd" id="1"]
-[ext_resource type="Script" path="res://scripts/ambient.gd" id="2"]
+[ext_resource type="Script" uid="uid://c3jitbv0615yk" path="res://scripts/main.gd" id="1"]
+[ext_resource type="Script" uid="uid://b42vs2j85uw4l" path="res://scripts/ambient.gd" id="2"]
 [ext_resource type="PackedScene" path="res://scenes/game/hud_classic.tscn" id="3"]
 [ext_resource type="PackedScene" path="res://scenes/game/hud_bright.tscn" id="4"]
-[ext_resource type="Script" path="res://scripts/board_view.gd" id="5"]
+[ext_resource type="Script" uid="uid://bdauj337ax42q" path="res://scripts/board_view.gd" id="5"]
 [ext_resource type="PackedScene" path="res://scenes/ui/home.tscn" id="6"]
 [ext_resource type="PackedScene" path="res://scenes/ui/modes.tscn" id="7"]
 [ext_resource type="PackedScene" path="res://scenes/ui/map.tscn" id="8"]
@@ -21,8 +21,8 @@
 [ext_resource type="PackedScene" path="res://scenes/ui/stats.tscn" id="19"]
 [ext_resource type="PackedScene" path="res://scenes/ui/more.tscn" id="20"]
 [ext_resource type="PackedScene" path="res://scenes/ui/confirm.tscn" id="21"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_hand.png" id="22"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_rotate.png" id="23"]
+[ext_resource type="Texture2D" uid="uid://b2mk3dtc8lkxe" path="res://assets/ui/icon_hand.png" id="22"]
+[ext_resource type="Texture2D" uid="uid://cfgdoqm0qwb33" path="res://assets/ui/icon_rotate.png" id="23"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
 content_margin_left = 16.0
@@ -40,17 +40,17 @@ corner_radius_top_right = 14
 corner_radius_bottom_right = 14
 corner_radius_bottom_left = 14
 
-[node name="Main" type="Control"]
-script = ExtResource("1")
+[node name="Main" type="Control" unique_id=1518487116]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+script = ExtResource("1")
 
-[node name="Ambient" type="Control" parent="."]
-layout_mode = 3
+[node name="Ambient" type="Control" parent="." unique_id=1588102380]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -58,9 +58,9 @@ grow_horizontal = 2
 grow_vertical = 2
 script = ExtResource("2")
 
-[node name="Game" type="MarginContainer" parent="."]
-layout_mode = 3
+[node name="Game" type="MarginContainer" parent="." unique_id=841494414]
 unique_name_in_owner = true
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -71,159 +71,162 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
-[node name="Column" type="VBoxContainer" parent="Game"]
+[node name="Column" type="VBoxContainer" parent="Game" unique_id=2136040033]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="HudClassic" parent="Game/Column" instance=ExtResource("3")]
-layout_mode = 2
+[node name="HudClassic" parent="Game/Column" unique_id=1809899830 instance=ExtResource("3")]
 unique_name_in_owner = true
+layout_mode = 2
 
-[node name="HudBright" parent="Game/Column" instance=ExtResource("4")]
-layout_mode = 2
+[node name="HudBright" parent="Game/Column" unique_id=1776012923 instance=ExtResource("4")]
 unique_name_in_owner = true
+layout_mode = 2
 
-[node name="Board" type="Control" parent="Game/Column"]
-layout_mode = 2
+[node name="Board" type="Control" parent="Game/Column" unique_id=1026302303]
 unique_name_in_owner = true
+layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 script = ExtResource("5")
 
-[node name="BannerCenter" type="CenterContainer" parent="."]
-layout_mode = 3
-mouse_filter = 2
+[node name="BannerCenter" type="CenterContainer" parent="." unique_id=231587633]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-
-[node name="Banner" type="VBoxContainer" parent="BannerCenter"]
-layout_mode = 2
-unique_name_in_owner = true
-alignment = 1
 mouse_filter = 2
-modulate = Color(1, 1, 1, 0)
 
-[node name="BannerTitle" type="Label" parent="BannerCenter/Banner"]
-layout_mode = 2
+[node name="Banner" type="VBoxContainer" parent="BannerCenter" unique_id=1960490345]
 unique_name_in_owner = true
+modulate = Color(1, 1, 1, 0)
+layout_mode = 2
+mouse_filter = 2
+alignment = 1
+
+[node name="BannerTitle" type="Label" parent="BannerCenter/Banner" unique_id=1132079210]
+unique_name_in_owner = true
+layout_mode = 2
 theme_type_variation = &"Banner"
 horizontal_alignment = 1
 
-[node name="BannerSub" type="Label" parent="BannerCenter/Banner"]
-layout_mode = 2
+[node name="BannerSub" type="Label" parent="BannerCenter/Banner" unique_id=992928390]
 unique_name_in_owner = true
+layout_mode = 2
 theme_type_variation = &"Number"
+theme_override_colors/font_outline_color = Color(0.02, 0.05, 0.06, 0.9)
+theme_override_constants/outline_size = 14
 theme_override_font_sizes/font_size = 30
 horizontal_alignment = 1
-theme_override_constants/outline_size = 14
-theme_override_colors/font_outline_color = Color(0.02, 0.05, 0.06, 0.9)
 
-[node name="Dim" type="ColorRect" parent="."]
-layout_mode = 3
-unique_name_in_owner = true
-color = Color(0.02, 0.05, 0.05, 0.6)
-visible = false
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Home" parent="." instance=ExtResource("6")]
+[node name="Dim" type="ColorRect" parent="." unique_id=1454203052]
 unique_name_in_owner = true
 visible = false
-
-[node name="Modes" parent="." instance=ExtResource("7")]
-unique_name_in_owner = true
-visible = false
-
-[node name="Map" parent="." instance=ExtResource("8")]
-unique_name_in_owner = true
-visible = false
-
-[node name="Center" type="CenterContainer" parent="."]
-layout_mode = 3
-unique_name_in_owner = true
-mouse_filter = 2
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="Pause" parent="Center" instance=ExtResource("9")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Result" parent="Center" instance=ExtResource("10")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="LevelResult" parent="Center" instance=ExtResource("11")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Leaders" parent="Center" instance=ExtResource("12")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Settings" parent="Center" instance=ExtResource("13")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Rules" parent="Center" instance=ExtResource("14")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Tasks" parent="Center" instance=ExtResource("15")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Collection" parent="Center" instance=ExtResource("16")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Gift" parent="Center" instance=ExtResource("17")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Achievements" parent="Center" instance=ExtResource("18")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Stats" parent="Center" instance=ExtResource("19")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="More" parent="Center" instance=ExtResource("20")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Confirm" parent="Center" instance=ExtResource("21")]
-layout_mode = 2
-unique_name_in_owner = true
-visible = false
-
-[node name="Toast" type="Label" parent="."]
 layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0.02, 0.05, 0.05, 0.6)
+
+[node name="Home" parent="." unique_id=2076907678 instance=ExtResource("6")]
 unique_name_in_owner = true
-theme_type_variation = &"Toast"
-horizontal_alignment = 1
+visible = false
+layout_mode = 1
+
+[node name="Modes" parent="." unique_id=757167472 instance=ExtResource("7")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="Map" parent="." unique_id=1392414868 instance=ExtResource("8")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 1
+
+[node name="Center" type="CenterContainer" parent="." unique_id=82110914]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="Pause" parent="Center" unique_id=2129875092 instance=ExtResource("9")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Result" parent="Center" unique_id=1507793756 instance=ExtResource("10")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="LevelResult" parent="Center" unique_id=741593533 instance=ExtResource("11")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Leaders" parent="Center" unique_id=300845619 instance=ExtResource("12")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Settings" parent="Center" unique_id=452209997 instance=ExtResource("13")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Rules" parent="Center" unique_id=1230603329 instance=ExtResource("14")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Tasks" parent="Center" unique_id=1896784930 instance=ExtResource("15")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Collection" parent="Center" unique_id=2099782339 instance=ExtResource("16")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Gift" parent="Center" unique_id=1573514740 instance=ExtResource("17")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Achievements" parent="Center" unique_id=2006933699 instance=ExtResource("18")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Stats" parent="Center" unique_id=2124398902 instance=ExtResource("19")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="More" parent="Center" unique_id=1754333637 instance=ExtResource("20")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Confirm" parent="Center" unique_id=1718264851 instance=ExtResource("21")]
+unique_name_in_owner = true
+visible = false
+layout_mode = 2
+
+[node name="Toast" type="Label" parent="." unique_id=668164841]
+unique_name_in_owner = true
+auto_translate_mode = 2
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
 anchors_preset = 7
 anchor_left = 0.5
 anchor_top = 1.0
@@ -233,17 +236,14 @@ offset_top = -84.0
 offset_bottom = -40.0
 grow_horizontal = 2
 grow_vertical = 0
-mouse_filter = 2
-modulate = Color(1, 1, 1, 0)
-auto_translate_mode = 2
-
-[node name="TutorialLabel" type="Label" parent="."]
-layout_mode = 1
-unique_name_in_owner = true
-theme_type_variation = &"Bold"
-theme_override_font_sizes/font_size = 22
+theme_type_variation = &"Toast"
 horizontal_alignment = 1
-autowrap_mode = 3
+
+[node name="TutorialLabel" type="Label" parent="." unique_id=3104077]
+unique_name_in_owner = true
+visible = false
+custom_minimum_size = Vector2(320, 0)
+layout_mode = 1
 anchors_preset = 5
 anchor_left = 0.5
 anchor_right = 0.5
@@ -252,57 +252,58 @@ offset_top = 90.0
 offset_right = 160.0
 offset_bottom = 140.0
 grow_horizontal = 2
-custom_minimum_size = Vector2(320, 0)
-mouse_filter = 2
-visible = false
+theme_type_variation = &"Bold"
+theme_override_font_sizes/font_size = 22
 theme_override_styles/normal = SubResource("StyleBoxFlat_1")
+horizontal_alignment = 1
+autowrap_mode = 3
 
-[node name="TutorialHand" type="TextureRect" parent="."]
-layout_mode = 0
+[node name="TutorialHand" type="TextureRect" parent="." unique_id=1048761692]
 unique_name_in_owner = true
-offset_right = 56.0
-offset_bottom = 56.0
-custom_minimum_size = Vector2(56, 56)
-mouse_filter = 2
 visible = false
 modulate = Color(1, 0.9137, 0.6392, 1)
+custom_minimum_size = Vector2(56, 56)
+layout_mode = 0
+offset_right = 56.0
+offset_bottom = 56.0
+mouse_filter = 2
 texture = ExtResource("22")
 expand_mode = 1
 
-[node name="RotateOverlay" type="ColorRect" parent="."]
-layout_mode = 3
+[node name="RotateOverlay" type="ColorRect" parent="." unique_id=140949036]
 unique_name_in_owner = true
 visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
 color = Color(0.03, 0.07, 0.08, 0.97)
+
+[node name="Center" type="CenterContainer" parent="RotateOverlay" unique_id=809113228]
+layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Center" type="CenterContainer" parent="RotateOverlay"]
-layout_mode = 3
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-
-[node name="VBox" type="VBoxContainer" parent="RotateOverlay/Center"]
+[node name="VBox" type="VBoxContainer" parent="RotateOverlay/Center" unique_id=833074566]
 layout_mode = 2
-alignment = 1
 theme_override_constants/separation = 18
+alignment = 1
 
-[node name="Icon" type="TextureRect" parent="RotateOverlay/Center/VBox"]
-layout_mode = 2
+[node name="Icon" type="TextureRect" parent="RotateOverlay/Center/VBox" unique_id=1578128839]
+modulate = Color(1, 0.7843, 0.2392, 1)
 custom_minimum_size = Vector2(72, 72)
+layout_mode = 2
 size_flags_vertical = 4
 texture = ExtResource("23")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
 
-[node name="Label" type="Label" parent="RotateOverlay/Center/VBox"]
+[node name="Label" type="Label" parent="RotateOverlay/Center/VBox" unique_id=2086226507]
 layout_mode = 2
 theme_type_variation = &"Bold"
 theme_override_font_sizes/font_size = 24

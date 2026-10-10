@@ -1,12 +1,12 @@
-[gd_resource type="Theme" format=3]
+[gd_resource type="Theme" format=3 uid="uid://ck2r0wqrusxem"]
 
-[ext_resource type="FontFile" path="res://assets/fonts/RussoOne-Regular.ttf" id="1_y5ki2"]
+[ext_resource type="FontFile" uid="uid://c0vj83y8akwno" path="res://assets/fonts/RussoOne-Regular.ttf" id="1_y5ki2"]
 [ext_resource type="FontVariation" path="res://ui/fonts/body.tres" id="2_rtqkv"]
 [ext_resource type="FontVariation" path="res://ui/fonts/bold.tres" id="3_47c11"]
-[ext_resource type="Texture2D" path="res://assets/ui/switch_on.png" id="4_2j8s8"]
-[ext_resource type="Texture2D" path="res://assets/ui/switch_off.png" id="5_mo6nk"]
+[ext_resource type="Texture2D" uid="uid://bca5jew8y4g1r" path="res://assets/ui/switch_on.png" id="4_2j8s8"]
+[ext_resource type="Texture2D" uid="uid://f1tjcr0vpsrq" path="res://assets/ui/switch_off.png" id="5_mo6nk"]
 [ext_resource type="FontVariation" path="res://ui/fonts/numbers.tres" id="6_qijjd"]
-[ext_resource type="Texture2D" path="res://assets/ui/knob.png" id="7_de4b7"]
+[ext_resource type="Texture2D" uid="uid://3pvirmlj8753" path="res://assets/ui/knob.png" id="7_de4b7"]
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_yipae"]
 content_margin_left = 16.0
