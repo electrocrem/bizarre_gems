@@ -96,14 +96,14 @@ var palette := 0:
 ## tile colour per kind for each look (used for crumbs and confetti), matches gen_assets
 const PALETTE_COLORS := [
 	["#ff4d5e", "#3d8bff", "#22c97a", "#ffcf33", "#ff9a2e", "#a35cff"],
-	["#ef5f67", "#4b9cf0", "#5cc87a", "#f6c94e", "#f59e45", "#a477e0"],
-	["#f0857a", "#4a7fd6", "#36b5d8", "#5ccfb0", "#f2b65a", "#8f7ae6"],
-	["#e0507f", "#5b8def", "#8bc34a", "#f2c14e", "#f07f6a", "#b05fd6"],
-	["#e86a5a", "#3f9fb0", "#4fb36a", "#d9c64a", "#e9a03b", "#7d6fd0"],
-	["#ff6b8b", "#60a5fa", "#6ed9a9", "#ffd966", "#ffa463", "#c084fc"],
-	["#f4a6b8", "#5c84c9", "#8fe3cf", "#f0d58a", "#c7d7ea", "#b8a6f2"],
-	["#c8283c", "#2e8f8f", "#7ccf3a", "#e8e0c8", "#f07b1d", "#7b3fb5"],
-	["#d64a5a", "#3f6fd6", "#2fa36b", "#e6b93c", "#c88a4a", "#9aa3b5"],
+	["#ff6fb5", "#ffb547", "#c27bff", "#ff8a5c", "#ff4d6d", "#ffd84d"],
+	["#ff9a5c", "#f2a3c7", "#ffcf4d", "#4fc3f7", "#2fd6c7", "#8fa6ff"],
+	["#d8283c", "#ff5d7a", "#8a4fd6", "#ffd84d", "#ff9a2e", "#7ccf3a"],
+	["#6abf4b", "#b97a3c", "#e2453c", "#ff8fc7", "#2f8a4f", "#4fd18b"],
+	["#ff9a5c", "#fff1a8", "#ff7eb6", "#5fd4ff", "#ff5a4f", "#c3cfff"],
+	["#3d8bdf", "#ff6f7a", "#4fb88b", "#ffffff", "#ffcf4d", "#8fd3ff"],
+	["#ff8a1d", "#f2f2f2", "#7b4fd6", "#ff5d3a", "#ffe08a", "#cfd8dc"],
+	["#e2334c", "#2f6ff0", "#17a866", "#f4c62e", "#f28a22", "#9a4fe6"],
 ]
 const LINK_TEX := preload("res://assets/ui/icon_link.png")
 var _confetti: Array[Dictionary] = []

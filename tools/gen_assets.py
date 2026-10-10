@@ -141,6 +141,7 @@ ICONS = {  # 64x64 white glyphs
     "duel": '<circle cx="20" cy="18" r="9"/><circle cx="44" cy="18" r="9"/><path d="M4 56c0-12 7-20 16-20s16 8 16 20zM28 56c0-12 7-20 16-20s16 8 16 20z"/>',
     "hand": '<path d="M26 6a5 5 0 0 1 10 0v22l3-1a5 5 0 0 1 6 3l1 2a5 5 0 0 1 6 3v10c0 10-7 17-17 17h-4c-7 0-12-4-15-10l-7-13a5 5 0 0 1 8-6l9 9z"/>',
     "link": '<rect x="6" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/><rect x="28" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/>',
+    "check": '<path d="M12 34l14 14 26-30" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
 
@@ -273,6 +274,118 @@ def make_specials():
            + "".join(f'<circle cx="{x}" cy="{y}" r="4" fill="#5b3a1a"/>' for x, y in ((14, 14), (114, 14), (14, 108), (114, 108)))
            + '</svg>')
     svg_to_png(box, A("tiles", "box.png"), 128)
+
+
+# ---------------- collection packs: each its own tile and its own six pictures ----------------
+# Pack index = tile look index. Pack 0 keeps the glossy shape tiles.
+# Each icon is SVG drawn in a 128 box around (64, 60) using {c} (main colour) and {d} (dark outline).
+PACK_ICONS = {
+    1: [  # sweets
+        '<circle cx="64" cy="52" r="26" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M64 52m-16 0a16 16 0 1 1 16 16a10 10 0 1 1 -8-12" fill="none" stroke="#fff" stroke-width="5"/><rect x="61" y="78" width="6" height="26" rx="3" fill="#fff" stroke="{d}" stroke-width="2"/>',
+        '<path d="M22 44l18 16-18 16zM106 44l-18 16 18 16z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><ellipse cx="64" cy="60" rx="28" ry="20" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M50 48l28 24M60 44l24 20" stroke="#fff" stroke-opacity=".7" stroke-width="4"/>',
+        '<circle cx="64" cy="60" r="32" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="64" cy="60" r="11" fill="#fff" stroke="{d}" stroke-width="4"/><path d="M46 42l4 3M80 40l-3 4M86 66l-4 2M44 72l4-2M70 84l-2-4" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
+        '<path d="M38 64h52l-8 32H46z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><path d="M34 64c0-16 10-26 20-26 4-10 16-10 20 0 10 0 20 10 20 26z" fill="#fff" stroke="{d}" stroke-width="4"/><circle cx="64" cy="30" r="6" fill="#ff4d5e" stroke="{d}" stroke-width="3"/>',
+        '<path d="M64 92C30 70 30 40 48 38c8-1 14 5 16 12 2-7 8-13 16-12 18 2 18 32-16 54z" fill="{c}" stroke="{d}" stroke-width="4"/><ellipse cx="52" cy="50" rx="6" ry="4" fill="#fff" fill-opacity=".8"/>',
+        '<path d="M64 24l10 22 24 3-18 16 5 24-21-12-21 12 5-24-18-16 24-3z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><circle cx="56" cy="54" r="3" fill="{d}"/><circle cx="72" cy="54" r="3" fill="{d}"/>',
+    ],
+    2: [  # ocean
+        '<path d="M28 60c14-22 44-22 58 0-14 22-44 22-58 0z" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M86 60l18-16v32z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><circle cx="44" cy="56" r="4" fill="{d}"/>',
+        '<path d="M64 94L30 52c0-18 16-28 34-28s34 10 34 28z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><path d="M64 94V30M64 94L46 34M64 94L82 34M64 94L36 46M64 94L92 46" stroke="{d}" stroke-width="3"/>',
+        '<path d="M64 22l9 26 27-2-21 17 9 26-24-15-24 15 9-26-21-17 27 2z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><circle cx="64" cy="60" r="5" fill="#fff" fill-opacity=".7"/>',
+        '<path d="M64 24c14 20 24 34 24 46a24 24 0 0 1-48 0c0-12 10-26 24-46z" fill="{c}" stroke="{d}" stroke-width="4"/><ellipse cx="56" cy="68" rx="5" ry="9" fill="#fff" fill-opacity=".7"/>',
+        '<path d="M26 80c10-34 40-44 58-30 10 8 6 22-6 22-8 0-10-10-2-12" fill="none" stroke="{d}" stroke-width="12" stroke-linecap="round"/><path d="M26 80c10-34 40-44 58-30 10 8 6 22-6 22-8 0-10-10-2-12" fill="none" stroke="{c}" stroke-width="6" stroke-linecap="round"/>',
+        '<circle cx="64" cy="30" r="8" fill="none" stroke="{c}" stroke-width="6"/><path d="M64 38v54M48 52h32M34 72c4 16 16 22 30 22s26-6 30-22" fill="none" stroke="{c}" stroke-width="7" stroke-linecap="round"/>',
+    ],
+    3: [  # fruit
+        '<path d="M50 70C52 48 60 36 76 28M78 70C76 50 76 38 76 28" fill="none" stroke="#4f8a2b" stroke-width="4"/><circle cx="48" cy="78" r="16" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="80" cy="76" r="16" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="43" cy="73" r="4" fill="#fff" fill-opacity=".7"/>',
+        '<path d="M64 96C40 80 34 58 40 46c6-8 16-8 24-4 8-4 18-4 24 4 6 12 0 34-24 50z" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M48 40l8-12 8 10 8-10 8 12z" fill="#4fb36a" stroke="{d}" stroke-width="3" stroke-linejoin="round"/>' + "".join(f'<circle cx="{x}" cy="{y}" r="2.5" fill="#fff"/>' for x, y in ((52, 56), (64, 60), (76, 56), (58, 72), (70, 72), (64, 84))),
+        "".join(f'<circle cx="{x}" cy="{y}" r="11" fill="{{c}}" stroke="{{d}}" stroke-width="3"/>' for x, y in ((52, 44), (76, 44), (64, 56), (42, 62), (86, 62), (54, 74), (74, 74), (64, 90))) + '<path d="M64 34l10-12" stroke="#4f8a2b" stroke-width="4"/>',
+        '<path d="M22 60c10-24 74-24 84 0-10 24-74 24-84 0z" fill="{c}" stroke="{d}" stroke-width="4"/><ellipse cx="50" cy="54" rx="10" ry="4" fill="#fff" fill-opacity=".6"/>',
+        '<circle cx="64" cy="60" r="32" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="64" cy="60" r="24" fill="#fff" fill-opacity=".35"/>' + "".join(f'<path d="M64 60L{64 + 24 * __import__("math").cos(a * 0.785):.1f} {60 + 24 * __import__("math").sin(a * 0.785):.1f}" stroke="{{d}}" stroke-width="2.5"/>' for a in range(8)),
+        '<path d="M64 42c-20-12-38 4-34 24 4 22 20 34 34 28 14 6 30-6 34-28 4-20-14-36-34-24z" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M64 42c0-10 2-16 6-20" stroke="#6b4a2a" stroke-width="4"/><path d="M70 30c10-6 20-2 22 4-10 4-18 2-22-4z" fill="#4fb36a" stroke="{d}" stroke-width="2"/>',
+    ],
+    4: [  # forest
+        '<path d="M34 90C30 50 60 26 98 24 96 62 72 92 34 90z" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M34 90C54 66 72 48 94 28" stroke="{d}" stroke-width="3"/>',
+        '<path d="M40 52h48c0 26-10 42-24 42S40 78 40 52z" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M34 54c0-18 14-26 30-26s30 8 30 26z" fill="#7a5230" stroke="{d}" stroke-width="4"/><path d="M64 28v-8" stroke="{d}" stroke-width="5" stroke-linecap="round"/>',
+        '<path d="M26 62C26 38 44 26 64 26s38 12 38 36z" fill="{c}" stroke="{d}" stroke-width="4"/><rect x="52" y="62" width="24" height="30" rx="8" fill="#f2e6cf" stroke="{d}" stroke-width="4"/><circle cx="50" cy="44" r="6" fill="#fff"/><circle cx="76" cy="40" r="5" fill="#fff"/>',
+        "".join(f'<circle cx="{64 + 18 * __import__("math").cos(a * 1.2566 - 1.57):.1f}" cy="{58 + 18 * __import__("math").sin(a * 1.2566 - 1.57):.1f}" r="14" fill="{{c}}" stroke="{{d}}" stroke-width="3"/>' for a in range(5)) + '<circle cx="64" cy="58" r="10" fill="#ffd34d" stroke="{d}" stroke-width="3"/>',
+        '<path d="M64 20L88 52H76L96 80H32L52 52H40z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><rect x="58" y="80" width="12" height="16" fill="#7a5230" stroke="{d}" stroke-width="3"/>',
+        '<circle cx="64" cy="42" r="15" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="48" cy="64" r="15" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="80" cy="64" r="15" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M64 62c0 14 4 24 10 32" stroke="{d}" stroke-width="5" fill="none"/>',
+    ],
+    5: [  # space
+        '<ellipse cx="64" cy="60" rx="44" ry="13" fill="none" stroke="{d}" stroke-width="9" transform="rotate(-20 64 60)"/><circle cx="64" cy="60" r="24" fill="{c}" stroke="{d}" stroke-width="4"/><ellipse cx="64" cy="60" rx="44" ry="13" fill="none" stroke="{c}" stroke-width="4" stroke-dasharray="70 70" stroke-dashoffset="-35" transform="rotate(-20 64 60)"/>',
+        '<path d="M76 26A34 34 0 1 0 98 78 28 28 0 1 1 76 26z" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="52" cy="62" r="5" fill="{d}" fill-opacity=".3"/>',
+        '<path d="M64 20l11 25 27 3-20 18 6 27-24-14-24 14 6-27-20-18 27-3z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/>',
+        '<path d="M58 70L100 28l-28 52z" fill="{c}" fill-opacity=".55"/><circle cx="50" cy="76" r="18" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="44" cy="70" r="5" fill="#fff" fill-opacity=".7"/>',
+        '<circle cx="64" cy="60" r="20" fill="{c}" stroke="{d}" stroke-width="4"/>' + "".join(f'<path d="M{64 + 26 * __import__("math").cos(a * 0.785):.1f} {60 + 26 * __import__("math").sin(a * 0.785):.1f}L{64 + 38 * __import__("math").cos(a * 0.785):.1f} {60 + 38 * __import__("math").sin(a * 0.785):.1f}" stroke="{{c}}" stroke-width="6" stroke-linecap="round"/>' for a in range(8)),
+        '<path d="M64 18c16 12 18 34 14 52H50c-4-18-2-40 14-52z" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="64" cy="44" r="7" fill="#9fe3ff" stroke="{d}" stroke-width="3"/><path d="M50 62l-12 18 14-4zM78 62l12 18-14-4z" fill="#ff5d6c" stroke="{d}" stroke-width="3" stroke-linejoin="round"/><path d="M56 74l8 20 8-20" fill="#ffc83d" stroke="{d}" stroke-width="3"/>',
+    ],
+    6: [  # winter
+        '<g stroke="{c}" stroke-width="7" stroke-linecap="round">' + "".join(f'<path d="M64 60L{64 + 34 * __import__("math").cos(a * 1.047):.1f} {60 + 34 * __import__("math").sin(a * 1.047):.1f}"/>' for a in range(6)) + '</g><circle cx="64" cy="60" r="8" fill="{c}"/>',
+        '<path d="M44 92V50c0-18 10-26 24-26s22 10 22 24v44z" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M44 58c-10-4-16 2-14 10 2 8 10 10 14 6" fill="{c}" stroke="{d}" stroke-width="4"/><rect x="40" y="84" width="54" height="12" rx="5" fill="#fff" stroke="{d}" stroke-width="3"/>',
+        '<path d="M64 20L90 56H78L96 84H32L50 56H38z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><path d="M50 56l8 4 6-4 6 4 8-4M40 84l12-6 12 6 12-6 12 6" fill="none" stroke="#fff" stroke-width="4"/>',
+        '<circle cx="64" cy="78" r="20" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="64" cy="44" r="15" fill="{c}" stroke="{d}" stroke-width="4"/><circle cx="58" cy="41" r="2.5" fill="{d}"/><circle cx="70" cy="41" r="2.5" fill="{d}"/><path d="M64 46l10 3-10 2z" fill="#ff9a2e"/>',
+        '<path d="M38 82c4-6 6-14 6-26 0-14 8-24 20-24s20 10 20 24c0 12 2 20 6 26z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><circle cx="64" cy="88" r="7" fill="{c}" stroke="{d}" stroke-width="3"/><path d="M60 32a4 4 0 0 1 8 0" stroke="{d}" stroke-width="4" fill="none"/>',
+        '<path d="M64 22l30 17v34L64 90 34 73V39z" fill="{c}" fill-opacity=".85" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><path d="M64 22v68M34 39l60 34M94 39L34 73" stroke="#fff" stroke-opacity=".6" stroke-width="3"/>',
+    ],
+    7: [  # halloween
+        '<ellipse cx="64" cy="64" rx="34" ry="28" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M50 40c-8 10-8 38 0 48M78 40c8 10 8 38 0 48" fill="none" stroke="{d}" stroke-width="3"/><path d="M62 36c0-8 4-12 8-14" stroke="#4f8a2b" stroke-width="5"/><path d="M50 60l6-6 6 6zM66 60l6-6 6 6zM50 74c8 6 20 6 28 0" fill="{d}" stroke="{d}" stroke-width="3"/>',
+        '<path d="M36 96V54c0-18 12-30 28-30s28 12 28 30v42l-8-8-7 8-6-8-7 8-6-8-7 8z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><ellipse cx="54" cy="54" rx="5" ry="7" fill="{d}"/><ellipse cx="74" cy="54" rx="5" ry="7" fill="{d}"/>',
+        '<path d="M64 52c-10-14-26-16-42-6 8 2 12 8 10 16 8-6 14-2 16 6 4-6 10-8 16-6 6-2 12 0 16 6 2-8 8-12 16-6-2-8 2-14 10-16-16-10-32-8-42 6z" fill="{c}" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><circle cx="64" cy="58" r="10" fill="{c}" stroke="{d}" stroke-width="4"/><path d="M58 50l-2-8M70 50l2-8" stroke="{d}" stroke-width="4"/>',
+        '<path d="M64 22L96 92H32z" fill="#fff" stroke="{d}" stroke-width="4" stroke-linejoin="round"/><path d="M50 52L78 52 86 70H42z" fill="{c}"/><path d="M42 70h44l10 22H32z" fill="#ffc83d"/><path d="M64 22L96 92H32z" fill="none" stroke="{d}" stroke-width="4" stroke-linejoin="round"/>',
+        '<path d="M78 24A36 36 0 1 0 100 82 30 30 0 1 1 78 24z" fill="{c}" stroke="{d}" stroke-width="4"/>',
+        '<g fill="none" stroke="{c}" stroke-width="4">' + "".join(f'<path d="M64 60L{64 + 40 * __import__("math").cos(a * 0.785):.1f} {60 + 40 * __import__("math").sin(a * 0.785):.1f}"/>' for a in range(8)) + "".join(f'<circle cx="64" cy="60" r="{r}"/>' for r in (12, 24, 36)) + '</g>',
+    ],
+}
+PACK_COLORS = {
+    1: ["#ff6fb5", "#ffb547", "#c27bff", "#ff8a5c", "#ff4d6d", "#ffd84d"],
+    2: ["#ff9a5c", "#f2a3c7", "#ffcf4d", "#4fc3f7", "#2fd6c7", "#8fa6ff"],
+    3: ["#d8283c", "#ff5d7a", "#8a4fd6", "#ffd84d", "#ff9a2e", "#7ccf3a"],
+    4: ["#6abf4b", "#b97a3c", "#e2453c", "#ff8fc7", "#2f8a4f", "#4fd18b"],
+    5: ["#ff9a5c", "#fff1a8", "#ff7eb6", "#5fd4ff", "#ff5a4f", "#c3cfff"],
+    6: ["#3d8bdf", "#ff6f7a", "#4fb88b", "#ffffff", "#ffcf4d", "#8fd3ff"],
+    7: ["#ff8a1d", "#f2f2f2", "#7b4fd6", "#ff5d3a", "#ffe08a", "#cfd8dc"],
+}
+PACK_TILE = {1: "candy", 2: "bubble", 3: "pastel", 4: "wood", 5: "space", 6: "ice", 7: "spooky", 8: "gold"}
+
+
+def pack_tile_svg(style, icon, color, size=128):
+    d = shade(color, -.55)
+    bg = {
+        "candy": ('<circle cx="64" cy="66" r="56" fill="#000" fill-opacity=".25"/><circle cx="64" cy="62" r="56" fill="#fff0f7"/>'
+                  '<circle cx="64" cy="62" r="56" fill="none" stroke="#ff9ccf" stroke-width="6" stroke-dasharray="12 10"/>'),
+        "bubble": ('<circle cx="64" cy="64" r="56" fill="#0b4a6b" fill-opacity=".35"/><circle cx="64" cy="62" r="56" fill="#bfeaff" fill-opacity=".55" stroke="#e8f8ff" stroke-width="4"/>'
+                   '<path d="M30 40a40 40 0 0 1 30-20" stroke="#fff" stroke-width="6" stroke-linecap="round" fill="none"/>'),
+        "pastel": ('<rect x="7" y="11" width="114" height="112" rx="26" fill="#000" fill-opacity=".2"/><rect x="6" y="5" width="116" height="112" rx="26" fill="#fff6e8"/>'
+                   '<rect x="12" y="11" width="104" height="100" rx="22" fill="none" stroke="#f2d9b8" stroke-width="4"/>'),
+        "wood": ('<rect x="7" y="11" width="114" height="112" rx="14" fill="#000" fill-opacity=".3"/><rect x="6" y="5" width="116" height="112" rx="14" fill="#a8743f"/>'
+                 '<path d="M6 30h116M6 62h116M6 94h116" stroke="#8a5a2b" stroke-width="3"/><rect x="6" y="5" width="116" height="112" rx="14" fill="none" stroke="#6b4421" stroke-width="5"/>'),
+        "space": (f'<rect x="7" y="11" width="114" height="112" rx="22" fill="#000" fill-opacity=".35"/><rect x="6" y="5" width="116" height="112" rx="22" fill="#141a3e"/>'
+                  f'<circle cx="64" cy="60" r="44" fill="{color}" fill-opacity=".18"/><circle cx="26" cy="24" r="2" fill="#fff"/><circle cx="100" cy="98" r="2" fill="#fff"/><circle cx="104" cy="28" r="1.5" fill="#fff"/>'
+                  f'<rect x="6" y="5" width="116" height="112" rx="22" fill="none" stroke="{color}" stroke-opacity=".7" stroke-width="3"/>'),
+        "ice": ('<rect x="7" y="11" width="114" height="112" rx="18" fill="#000" fill-opacity=".2"/><rect x="6" y="5" width="116" height="112" rx="18" fill="#cfeeff"/>'
+                '<path d="M12 22l18-10M98 108l18-10M14 90l10 8" stroke="#fff" stroke-width="4" stroke-linecap="round"/><rect x="6" y="5" width="116" height="112" rx="18" fill="none" stroke="#fff" stroke-width="5"/>'),
+        "spooky": ('<rect x="7" y="11" width="114" height="112" rx="20" fill="#000" fill-opacity=".35"/><rect x="6" y="5" width="116" height="112" rx="20" fill="#2a1638"/>'
+                   '<rect x="6" y="5" width="116" height="112" rx="20" fill="none" stroke="#ff8a1d" stroke-opacity=".8" stroke-width="4"/>'),
+        "gold": ('<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff2b8"/><stop offset=".45" stroke-color="#e6b93c" stop-color="#e6b93c"/><stop offset="1" stop-color="#8a6a1e"/></linearGradient></defs>'
+                 '<rect x="7" y="11" width="114" height="112" rx="20" fill="#000" fill-opacity=".3"/><rect x="6" y="5" width="116" height="112" rx="20" fill="url(#g)"/>'
+                 '<rect x="14" y="13" width="100" height="96" rx="14" fill="#3a2a10" fill-opacity=".85"/>'),
+    }[style]
+    body = icon.replace("{c}", color).replace("{d}", d)
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">{bg}{body}</svg>'
+
+
+def make_packs():
+    for look in range(1, 9):
+        for k in range(6):
+            if look == 8:  # gold: the faceted classic gems set on gold
+                g = gem_svg("", ["#e2334c", "#2f6ff0", "#17a866", "#f4c62e", "#f28a22", "#9a4fe6"][k],
+                            ["square", "kite", "octagon", "star", "round", "hexagon"][k], 96)
+                inner = g[g.index(">") + 1: g.rindex("</svg>")]
+                svg = pack_tile_svg("gold", f'<g transform="translate(16 12)">{inner}</g>', "#e6b93c")
+            else:
+                svg = pack_tile_svg(PACK_TILE[look], PACK_ICONS[look][k], PACK_COLORS[look][k])
+            svg_to_png(svg, A("tiles", f"look_{look}_{k}.png"), 128)
 
 
 def make_tiles():
@@ -906,6 +1019,7 @@ def main():
     make_icons()
     make_textures()
     make_tiles()
+    make_packs()
     make_specials()
     make_previews()
     make_sounds()

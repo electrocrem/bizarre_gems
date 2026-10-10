@@ -61,6 +61,7 @@ const ICONS := {
 	"puzzle": preload("res://assets/ui/icon_puzzle.png"),
 	"duel": preload("res://assets/ui/icon_duel.png"),
 	"hand": preload("res://assets/ui/icon_hand.png"),
+	"check": preload("res://assets/ui/icon_check.png"),
 	"back": preload("res://assets/ui/icon_back.png"),
 	"info": preload("res://assets/ui/icon_info.png"),
 }
@@ -233,6 +234,8 @@ func _debug_start() -> void:
 		strikes = mini(strikes, int(t))
 	elif q == "puzzle":
 		start_puzzle(1)
+	elif q == "pmap":
+		_open_map("puzzle")
 	elif q == "gift":
 		_refresh_gift()
 		_show_panel(gift_panel)
@@ -515,6 +518,7 @@ func _end_level() -> void:
 	ui.level_result.text = L.t("goal_failed") if goal_failed else L.t("level_passed" if got > 0 else "level_failed")
 	ui.level_line.text = L.t("level_share", {"p": int(round(share * 100))}) + ("  ·  +%d" % (gained * Progress.STAR_CRYSTALS) if gained > 0 else "")
 	ui.level_next.visible = got > 0
+	ui.level_stars[0].get_parent().visible = true
 	for i in 3:
 		var st: TextureRect = ui.level_stars[i]
 		st.modulate = Color(0.25, 0.3, 0.5, 1)
@@ -552,9 +556,7 @@ func _end_puzzle() -> void:
 	ui.level_result.text = L.t("puzzle_solved" if solved else "puzzle_failed")
 	ui.level_line.text = L.t("puzzle_line", {"n": logic.solution.size()})
 	ui.level_next.visible = solved
-	for i in 3:
-		var st: TextureRect = ui.level_stars[i]
-		st.modulate = BRASS if solved else Color(0.25, 0.3, 0.5, 1)
+	ui.level_stars[0].get_parent().visible = false  # puzzles are solved or not, no stars
 	_show_panel(level_panel)
 	Sfx.play("level" if solved else "over")
 
@@ -1883,7 +1885,8 @@ func _build_map() -> void:
 	head.add_child(ui.map_title)
 	var sbox := HBoxContainer.new()
 	sbox.add_theme_constant_override("separation", 4)
-	sbox.add_child(_icon_tex("star", 22, BRASS))
+	ui.map_star_icon = _icon_tex("star", 22, BRASS)
+	sbox.add_child(ui.map_star_icon)
 	ui.map_stars = _label("0", f_num, 20, BRASS)
 	sbox.add_child(ui.map_stars)
 	sbox.size_flags_vertical = Control.SIZE_SHRINK_CENTER
@@ -1925,6 +1928,7 @@ func _refresh_map() -> void:
 	var shown := int(ceil((top + 10) / 5.0)) * 5
 	ui.map_title.text = L.t("mode_puzzle" if puzzles else "mode_levels")
 	ui.map_stars.text = str(Progress.puzzles) if puzzles else str(Progress.total_stars())
+	ui.map_star_icon.texture = ICONS["check" if puzzles else "star"]
 	for n in range(1, shown + 1):
 		var cell := VBoxContainer.new()
 		cell.add_theme_constant_override("separation", 2)
@@ -1953,9 +1957,12 @@ func _refresh_map() -> void:
 		var srow := HBoxContainer.new()
 		srow.alignment = BoxContainer.ALIGNMENT_CENTER
 		srow.add_theme_constant_override("separation", 0)
-		var got := (3 if n <= Progress.puzzles else 0) if puzzles else Progress.stars_for(n)
-		for i in 3:
-			srow.add_child(_icon_tex("star", 18, BRASS if i < got else Color(1, 1, 1, 0.15)))
+		if puzzles:
+			srow.add_child(_icon_tex("check", 18, Color("#5cc87a") if n <= Progress.puzzles else Color(1, 1, 1, 0.12)))
+		else:
+			var got := Progress.stars_for(n)
+			for i in 3:
+				srow.add_child(_icon_tex("star", 18, BRASS if i < got else Color(1, 1, 1, 0.15)))
 		cell.add_child(srow)
 		grid.add_child(cell)
 
@@ -2097,7 +2104,7 @@ func _refresh_collection() -> void:
 		card.add_theme_constant_override("separation", 6)
 		var tiles := HBoxContainer.new()
 		tiles.alignment = BoxContainer.ALIGNMENT_CENTER
-		for k in [0, 1, 3]:
+		for k in [0, 2, 4]:
 			var t := TextureRect.new()
 			t.texture = load("res://assets/tiles/look_%d_%d.png" % [i, k])
 			t.custom_minimum_size = Vector2(40, 40)
@@ -2105,6 +2112,9 @@ func _refresh_collection() -> void:
 			t.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 			tiles.add_child(t)
 		card.add_child(tiles)
+		var nm := _label(L.t("look_%d" % i), f_bold, 15, CREAM)
+		nm.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		card.add_child(nm)
 		var idx: int = i
 		var b: Button
 		if Progress.look == i:
