@@ -267,7 +267,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	score = 0
 	shown_score = 0.0
 	keeper.reset()
-	keeper.time_bonuses = mode.kind == "classic" or mode.kind == "run"
+	keeper.time_bonuses = mode.kind == "classic"
 	play_time = 0.0
 	_update_combo_widget()
 	cleared = 0
@@ -355,8 +355,8 @@ func _deal_board() -> void:
 			lv.chains = 0
 		if mode.kind == "run":
 			# the run plays like classic: one big board for the whole clock, a touch of jokers and boxes
-			lv = {"slots": 160, "kinds": 6, "per_kind": 21, "min_moves": 6, "max_moves": 999, "tries": 30,
-				"jokers": 0.15, "boxes": 2, "chains": 1, "boss": false, "goal_kind": -1}
+			lv = {"slots": 200, "kinds": 6, "per_kind": 28, "min_moves": 4, "max_moves": 999, "tries": 30,
+				"jokers": 0.1, "boxes": 5, "chains": 3, "boss": false, "goal_kind": -1}
 		var r := rng
 		var area := _board_area()
 		if daily or mode.kind == "levels" or mode.kind == "puzzle":
@@ -785,8 +785,8 @@ func _on_slot(p: Vector2i) -> void:
 		board.praise(L.t("chain"), p, Color("#9fe3ff"))
 	if mode.kind == "duel":
 		duel_scores[duel_turn] += res.points + extra.size() * 2
-	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
-		time_left += res.time
+	if mode.kind == "classic" or mode.kind == "levels":
+		time_left += res.time  # the bright run earns time only by clearing a whole board
 	idle = 0.0
 	var event: String = res.event
 	var vkinds: Array[int] = []
@@ -804,17 +804,19 @@ func _on_slot(p: Vector2i) -> void:
 	Progress.report("gems", vanish.size())
 	if res.tier_up and res.mult == 4:
 		Progress.report("combo4")
-	if res.time > 0 and (mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels"):
+	if res.time > 0 and (mode.kind == "classic" or mode.kind == "levels"):
 		_flash_delta("+%d" % int(res.time), false)
 	if res.tier_up:
-		Sfx.play("combo_up", 1.0, -2.0)
+		if mode.skin == "bright":
+			Sfx.play("combo_up", 1.0, -2.0)
 		Haptics.buzz("tier")
 		ambient.pulse(BRASS, 0.4)
 		board.play_wave(p, 1.0)
 		board.shake(0.1)
 	if event == "precise":
-		Sfx.play("precise")
-		Sfx.voice("incredible")
+		if mode.skin == "bright":
+			Sfx.play("precise")
+			Sfx.voice("incredible")
 		Haptics.buzz("precise")
 		ambient.pulse(BRASS_LIGHT, 0.8)
 		board.play_wave(p, 2.0, true)
@@ -825,8 +827,9 @@ func _on_slot(p: Vector2i) -> void:
 			board.play_confetti(50)
 		_set_theme(_next_look())
 	elif event == "perfect":
-		Sfx.play("perfect")
-		Sfx.voice("perfect")
+		if mode.skin == "bright":
+			Sfx.play("perfect")
+			Sfx.voice("perfect")
 		Haptics.buzz("perfect")
 		ambient.pulse(Color("#ff9ed2"), 1.0)
 		board.play_wave(p, 3.0, true)
@@ -2647,7 +2650,8 @@ func _update_combo_widget(pulse := false) -> void:
 
 
 func _combo_break() -> void:
-	Sfx.play("combo_break", 1.0, -6.0)
+	if mode.skin == "bright":
+		Sfx.play("combo_break", 1.0, -6.0)
 	var tw := create_tween()
 	tw.tween_property(combo_box, "modulate:a", 0.0, 0.35)
 
@@ -2683,7 +2687,7 @@ func _dims() -> Vector2i:
 		return Vector2i(mode.cols, mode.rows)  # the original wide board (desktop, Android turned sideways)
 	var slots: int = mode.slots
 	if mode.kind == "run":
-		slots = 160
+		slots = 200
 	elif mode.skin == "bright":
 		slots = BoardLogic.bright_level(_level()).slots
 	return BoardLogic.best_dims(_board_area(), slots)

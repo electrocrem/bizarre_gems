@@ -17,8 +17,8 @@ const SHINING := 8  ## gems with a bonus on them at the start of a game
 ## bigger tiles, a fresh board whenever moves run out. Each has its own leaderboard.
 const CLASSIC := {"id": "classic", "skin": "classic", "kind": "classic", "kinds": 10, "per_kind": 27, "cols": 23,
 	"rows": 15, "slots": 345, "shining": 8, "board": "score", "waves": false}
-const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "per_kind": 21, "cols": 10, "rows": 16,
-	"slots": 160, "shining": 6, "board": "score_bright", "waves": true}
+const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "per_kind": 28, "cols": 10, "rows": 20,
+	"slots": 200, "shining": 6, "board": "score_bright", "waves": true}
 ## Level map: each level is one fixed, fully solvable board scored with 1-3 stars.
 const LEVELS := {"id": "levels", "skin": "bright", "kind": "levels", "kinds": 6, "per_kind": 14, "cols": 7, "rows": 15,
 	"slots": 108, "shining": 2, "board": "", "waves": false}

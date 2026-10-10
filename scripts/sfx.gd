@@ -96,8 +96,8 @@ func apply_volumes() -> void:
 
 ## Speak a call-out; a newer one cuts off the one still talking.
 func voice(name: String) -> void:
-	if not Save.sound or not Save.voice or _platform_paused or not VOICES.has(name):
-		return
+	if not Save.sound or not Save.voice or _platform_paused or not VOICES.has(name) or skin != "bright":
+		return  # call-outs belong to the bright modes; classic stays calm
 	_voice.stream = VOICES[name]
 	_voice.volume_db = linear_to_db(maxf(Save.sound_volume, 0.001)) + 2.0
 	_voice.play()
