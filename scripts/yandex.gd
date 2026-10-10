@@ -47,6 +47,26 @@ func language() -> String:
 	return OS.get_locale_language()
 
 
+## The launch payload: Yandex's ?payload= on the game URL (a challenge link), or the page's own.
+func payload() -> String:
+	if _yg:
+		return str(_yg.payload())
+	return ""
+
+
+func can_share() -> bool:
+	return _yg != null
+
+
+## Share a link that opens the game with `p` as its payload. done(result): "shared", "copied",
+## "cancel" or "fail".
+func share(p: String, text: String, done: Callable) -> void:
+	if _yg == null:
+		done.call("fail")
+		return
+	_yg.share(p, text, _cb(func(a): done.call_deferred(str(a[0]))))
+
+
 ## Tell the platform the game has loaded and is ready to play.
 func loading_ready() -> void:
 	if _yg:

@@ -140,7 +140,8 @@ ICONS = {  # 64x64 white glyphs
     "puzzle": '<path d="M8 20h14a6 6 0 1 1 12 0h14v14a6 6 0 1 0 0 12v14H34a6 6 0 1 0-12 0H8V46a6 6 0 1 1 0-12z"/>',
     "hand": '<path d="M26 6a5 5 0 0 1 10 0v22l3-1a5 5 0 0 1 6 3l1 2a5 5 0 0 1 6 3v10c0 10-7 17-17 17h-4c-7 0-12-4-15-10l-7-13a5 5 0 0 1 8-6l9 9z"/>',
     "link": '<rect x="6" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/><rect x="28" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/>',
-    "ticket": '<path d="M6 18a4 4 0 0 1 4-4h44a4 4 0 0 1 4 4v7a7 7 0 0 0 0 14v7a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4v-7a7 7 0 0 0 0-14z"/><path d="M32 22l3 7 7 .6-5.3 4.6 1.7 7-6.4-3.9-6.4 3.9 1.7-7-5.3-4.6 7-.6z" fill="#000" fill-opacity=".55"/>',
+    "more": '<circle cx="14" cy="32" r="6"/><circle cx="32" cy="32" r="6"/><circle cx="50" cy="32" r="6"/>',
+    "share": '<circle cx="46" cy="14" r="8"/><circle cx="46" cy="50" r="8"/><circle cx="16" cy="32" r="8"/><path d="M46 14L16 32l30 18" fill="none" stroke="#fff" stroke-width="5"/>',
     "chart": '<rect x="8" y="34" width="10" height="22" rx="2"/><rect x="27" y="20" width="10" height="36" rx="2"/><rect x="46" y="8" width="10" height="48" rx="2"/>',
     "next": '<path d="M24 12l20 20-20 20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
     "prev": '<path d="M40 12L20 32l20 20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -649,7 +650,6 @@ def make_sounds():
     # bonus time
     write_sfx(A("audio", "bonus.wav"), bell(1568, .5, .2, .3) + np.pad(bell(2093, .42, .2, .25), (int(.08 * SR), 0))[:int(SR * .5)])
     make_combo_sounds(rng)
-    make_voices()
     make_bright_sounds(rng)
     make_music()
 
@@ -863,69 +863,6 @@ def make_bright_music():
         put(_lead(note(semi), step * length), bar * 4 * beat + st * step)
     x = np.tanh(x * 1.15) * .75
     write_wav(A("audio", "music_bright.wav"), x)
-
-
-VOICE_LINES = {"great": "Great!", "super": "Super!", "amazing": "Amazing!", "incredible": "Incredible!",
-               "perfect": "Perfect!", "clear": "Board clear!", "levelup": "Level up!"}
-
-
-PIPER_SPEAKER = 575  # LibriTTS-R speaker: a lively male voice (~135 Hz) with the widest intonation
-
-
-def make_voices():
-    """Announcer call-outs. With Piper (set PIPER_DIR to the folder holding the piper binary and
-    voice.onnx, the en_US-libritts_r-medium voice, CC BY 4.0) they sound like a real person;
-    otherwise espeak-ng is used. Light processing only: level, a little glue, a short room."""
-    import shutil, tempfile
-    piper_dir = os.environ.get("PIPER_DIR", "")
-    piper = os.path.join(piper_dir, "piper", "piper") if piper_dir else ""
-    use_piper = piper and os.path.exists(piper)
-    if not use_piper and not shutil.which("espeak-ng"):
-        print("no speech synthesiser found, keeping existing voice files")
-        return
-    for name, text in VOICE_LINES.items():
-        with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-            if use_piper:
-                subprocess.run([piper, "--model", os.path.join(piper_dir, "voice.onnx"), "--speaker", str(PIPER_SPEAKER),
-                                "--length_scale", "0.88", "--noise_scale", "0.95", "--noise_w", "1.0", "--output_file", tmp.name],
-                               input=text.encode(), check=True, capture_output=True)
-            else:
-                subprocess.run(["espeak-ng", "-v", "en-us+m3", "-s", "135", "-p", "62", "-w", tmp.name, text], check=True)
-            with wave.open(tmp.name) as w:
-                sr = w.getframerate()
-                x = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(float) / 32768
-        x = np.interp(np.linspace(0, len(x) - 1, int(len(x) * SR / sr)), np.arange(len(x)), x)
-        nz = np.nonzero(np.abs(x) > 0.01)[0]
-        if len(nz):
-            x = x[max(0, nz[0] - int(.01 * SR)): nz[-1] + int(.05 * SR)]  # trim silence
-        write_wav(A("audio", f"voice_{name}.wav"), natural(x))
-
-
-def natural(x):
-    """Keep the voice human: level it, gently even out the peaks, add the faintest room."""
-    x = x / (np.max(np.abs(x)) + 1e-9)
-    x = np.tanh(x * 1.3) / np.tanh(1.3)
-    y = liven(x, room=.06, width=.05, drive=1.0)
-    return y / (np.max(np.abs(y)) + 1e-9) * .9
-
-
-def brutal(x):
-    """Deep arena-announcer treatment: about two semitones lower, a heavy low end, drive and hard
-    compression, then a couple of short arena reflections and a tail."""
-    x = x / (np.max(np.abs(x)) + 1e-9)
-    k = 2 ** (-2.2 / 12)  # resample lower: deeper pitch and bigger formants
-    x = np.interp(np.arange(0, len(x) - 1, k), np.arange(len(x)), x)
-    lp = np.zeros_like(x); a = 0.0
-    for i, v in enumerate(x):  # one-pole low-pass for the weight underneath
-        a += .08 * (v - a); lp[i] = a
-    x = x + 1.6 * lp
-    x = np.tanh(x * 3.2) * .55 + np.tanh(x * 1.2) * .45  # grit plus body
-    x = np.tanh(x / (np.max(np.abs(x)) + 1e-9) * 2.4)  # squash
-    y = np.pad(x, (0, int(.6 * SR)))
-    for delay, gain in ((.085, .32), (.17, .18), (.26, .09)):
-        d = int(delay * SR); y[d:d + len(x)] += gain * x
-    y = liven(y, room=.28, width=.25, drive=1.3)
-    return y / (np.max(np.abs(y)) + 1e-9) * .95
 
 
 def make_music():

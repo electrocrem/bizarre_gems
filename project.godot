@@ -14,10 +14,10 @@ config/name="Bizarre Gems"
 config/description="Выбивай пары камней крестом на время."
 config/version="1.0.0"
 run/main_scene="res://scenes/main.tscn"
+config/quit_on_go_back=false
 config/features=PackedStringArray("4.7", "GL Compatibility")
 boot_splash/bg_color=Color(0.039, 0.075, 0.082, 1)
 boot_splash/show_image=false
-config/quit_on_go_back=false
 config/icon="res://icon.png"
 
 [autoload]

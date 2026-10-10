@@ -71,7 +71,8 @@ const ICONS := {
 	"check": preload("res://assets/ui/icon_check.png"),
 	"back": preload("res://assets/ui/icon_back.png"),
 	"info": preload("res://assets/ui/icon_info.png"),
-	"ticket": preload("res://assets/ui/icon_ticket.png"),
+	"more": preload("res://assets/ui/icon_more.png"),
+	"share": preload("res://assets/ui/icon_share.png"),
 	"chart": preload("res://assets/ui/icon_chart.png"),
 	"next": preload("res://assets/ui/icon_next.png"),
 	"prev": preload("res://assets/ui/icon_prev.png"),
@@ -82,6 +83,13 @@ const ICONS := {
 var logic := BoardLogic.new()
 var keeper := ScoreKeeper.new()
 var daily := false
+## Challenge links: classic and bright-run boards come from game_seed (one board per wave), and
+## "Challenge a friend" shares mode, seed, board shape and score. A game started from such a link
+## plays that exact board with the score as its target.
+var game_seed := 0
+var board_dims := Vector2i.ZERO  ## shape of the dealt board, before any turn to fit the screen
+var challenge := {}          ## {"mode", "seed", "dims", "score"} of the game being played, or empty
+var pending_challenge := {}  ## the challenge from the launch link, offered on the home screen
 var mode: Dictionary = BoardLogic.CLASSIC
 var wave := 1
 var theme_i := 0
@@ -107,6 +115,7 @@ var last_earned := 0      ## crystals paid by the last result screen, for the x2
 var best_strike := {}     ## the game's highest-scoring strike, replayed on the result screen
 var confirm_panel: PanelContainer
 var stats_panel: PanelContainer
+var more_panel: PanelContainer  ## "More" from the home screen: the less used screens
 var tut_step := 0
 var tut_hand: TextureRect
 var tut_label: Label
@@ -236,7 +245,7 @@ func _ready() -> void:
 		Yandex.sdk_ready.connect(_on_sdk_ready, CONNECT_ONE_SHOT)
 
 
-## Debug builds: ?start=map|tasks|coll|leaders|settings|pause|over|cover|lres|zen|bright|classic|levelN opens that screen directly.
+## Debug builds: ?start=map|tasks|coll|leaders|settings|more|challenge|pause|over|cover|lres|zen|bright|classic|levelN opens that screen directly.
 func _debug_start() -> void:
 	if not (OS.is_debug_build() and OS.has_feature("web")):
 		return
@@ -283,6 +292,10 @@ func _debug_start() -> void:
 	elif q == "over":
 		start_game("bright")
 		end_game("time")
+	elif q == "more":
+		_show_panel(more_panel)
+	elif q == "challenge" and not pending_challenge.is_empty():
+		start_game(str(pending_challenge.mode), false, pending_challenge)
 	elif q == "cover":  # classic result with the best-strike replay (the tallest result panel)
 		start_game("classic")
 		score = 6
@@ -304,14 +317,18 @@ func _on_sdk_ready() -> void:
 	L.set_language(Yandex.language())
 	Save.sync_cloud()
 	Yandex.loading_ready()
+	pending_challenge = parse_challenge(Yandex.payload())
+	_refresh_menu_bests()
 	_debug_start.call_deferred()
 	Sfx.update_music()
 
 
 # ================= game flow =================
 
-func start_game(mode_id := "", is_daily := false) -> void:
+func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	daily = is_daily
+	challenge = ch
+	game_seed = int(ch.seed) if not ch.is_empty() else int(rng.randi())
 	_use_mode(mode_id if mode_id != "" else str(Save.mode))
 	if Save.mode != mode.id and mode.id in ["classic", "bright", "zen", "levels", "puzzle"]:
 		Save.mode = mode.id  # the tutorial and the daily challenge don't become "last mode"
@@ -427,6 +444,11 @@ func _deal_board() -> void:
 				r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
 			area = Vector2(360, 640)
 		var d := BoardLogic.best_dims(area, lv.slots)
+		if mode.kind == "run" and not daily:
+			r = _game_rng()
+			if not challenge.is_empty():
+				d = challenge.dims
+			board_dims = d
 		logic.setup_tuned(d.x, d.y, r, mode.shining, lv.kinds, lv.per_kind, lv.min_moves, lv.max_moves, lv.tries, true,
 			lv.jokers, lv.boxes)
 		if int(lv.get("chains", 0)) > 0:
@@ -448,7 +470,44 @@ func _deal_board() -> void:
 			logic.transpose()  # the same daily board, upright in mobile browsers
 	else:
 		var d := _dims()
-		logic.setup(d.x, d.y, rng, mode.shining, mode.kinds, mode.per_kind)
+		var r := rng
+		if mode.kind == "classic":
+			r = _game_rng()
+			if not challenge.is_empty():
+				d = challenge.dims
+			board_dims = d
+		logic.setup(d.x, d.y, r, mode.shining, mode.kinds, mode.per_kind)
+
+
+## The generator for this wave's board in a shareable game (see game_seed).
+func _game_rng() -> RandomNumberGenerator:
+	var r := RandomNumberGenerator.new()
+	r.seed = hash("bizarre-ch-%d-%d" % [game_seed, wave])
+	return r
+
+
+## Launch payload "c1-<mode>-<seed>-<cols>-<rows>-<score>" -> challenge, or empty if it is not one.
+static func parse_challenge(p: String) -> Dictionary:
+	var a := p.split("-")
+	if a.size() != 6 or a[0] != "c1" or not (a[1] in ["classic", "bright"]):
+		return {}
+	for i in range(2, 6):
+		if not a[i].is_valid_int():
+			return {}
+	var dims := Vector2i(int(a[3]), int(a[4]))
+	if dims.x < 3 or dims.y < 3 or dims.x * dims.y > 1000:
+		return {}
+	return {"mode": a[1], "seed": int(a[2]), "dims": dims, "score": maxi(0, int(a[5]))}
+
+
+func _share_challenge() -> void:
+	Sfx.play("click")
+	var p := "c1-%s-%d-%d-%d-%d" % [mode.id, game_seed, board_dims.x, board_dims.y, score]
+	Yandex.share(p, L.t("ch_share_text", {"n": score}), func(res: String):
+		if res == "copied":
+			_toast(L.t("ch_copied"))
+		elif res == "fail":
+			_toast(L.t("ch_fail")))
 
 
 ## A board ran out of moves: deal the next one with a time bonus, the game goes on.
@@ -468,9 +527,7 @@ func _next_wave(at: Vector2i) -> void:
 	if full_clear:
 		board.play_clear_wave()
 		Sfx.play("clear")
-		Sfx.voice("clear")
 	elif mode.kind == "zen" or mode.kind == "run":
-		Sfx.voice("levelup")
 		Progress.report("clear_boards")
 	var bonus_p := CLEAR_POINTS if full_clear else 0
 	if full_clear and mode.kind == "run":
@@ -789,6 +846,12 @@ func end_game(reason: String) -> void:
 	ui.over_line.text = L.t("cleared", {"n": cleared, "w": wave}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
 	if daily:
 		ui.over_line.text = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(_today())}) + "\n" + ui.over_line.text
+	if not challenge.is_empty():
+		var target := int(challenge.score)
+		var line := L.t("ch_won", {"n": target}) if score > target else L.t("ch_lost", {"n": target, "d": target - score + 1})
+		ui.over_line.text = line + "\n" + ui.over_line.text
+	ui.btn_share.visible = Yandex.can_share() and mode.id in ["classic", "bright"] and not daily and score > 0
+	ui.btn_share.text = L.t("ch_share")
 	ui.over_reward.text = L.t("reward_line", {"n": last_earned})
 	ui.over_reward.visible = last_earned > 0
 	ui.btn_double.visible = last_earned > 0
@@ -858,10 +921,8 @@ func _on_slot(p: Vector2i) -> void:
 		ambient.pulse(Color(1.0, 0.84, 0.4), 0.5)
 	if n >= 4 and res.event == "":
 		board.praise(L.t("praise_great"), p, BRASS_LIGHT)
-		Sfx.voice("great")
 	if res.tier_up and res.mult >= 3:
 		board.praise(L.t("praise_super" if res.mult == 3 else "praise_wow"), p, COMBO_COLORS[res.mult - 1].lightened(0.35), 1.2)
-		Sfx.voice("super" if res.mult == 3 else "amazing")
 	cleared += n
 	_note_best_strike(p, gone, kinds, res)
 	if not thawed.is_empty():
@@ -910,7 +971,6 @@ func _on_slot(p: Vector2i) -> void:
 	if event == "precise":
 		if mode.skin == "bright":
 			Sfx.play("precise")
-			Sfx.voice("incredible")
 		Haptics.buzz("precise")
 		ambient.pulse(BRASS_LIGHT, 0.8)
 		board.play_wave(p, 2.0, true)
@@ -923,7 +983,6 @@ func _on_slot(p: Vector2i) -> void:
 	elif event == "perfect":
 		if mode.skin == "bright":
 			Sfx.play("perfect")
-			Sfx.voice("perfect")
 		Haptics.buzz("perfect")
 		ambient.pulse(Color("#ff9ed2"), 1.0)
 		board.play_wave(p, 3.0, true)
@@ -964,7 +1023,6 @@ func _on_slot(p: Vector2i) -> void:
 	if mode.kind == "levels" and logic.gems_left() == 0:
 		board.play_clear_wave()
 		Sfx.play("clear")
-		Sfx.voice("clear")
 		Progress.report("clear_boards")
 		dealing = true
 		var tw := create_tween()
@@ -1206,7 +1264,7 @@ func _on_again() -> void:
 	ui.btn_again.disabled = true
 	Yandex.show_fullscreen(func(_shown: bool):
 		ui.btn_again.disabled = false
-		start_game(mode.id, daily))
+		start_game(mode.id, daily, challenge))
 
 
 func _on_platform_pause() -> void:
@@ -1233,7 +1291,7 @@ func _on_back() -> void:
 		_show_panel(pause_panel)
 	elif map_panel.visible:
 		_show_panel(mode_panel)
-	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible or stats_panel.visible:
+	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible or stats_panel.visible or more_panel.visible:
 		_show_panel(menu_panel)
 	elif level_panel.visible:
 		_open_map()
@@ -1528,7 +1586,7 @@ func _build() -> void:
 	btn_pause = _icon_button("pause", func(): Sfx.play("click"); pause_game())
 	btn_pause.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hud.add_child(btn_pause)
-	btn_restart = _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily))
+	btn_restart = _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily, challenge))
 	btn_restart.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	hud.add_child(btn_restart)
 	var mid := VBoxContainer.new()
@@ -1659,8 +1717,7 @@ func _build() -> void:
 	_build_leaders()
 	_build_settings()
 	_center_panel_headings()
-	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel, stats_panel, confirm_panel]:
+	for p in _centred_panels():
 		p.resized.connect(_refit_panel.bind(p))
 
 	toast = _label("", f_bold, 20, INK)
@@ -1793,7 +1850,7 @@ func _build_classic_hud(col: VBoxContainer) -> void:
 	btns.add_theme_constant_override("separation", 8)
 	btns.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	var c_pause := _icon_button("pause", func(): Sfx.play("click"); pause_game())
-	var c_restart := _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily))
+	var c_restart := _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily, challenge))
 	var c_settings := _icon_button("settings", _open_settings_from_hud)
 	btns.add_child(c_pause)
 	if _is_touch_device():
@@ -1916,6 +1973,17 @@ func _build_menu() -> void:
 	ui.daily_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	ui.daily_card.custom_minimum_size = Vector2(300, 0)
 	v.add_child(ui.daily_card)
+	ui.challenge_card = _button("", "share", false, func():
+		Sfx.play("click")
+		start_game(str(pending_challenge.mode), false, pending_challenge))
+	for st in ["normal", "hover", "pressed", "focus"]:
+		ui.challenge_card.add_theme_stylebox_override(st, _box(Color("#ff8a3d", 0.3 if st == "normal" else 0.5), Color("#ffb27a"),
+			3 if st == "focus" else 2, 16, Vector4(20, 12, 20, 12)))
+	ui.challenge_card.add_theme_font_size_override("font_size", 19)
+	ui.challenge_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ui.challenge_card.custom_minimum_size = Vector2(300, 0)
+	ui.challenge_card.visible = false
+	v.add_child(ui.challenge_card)
 
 	var gap2 := Control.new()
 	gap2.custom_minimum_size.y = 18
@@ -1932,14 +2000,11 @@ func _build_menu() -> void:
 	row.add_theme_constant_override("h_separation", 14)
 	row.add_theme_constant_override("v_separation", 10)
 	ui.home_leaders = _round_button("trophy", func(): _open_leaders(menu_panel))
-	ui.home_rules = _round_button("info", func(): Sfx.play("click"); _show_rules())
-	ui.home_stats = _round_button("chart", func(): Sfx.play("click"); _refresh_stats(); _show_panel(stats_panel))
-	ui.home_settings = _round_button("settings", func(): _open_settings(menu_panel))
 	ui.home_tasks = _round_button("tasks", func(): Sfx.play("click"); _refresh_tasks(); _show_panel(tasks_panel))
 	ui.home_coll = _round_button("crystal", func(): Sfx.play("click"); _refresh_collection(); _show_panel(collection_panel))
 	ui.home_gift = _round_button("gift", func(): Sfx.play("click"); _refresh_gift(); _show_panel(gift_panel))
-	ui.home_ach = _round_button("medal", func(): Sfx.play("click"); _refresh_achievements(); _show_panel(ach_panel))
-	for b in [ui.home_gift, ui.home_tasks, ui.home_ach, ui.home_coll, ui.home_leaders, ui.home_stats, ui.home_rules, ui.home_settings]:
+	ui.home_more = _round_button("more", func(): Sfx.play("click"); _show_panel(more_panel))
+	for b in [ui.home_gift, ui.home_tasks, ui.home_coll, ui.home_leaders, ui.home_more]:
 		row.add_child(b)
 	v.add_child(row)
 	_build_modes()
@@ -1951,6 +2016,7 @@ func _build_menu() -> void:
 	_build_gift()
 	_build_achievements()
 	_build_stats()
+	_build_more()
 	_build_confirm()
 
 
@@ -2513,6 +2579,31 @@ func _refresh_achievements() -> void:
 	_fit_panels.call_deferred()
 
 
+## The centred panels (everything but the full-screen home, mode list and map).
+func _centred_panels() -> Array:
+	return [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
+			gift_panel, ach_panel, stats_panel, more_panel, confirm_panel]
+
+
+## "More": achievements, statistics, how to play and settings, so the home row keeps to the
+## everyday five and never wraps.
+func _build_more() -> void:
+	var pv := _panel()
+	more_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.more_title = _label("", f_display, 32, BRASS)
+	v.add_child(ui.more_title)
+	ui.more_ach = _button("", "medal", false, func(): Sfx.play("click"); _refresh_achievements(); _show_panel(ach_panel))
+	ui.more_stats = _button("", "chart", false, func(): Sfx.play("click"); _refresh_stats(); _show_panel(stats_panel))
+	ui.more_rules = _button("", "info", false, func(): Sfx.play("click"); _show_rules())
+	ui.more_settings = _button("", "settings", false, func(): _open_settings(menu_panel))
+	for b in [ui.more_ach, ui.more_stats, ui.more_rules, ui.more_settings]:
+		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		v.add_child(b)
+	ui.btn_close_more = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
+	v.add_child(_row([ui.btn_close_more]))
+
+
 func _build_stats() -> void:
 	var pv := _panel()
 	stats_panel = pv[0]
@@ -2598,7 +2689,11 @@ func _refresh_menu_bests() -> void:
 		ui["card_best_" + id].text = line
 	(ui.home_gift.get_meta("caption") as Label).text = L.t("gift") + (" !" if Progress.gift_ready() else "")
 	var adue := Progress.achievements_due()
-	(ui.home_ach.get_meta("caption") as Label).text = L.t("achievements") + (" (%d)" % adue if adue > 0 else "")
+	ui.more_ach.text = L.t("achievements") + (" (%d)" % adue if adue > 0 else "")
+	(ui.home_more.get_meta("caption") as Label).text = L.t("more") + (" (%d)" % adue if adue > 0 else "")
+	ui.challenge_card.visible = not pending_challenge.is_empty()
+	if ui.challenge_card.visible:
+		ui.challenge_card.text = L.t("ch_card", {"n": pending_challenge.score, "m": L.t("mode_" + str(pending_challenge.mode))})
 	if Progress.daily_reward_ready():
 		ui.daily_card.text = L.t("daily_card", {"n": Progress.DAILY_CRYSTALS})
 	else:
@@ -2793,6 +2888,8 @@ func _build_over() -> void:
 	v.add_child(ui.btn_continue)
 	ui.btn_shuffle = _button("", "shuffle", false, _on_shuffle)
 	v.add_child(ui.btn_shuffle)
+	ui.btn_share = _button("", "share", false, _share_challenge)
+	v.add_child(ui.btn_share)
 	ui.btn_again = _button("", "restart", true, _on_again)
 	ui.btn_leaders_over = _button("", "trophy", false, func(): _open_leaders(over_panel))
 	ui.btn_menu_over = _button("", "home", false, func(): Sfx.play("click"); go_menu())
@@ -2849,11 +2946,6 @@ func _build_settings() -> void:
 		Sfx.apply_volumes()
 		Sfx.update_music(), func(): Save.store())
 	v.add_child(_setting_row(ui.chk_music, ui.sld_music))
-	ui.chk_voice = _check(Save.voice, func(on: bool):
-		Save.voice = on
-		Save.store()
-		Sfx.voice("great"))
-	v.add_child(ui.chk_voice)
 	ui.chk_vibration = _check(Save.vibration, func(on: bool):
 		Save.vibration = on
 		Save.store()
@@ -2902,7 +2994,6 @@ func _open_settings(from: Control) -> void:
 	ui.chk_sound.set_pressed_no_signal(Save.sound)
 	ui.chk_music.set_pressed_no_signal(Save.music)
 	ui.chk_vibration.set_pressed_no_signal(Save.vibration)
-	ui.chk_voice.set_pressed_no_signal(Save.voice)
 	ui.sld_sound.set_value_no_signal(Save.sound_volume)
 	ui.sld_music.set_value_no_signal(Save.music_volume)
 	var vs := get_viewport_rect().size
@@ -2929,7 +3020,7 @@ func _close_settings() -> void:
 
 
 func _current_panel() -> Control:
-	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, stats_panel, confirm_panel]:
+	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, stats_panel, more_panel, confirm_panel]:
 		if p.visible:
 			return p
 	return null
@@ -2983,9 +3074,14 @@ func _apply_texts() -> void:
 	ui.btn_close_ach.text = L.t("close")
 	for k in ["score", "score_bright", "score_zen", "stars"]:
 		ui["lb_tab_" + k].text = L.t("lb_" + k)
-	for pair in [[ui.home_leaders, "leaders"], [ui.home_stats, "stats_title"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"],
-			[ui.home_tasks, "tasks"], [ui.home_coll, "collection"], [ui.home_gift, "gift"], [ui.home_ach, "achievements"]]:
+	for pair in [[ui.home_leaders, "leaders"], [ui.home_tasks, "tasks"], [ui.home_coll, "collection"], [ui.home_gift, "gift"],
+			[ui.home_more, "more"]]:
 		(pair[0].get_meta("caption") as Label).text = L.t(pair[1])
+	ui.more_title.text = L.t("more")
+	ui.more_stats.text = L.t("stats_title")
+	ui.more_rules.text = L.t("how_title")
+	ui.more_settings.text = L.t("settings")
+	ui.btn_close_more.text = L.t("close")
 	_refresh_menu_bests()
 	ui.btn_close_rules.text = L.t("close")
 	ui.btn_shuffle.text = L.t("shuffle_ad")
@@ -3004,7 +3100,6 @@ func _apply_texts() -> void:
 	ui.chk_sound.text = L.t("sounds")
 	ui.chk_music.text = L.t("music_opt")
 	ui.chk_vibration.text = L.t("vibration")
-	ui.chk_voice.text = L.t("voice")
 	ui.btn_settings_done.text = L.t("done")
 	ui.rotate_label.text = L.t("rotate")
 	_fit_panels.call_deferred()
@@ -3026,7 +3121,7 @@ func _show_panel(p: Control) -> void:
 		_refresh_menu_bests()
 	# the game layer stays out of sight behind the menus and anything opened from them
 	margin.visible = not on_menu and state != State.MENU
-	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, stats_panel, confirm_panel]:
+	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, stats_panel, more_panel, confirm_panel]:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
@@ -3207,7 +3302,7 @@ func _relayout_board() -> void:
 	var screen_tall := area.y > area.x * 1.15
 	var screen_wide := area.x > area.y * 1.15
 	if (screen_tall and logic.cols > logic.rows) or (screen_wide and logic.rows > logic.cols):
-		if not (mode.id == "classic" and not _is_touch_device()):
+		if not (mode.id == "classic" and not _is_touch_device() and challenge.is_empty()):
 			logic.transpose()
 			board.transposed()
 	board.refresh()
@@ -3240,8 +3335,7 @@ func _on_viewport_resized() -> void:
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
-	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel, stats_panel, confirm_panel]:
+	for p in _centred_panels():
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
 	var short := s.y < 600
@@ -3279,8 +3373,7 @@ func _fit_panels() -> void:
 		# wrapped text overstates its minimum height until laid out, so prefer the real height
 		var want := content.size.y if content.size.y > 0.0 else content.get_combined_minimum_size().y
 		scroll.custom_minimum_size.y = clampf(avail - fixed, 80.0, maxf(80.0, want))
-	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel, stats_panel, confirm_panel]:
+	for p in _centred_panels():
 		if p.visible:
 			p.pivot_offset = p.size / 2
 			p.scale = Vector2.ONE * _panel_fit(p)

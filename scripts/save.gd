@@ -13,7 +13,6 @@ var mode := "bright" if OS.has_feature("android") else "classic"  ## last mode t
 var sound := true
 var music := true
 var vibration := true
-var voice := true  ## announcer call-outs
 var sound_volume := 1.0
 var music_volume := 0.7
 var daily_date := ""
@@ -32,7 +31,6 @@ func _ready() -> void:
 		sound = bool(cfg.get_value("audio", "sound", true))
 		music = bool(cfg.get_value("audio", "music", true))
 		vibration = bool(cfg.get_value("audio", "vibration", true))
-		voice = bool(cfg.get_value("audio", "voice", true))
 		sound_volume = float(cfg.get_value("audio", "sound_volume", 1.0))
 		music_volume = float(cfg.get_value("audio", "music_volume", 0.7))
 		daily_date = str(cfg.get_value("daily", "date", ""))
@@ -128,7 +126,6 @@ func _write_local() -> void:
 	cfg.set_value("audio", "sound", sound)
 	cfg.set_value("audio", "music", music)
 	cfg.set_value("audio", "vibration", vibration)
-	cfg.set_value("audio", "voice", voice)
 	cfg.set_value("audio", "sound_volume", sound_volume)
 	cfg.set_value("audio", "music_volume", music_volume)
 	cfg.set_value("daily", "date", daily_date)
