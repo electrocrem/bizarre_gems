@@ -685,7 +685,7 @@ VOICE_LINES = {"great": "Great!", "super": "Super!", "amazing": "Amazing!", "inc
                "perfect": "Perfect!", "clear": "Board clear!", "levelup": "Level up!"}
 
 
-PIPER_SPEAKER = 512  # LibriTTS-R speaker: a lively mid-low male voice
+PIPER_SPEAKER = 805  # LibriTTS-R speaker: the deepest, steadiest voice of the set (~94 Hz)
 
 
 def make_voices():
@@ -703,7 +703,7 @@ def make_voices():
         with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
             if use_piper:
                 subprocess.run([piper, "--model", os.path.join(piper_dir, "voice.onnx"), "--speaker", str(PIPER_SPEAKER),
-                                "--length_scale", "0.85", "--noise_scale", "0.9", "--noise_w", "0.9", "--output_file", tmp.name],
+                                "--length_scale", "1.0", "--noise_scale", "0.7", "--noise_w", "0.8", "--output_file", tmp.name],
                                input=text.encode(), check=True, capture_output=True)
             else:
                 subprocess.run(["espeak-ng", "-v", "en-us+m3", "-s", "135", "-p", "62", "-w", tmp.name, text], check=True)
@@ -714,9 +714,26 @@ def make_voices():
         nz = np.nonzero(np.abs(x) > 0.01)[0]
         if len(nz):
             x = x[max(0, nz[0] - int(.01 * SR)): nz[-1] + int(.05 * SR)]  # trim silence
-        x = np.tanh(x / (np.max(np.abs(x)) + 1e-9) * 1.6)
-        y = liven(x, room=.12, width=.15, drive=1.1)
-        write_wav(A("audio", f"voice_{name}.wav"), y / (np.max(np.abs(y)) + 1e-9) * .92)
+        write_wav(A("audio", f"voice_{name}.wav"), brutal(x))
+
+
+def brutal(x):
+    """Deep arena-announcer treatment: about two semitones lower, a heavy low end, drive and hard
+    compression, then a couple of short arena reflections and a tail."""
+    x = x / (np.max(np.abs(x)) + 1e-9)
+    k = 2 ** (-2.2 / 12)  # resample lower: deeper pitch and bigger formants
+    x = np.interp(np.arange(0, len(x) - 1, k), np.arange(len(x)), x)
+    lp = np.zeros_like(x); a = 0.0
+    for i, v in enumerate(x):  # one-pole low-pass for the weight underneath
+        a += .08 * (v - a); lp[i] = a
+    x = x + 1.6 * lp
+    x = np.tanh(x * 3.2) * .55 + np.tanh(x * 1.2) * .45  # grit plus body
+    x = np.tanh(x / (np.max(np.abs(x)) + 1e-9) * 2.4)  # squash
+    y = np.pad(x, (0, int(.6 * SR)))
+    for delay, gain in ((.085, .32), (.17, .18), (.26, .09)):
+        d = int(delay * SR); y[d:d + len(x)] += gain * x
+    y = liven(y, room=.28, width=.25, drive=1.3)
+    return y / (np.max(np.abs(y)) + 1e-9) * .95
 
 
 def make_music():
