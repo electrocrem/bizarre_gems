@@ -393,6 +393,8 @@ func _deal_board() -> void:
 func _next_wave(at: Vector2i) -> void:
 	var full_clear := logic.gems_left() == 0
 	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
+	if mode.kind == "run":
+		bonus_t = 10.0  # every new run board, stuck or cleared, adds 10 s; a full clear also scores
 	if mode.kind == "zen":
 		bonus_t = 0.0
 		var nl := BoardLogic.bright_level(wave + 1)
@@ -660,10 +662,7 @@ func _check_no_moves() -> void:
 		"tutorial":
 			pass
 		"run":
-			if logic.gems_left() == 0:
-				_next_wave(Vector2i(logic.cols / 2, logic.rows / 2))
-			else:
-				end_game("stuck")
+			_next_wave(Vector2i(logic.cols / 2, logic.rows / 2))  # stuck or cleared: a fresh board, the run goes on
 		_:
 			if mode.waves:
 				_next_wave(Vector2i(logic.cols / 2, logic.rows / 2))
@@ -888,8 +887,6 @@ func _on_slot(p: Vector2i) -> void:
 	if not logic.has_any_move():
 		if mode.kind == "levels":
 			_end_level()
-		elif mode.kind == "run" and logic.gems_left() > 0:
-			end_game("stuck")  # like classic: out of moves ends the run (a rewarded shuffle may save it)
 		elif mode.waves:
 			_next_wave(p)
 		else:
