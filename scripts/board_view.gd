@@ -104,7 +104,12 @@ const PALETTE_COLORS := [
 	["#3d8bdf", "#ff6f7a", "#4fb88b", "#ffffff", "#ffcf4d", "#8fd3ff"],
 	["#ff8a1d", "#f2f2f2", "#7b4fd6", "#ff5d3a", "#ffe08a", "#cfd8dc"],
 	["#e2334c", "#2f6ff0", "#17a866", "#f4c62e", "#f28a22", "#9a4fe6"],
+	["#ff3d8b", "#33e1ff", "#7dff5a", "#ffe53d", "#ff8a1f", "#b06bff"],
+	["#d8283c", "#2a6fd6", "#1fa36a", "#e8b622", "#e8701c", "#8a3fcf"],
 ]
+const ICE_TEX := preload("res://assets/tiles/ice.png")
+const BOMB_TEX := preload("res://assets/tiles/bomb.png")
+const CHAM_TEX := preload("res://assets/tiles/chameleon.png")
 const LINK_TEX := preload("res://assets/ui/icon_link.png")
 var _confetti: Array[Dictionary] = []
 ## Pinch zoom (classic on touch screens): 1..3x around the board, pan with one or two fingers.
@@ -293,6 +298,31 @@ func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points
 	_texts.append({"p": c, "s": "+%d" % points, "t": 0.0, "c": col, "k": 1.0 + (mult - 1) * 0.18})
 	_hint = Vector2i(-1, -1)
 	queue_redraw()  # gems were removed
+
+
+## Ice breaking off thawed gems: pale shards.
+func play_thaw(ps: Array[Vector2i]) -> void:
+	for q in ps:
+		var h := slot_center(q)
+		for j in 10:
+			var a := randf() * TAU
+			_shards.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2.0, 5.0) + Vector2(0, -cell * 2.0),
+				"r": randf() * TAU, "vr": randf_range(-9, 9), "s": cell * randf_range(0.1, 0.2),
+				"c": Color(0.85, 0.96, 1.0).lightened(randf() * 0.1), "t": 0.0, "life": randf_range(0.4, 0.7)})
+	queue_redraw()
+
+
+## A bomb went off: a hot burst and a hard shake.
+func play_blast(p: Vector2i) -> void:
+	var h := slot_center(p)
+	_waves.append({"p": h, "t": 0.0, "k": 2.5, "rainbow": false})
+	for j in 26:
+		var a := randf() * TAU
+		_sparks.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(3, 9), "t": 0.0,
+			"life": randf_range(0.4, 0.8), "s": randf_range(0.3, 0.6), "c": [Color("#ff5d3a"), Color("#ffcf33"), Color("#ffffff")][j % 3]})
+	shake(0.35)
+	flash(Color("#ff5d3a"), 0.3)
+	queue_redraw()
 
 
 ## Expanding ring from a slot; strength 1 for a combo step, 2-3 for precise/perfect.
@@ -484,6 +514,20 @@ func _draw() -> void:
 				var ls := gs * 0.42
 				var lp := ctr + Vector2(gs * 0.5 - ls, -gs * 0.5)
 				draw_texture_rect(LINK_TEX, Rect2(lp, Vector2.ONE * ls), false, Color(0.15, 0.12, 0.3, 0.85))
+			if logic.ice.size() > i:
+				if logic.ice[i] == 1:
+					draw_texture_rect(ICE_TEX, Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
+				if logic.cham[i] == 1:
+					draw_texture_rect(CHAM_TEX, Rect2(ctr - Vector2.ONE * gs / 2, Vector2.ONE * gs), false)
+				if logic.bomb[i] > 0:
+					var bs := gs * 0.55
+					var bp := ctr + Vector2(gs * 0.5 - bs * 0.85, -gs * 0.5 - bs * 0.12)
+					draw_texture_rect(BOMB_TEX, Rect2(bp, Vector2.ONE * bs), false)
+					if number_font:
+						var low := logic.bomb[i] <= 2
+						var fs := int(bs * 0.5)
+						draw_string(number_font, bp + Vector2(0, bs * 0.74), str(logic.bomb[i]), HORIZONTAL_ALIGNMENT_CENTER, bs * 0.94,
+							fs, Color("#ff6b5a") if low else Color.WHITE)
 
 	if interactive and focus.x >= 0:
 		var col := Color(0.82, 0.67, 0.33, 1.0 if _keyboard else 0.6)

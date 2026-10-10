@@ -31,6 +31,14 @@ const THEMES := [
 	{"top": Color("#4a2a5c"), "bottom": Color("#140b1f")},  # halloween
 	{"top": Color("#8a6a2a"), "bottom": Color("#2b2210")},  # gold
 ]
+## Level chapters: caves, glacier, volcano, jungle, space.
+const CHAPTER_THEMES := [
+	{"top": Color("#5b4a8a"), "bottom": Color("#1e1733")},
+	{"top": Color("#6fa8dc"), "bottom": Color("#1f3f6b")},
+	{"top": Color("#c2452d"), "bottom": Color("#3a1210")},
+	{"top": Color("#3f9a55"), "bottom": Color("#103a22")},
+	{"top": Color("#3b3f9e"), "bottom": Color("#090a26")},
+]
 const COMBO_COLORS := [Color("#3d8bff"), Color("#22c97a"), Color("#ff9a2e"), Color("#ff4dad")]
 
 const ICONS := {
@@ -63,6 +71,12 @@ const ICONS := {
 	"check": preload("res://assets/ui/icon_check.png"),
 	"back": preload("res://assets/ui/icon_back.png"),
 	"info": preload("res://assets/ui/icon_info.png"),
+	"ticket": preload("res://assets/ui/icon_ticket.png"),
+	"chart": preload("res://assets/ui/icon_chart.png"),
+	"next": preload("res://assets/ui/icon_next.png"),
+	"prev": preload("res://assets/ui/icon_prev.png"),
+	"door": preload("res://assets/ui/icon_door.png"),
+	"link": preload("res://assets/ui/icon_link.png"),
 }
 
 var logic := BoardLogic.new()
@@ -82,6 +96,19 @@ var strikes_max := 1
 var hints := 1            ## free hints left this game / level
 var puzzle_n := 1
 var goal_kind := -1       ## level goal: knock out every gem of this kind (-1: none, -2: done)
+var board_kinds := 6      ## kinds on the current board (chameleons cycle through them)
+var strikes_done := 0     ## successful strikes this game (chameleons shift every CHAM_EVERY)
+const CHAM_EVERY := 3
+const BOMB_TIME := 5.0    ## a bomb going off costs this many seconds (steps mode: 3 steps)
+const BOMB_STEPS := 3
+const DEFUSE_POINTS := 10
+var paid_crystals := 0    ## crystals already paid for this game's score (a continued game pays the rest)
+var paid_xp := 0
+var last_earned := 0      ## crystals paid by the last result screen, for the x2 reward
+var best_strike := {}     ## the game's highest-scoring strike, replayed on the result screen
+var confirm_panel: PanelContainer
+var pass_panel: PanelContainer
+var stats_panel: PanelContainer
 var tut_step := 0
 var tut_hand: TextureRect
 var tut_label: Label
@@ -163,6 +190,7 @@ var tasks_panel: PanelContainer
 var collection_panel: PanelContainer
 var gift_panel: PanelContainer
 var ach_panel: PanelContainer
+var rules_page := 0
 var leaders_board := "score"
 var map_kind := "levels"  ## the map screen lists "levels" or "puzzle"
 var settings_from_game := false  ## settings opened mid-game: Done goes straight back to playing
@@ -225,10 +253,8 @@ func _debug_start() -> void:
 		start_level(maxi(1, int(q.substr(5))))
 	elif q in ["zen", "bright", "classic", "tutorial"]:
 		start_game(q)
-	var t := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('t') || ''"))
-	if t != "" and state == State.PLAYING:
-		time_left = float(t)
-		strikes = mini(strikes, int(t))
+	elif q == "daily":
+		start_game("bright", true)
 	elif q == "puzzle":
 		start_puzzle(1)
 	elif q == "modes":
@@ -241,7 +267,23 @@ func _debug_start() -> void:
 	elif q == "ach":
 		_refresh_achievements()
 		_show_panel(ach_panel)
-
+	elif q == "pass":
+		_refresh_pass()
+		_show_panel(pass_panel)
+	elif q == "stats":
+		_refresh_stats()
+		_show_panel(stats_panel)
+	elif q.begins_with("rules"):
+		_show_rules()
+		_set_rules_page(int(q.substr(5)))
+	elif q == "leave":
+		start_game("bright")
+		pause_game()
+		_ask_leave()
+	var t := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('t') || ''"))
+	if t != "" and state == State.PLAYING:
+		time_left = float(t)
+		strikes = mini(strikes, int(t))
 
 func _on_sdk_ready() -> void:
 	L.set_language(Yandex.language())
@@ -256,8 +298,8 @@ func _on_sdk_ready() -> void:
 func start_game(mode_id := "", is_daily := false) -> void:
 	daily = is_daily
 	_use_mode(mode_id if mode_id != "" else str(Save.mode))
-	if Save.mode != mode.id:
-		Save.mode = mode.id
+	if Save.mode != mode.id and mode.id in ["classic", "bright", "zen", "levels", "puzzle"]:
+		Save.mode = mode.id  # the tutorial and the daily challenge don't become "last mode"
 		Save.store()
 	wave = 1
 	if mode.kind == "levels":
@@ -288,6 +330,10 @@ func start_game(mode_id := "", is_daily := false) -> void:
 		time_left = 999.0
 	used_continue = false
 	used_shuffle = false
+	paid_crystals = 0
+	paid_xp = 0
+	strikes_done = 0
+	best_strike = {}
 	board.clear_fx()
 	board.refresh()
 	board.deal_in()
@@ -295,7 +341,7 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	Sfx.play("start")
 	_resume_play()
 	if mode.kind == "levels" and BoardLogic.bright_level(level_n).boss:
-		_banner(L.t("boss"), 0, 0.0, Color("#ff9ed2"), L.t("boss_sub"))
+		_banner(L.t("boss"), 0, 0.0, Color("#ff9ed2"), L.t("rule_" + str(BoardLogic.bright_level(level_n).rule)))
 	elif mode.kind == "tutorial":
 		_tutorial_step(0)
 
@@ -348,7 +394,13 @@ func _deal_board() -> void:
 		if mode.kind == "run":
 			# the run plays like classic: one big board for the whole clock, a touch of jokers and boxes
 			lv = {"slots": 200, "kinds": 6, "per_kind": 28, "min_moves": 4, "max_moves": 999, "tries": 30,
-				"jokers": 0.1, "boxes": 5, "chains": 3, "boss": false, "goal_kind": -1}
+				"jokers": 0.1, "boxes": 5, "chains": 3, "boss": false, "goal_kind": -1, "ice": 3, "bombs": 2,
+				"bomb_moves": 12, "chameleons": 2}
+		elif mode.kind == "zen":
+			lv.ice = mini(wave, 4) if wave >= 2 else 0
+			lv.chameleons = mini(wave - 2, 3) if wave >= 3 else 0
+			lv.bombs = 1 if wave >= 4 else 0
+			lv.bomb_moves = 10
 		var r := rng
 		var area := _board_area()
 		if daily or mode.kind == "levels" or mode.kind == "puzzle":
@@ -365,6 +417,13 @@ func _deal_board() -> void:
 			lv.jokers, lv.boxes)
 		if int(lv.get("chains", 0)) > 0:
 			logic.add_chains(r, int(lv.chains))
+		if int(lv.get("ice", 0)) > 0:
+			logic.add_ice(r, int(lv.ice))
+		if int(lv.get("bombs", 0)) > 0 and mode.kind != "puzzle":
+			logic.add_bombs(r, int(lv.bombs), int(lv.get("bomb_moves", 10)))
+		if int(lv.get("chameleons", 0)) > 0:
+			logic.add_chameleons(r, int(lv.chameleons))
+		board_kinds = int(lv.kinds)
 		goal_kind = int(lv.get("goal_kind", -1)) if mode.kind == "levels" else -1
 		return
 	if daily:
@@ -443,6 +502,8 @@ func _set_theme(i: int, instant := false) -> void:
 		return  # the classic look keeps its colours
 	theme_i = posmod(i, THEMES.size())
 	var t: Dictionary = THEMES[theme_i]
+	if mode.kind == "levels":
+		t = CHAPTER_THEMES[BoardLogic.chapter_of(level_n) % CHAPTER_THEMES.size()]  # each chapter keeps its own sky
 	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
 	board.palette = Progress.look  # tiles always show the pack chosen in the collection; only the backdrop cycles
 	if not instant:
@@ -499,9 +560,14 @@ func _end_level() -> void:
 	if goal_failed:
 		got = 0
 	var gained := Progress.record_level(level_n, got)
+	last_earned = gained * Progress.STAR_CRYSTALS
 	if BoardLogic.bright_level(level_n).boss and gained > 0:
 		Progress.crystals += gained * Progress.STAR_CRYSTALS * 2  # bosses pay triple
+		last_earned *= 3
 		Progress.flush()
+	_pay_xp(10 + got * 10)
+	Progress.report("games_levels")
+	Progress.report("play_secs", int(play_time))
 	Progress.add_local_score("stars", Progress.total_stars())
 	if Yandex.is_authorized():
 		Yandex.submit_score(Progress.total_stars(), "stars")
@@ -510,6 +576,10 @@ func _end_level() -> void:
 	ui.level_line.text = L.t("level_share", {"p": int(round(share * 100))}) + ("  ·  +%d" % (gained * Progress.STAR_CRYSTALS) if gained > 0 else "")
 	ui.level_next.visible = got > 0
 	ui.level_stars[0].get_parent().visible = true
+	ui.level_double.visible = last_earned > 0
+	ui.level_double.text = L.t("double_ad", {"n": last_earned})
+	ui.level_continue.visible = left > 0 and not used_continue
+	ui.level_continue.text = L.t("continue_ad") if time_left <= 0.0 else L.t("shuffle_ad")
 	for i in 3:
 		var st: TextureRect = ui.level_stars[i]
 		st.modulate = Color(0.25, 0.3, 0.5, 1)
@@ -541,8 +611,17 @@ func _end_puzzle() -> void:
 	state = State.OVER
 	board.interactive = false
 	var solved := logic.gems_left() == 0
+	last_earned = 0
 	if solved:
+		if puzzle_n > Progress.puzzles:
+			last_earned = 10
+			Progress.add_crystals(10)
 		Progress.solved_puzzle(puzzle_n)
+		_pay_xp(25)
+	Progress.report("games_puzzle")
+	ui.level_double.visible = last_earned > 0
+	ui.level_double.text = L.t("double_ad", {"n": last_earned})
+	ui.level_continue.visible = false
 	ui.level_title.text = L.t("puzzle_n", {"n": puzzle_n})
 	ui.level_result.text = L.t("puzzle_solved" if solved else "puzzle_failed")
 	ui.level_line.text = L.t("puzzle_line", {"n": logic.solution.size()})
@@ -626,6 +705,11 @@ func _check_no_moves() -> void:
 		return
 	match mode.kind:
 		"levels":
+			if logic.has_chameleons() and logic.gems_left() > 1:
+				logic.shuffle_remaining(rng)  # chameleons can leave a board with no way out
+				board.deal_in()
+				_toast(L.t("reshuffled"))
+				return
 			_end_level()
 		"puzzle":
 			_end_puzzle()
@@ -677,6 +761,16 @@ func end_game(reason: String) -> void:
 			Yandex.submit_score(Save.best_for(mode.id), mode.board)
 	Sfx.play("over")
 	Haptics.buzz("over")
+	var earned := Progress.crystals_for_score(score) - paid_crystals
+	paid_crystals += earned
+	var daily_paid := Progress.pay_daily() if daily else 0
+	Progress.add_crystals(maxi(earned, 0))
+	last_earned = maxi(earned, 0) + daily_paid
+	var tiers := _pay_xp(10 + mini(score / 50, 40) + (30 if daily_paid > 0 else 0))
+	Progress.report("games_" + mode.id)
+	Progress.report("max_combo", keeper.best_combo)
+	Progress.report("play_secs", int(play_time))
+	Progress.flush()
 	ui.over_title.text = L.t("stuck" if reason == "stuck" else ("no_strikes" if reason == "strikes" else "times_up"))
 	ui.over_score.text = str(score)
 	ui.over_best.visible = is_best and score > 0
@@ -684,6 +778,11 @@ func end_game(reason: String) -> void:
 	ui.over_line.text = L.t("cleared", {"n": cleared, "w": wave}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
 	if daily:
 		ui.over_line.text = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(_today())}) + "\n" + ui.over_line.text
+	ui.over_reward.text = L.t("reward_line", {"n": last_earned}) + ("  ·  " + L.t("pass_up") if tiers > 0 else "")
+	ui.over_reward.visible = last_earned > 0
+	ui.btn_double.visible = last_earned > 0
+	ui.btn_double.text = L.t("double_ad", {"n": last_earned})
+	_show_best_strike()
 	ui.btn_continue.visible = reason == "time" and not used_continue and mode.kind != "zen"
 	ui.btn_shuffle.visible = reason == "stuck" and not used_shuffle and logic.gems_left() > 1
 	_show_panel(over_panel)
@@ -712,6 +811,7 @@ func _on_slot(p: Vector2i) -> void:
 			_combo_break()
 		if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
 			_flash_delta("−1", true)
+		_tick_obstacles(false)
 		if time_left <= 0.0:
 			end_game("time")
 		elif (mode.kind == "zen" or mode.kind == "puzzle") and strikes <= 0:
@@ -727,7 +827,12 @@ func _on_slot(p: Vector2i) -> void:
 	var nshine := logic.shining_count(gone)
 	var vanish := logic.vanishing(gone)
 	var before := logic.cells.duplicate()
+	var defused := 0
+	for g in gone:
+		if logic.bomb_at(g) > 0 and not logic.is_box(g):
+			defused += 1
 	var extra := logic.remove(gone)
+	var thawed := logic.last_thawed.duplicate()
 	for q in extra:
 		gone.append(q)
 		vanish.append(q)
@@ -747,6 +852,17 @@ func _on_slot(p: Vector2i) -> void:
 		board.praise(L.t("praise_super" if res.mult == 3 else "praise_wow"), p, COMBO_COLORS[res.mult - 1].lightened(0.35), 1.2)
 		Sfx.voice("super" if res.mult == 3 else "amazing")
 	cleared += n
+	_note_best_strike(p, gone, kinds, res)
+	if not thawed.is_empty():
+		board.play_thaw(thawed)
+		Sfx.play("bonus", 1.6, -4.0)
+	if defused > 0:
+		keeper.score += DEFUSE_POINTS * defused
+		score = keeper.score
+		board.praise(L.t("defused"), p, Color("#ffcf33"))
+		Sfx.play("bonus", 0.8)
+	strikes_done += 1
+	_tick_obstacles(true)
 	if extra.size() > 0:
 		keeper.score += extra.size() * 2
 		score = keeper.score
@@ -932,6 +1048,11 @@ func _use_hint() -> void:
 	if hints > 0:
 		hints -= 1
 		_show_hint()
+		_update_hud()
+		return
+	if Progress.use_hint_token():
+		_show_hint()
+		_update_hud()
 		return
 	Yandex.show_rewarded(func(ok: bool):
 		if ok:
@@ -955,6 +1076,97 @@ func _show_hint() -> void:
 	if p.x >= 0:
 		board.show_hint(p)
 		Sfx.play("hint")
+
+
+## Pass XP for this game up to `total` (a continued game only pays what it adds). Returns
+## how many pass tiers were reached.
+func _pay_xp(total: int) -> int:
+	var add := maxi(0, total - paid_xp)
+	paid_xp = maxi(paid_xp, total)
+	return Progress.add_xp(add)
+
+
+## After every strike (and miss): bombs tick down and may go off; every few hits the
+## chameleons change colour.
+func _tick_obstacles(hit: bool) -> void:
+	if mode.skin != "bright":
+		return
+	for q in logic.tick_bombs():
+		board.play_blast(q)
+		Sfx.play("over", 1.5, -2.0)
+		Haptics.buzz("perfect")
+		board.praise(L.t("boom"), q, Color("#ff5d3a"), 1.2)
+		if mode.kind == "zen":
+			strikes = maxi(0, strikes - BOMB_STEPS)
+			_flash_delta("−%d" % BOMB_STEPS, true, "steps")
+		elif mode.kind != "puzzle":
+			time_left = maxf(0.0, time_left - BOMB_TIME)
+			_flash_delta("−%d" % int(BOMB_TIME), true)
+	if hit and strikes_done % CHAM_EVERY == 0 and logic.has_chameleons():
+		var changed := logic.shift_chameleons(board_kinds)
+		for q in changed:
+			board.play_wave(q, 0.6, true)
+		if not changed.is_empty():
+			Sfx.play("hint", 1.3, -6.0)
+	board.refresh()
+
+
+## Keep the game's best strike (the cross part of it) for the result screen.
+func _note_best_strike(p: Vector2i, gone: Array[Vector2i], kinds: Array[int], res: Dictionary) -> void:
+	if not best_strike.is_empty() and int(res.points) <= int(best_strike.points):
+		return
+	var parts := []
+	for i in gone.size():
+		var d := gone[i] - p
+		if (d.x == 0) != (d.y == 0):
+			parts.append([d, kinds[i]])
+	best_strike = {"points": res.points, "n": gone.size(), "mult": res.mult, "parts": parts}
+
+
+func _show_best_strike() -> void:
+	ui.best_box.visible = not best_strike.is_empty() and not best_strike.parts.is_empty()
+	if ui.best_box.visible:
+		ui.best_caption.text = L.t("best_strike", {"n": best_strike.n, "p": best_strike.points})
+		(ui.best_view as StrikeReplay).show_strike(best_strike, func(k: int) -> Texture2D: return board._tex(k), f_num)
+
+
+## Rewarded video: the crystals of the last result once more.
+func _on_double() -> void:
+	Sfx.play("click")
+	Yandex.show_rewarded(func(ok: bool):
+		if not ok:
+			_toast(L.t("ad_failed"))
+			return
+		Progress.add_crystals(last_earned)
+		_toast(L.t("doubled", {"n": last_earned}))
+		Sfx.play("star")
+		last_earned = 0
+		ui.btn_double.visible = false
+		ui.level_double.visible = false
+		_refresh_menu_bests())
+
+
+## Rewarded video on a lost level: 15 more seconds, or a reshuffle when no move is left.
+func _on_level_continue() -> void:
+	Sfx.play("click")
+	Yandex.show_rewarded(func(ok: bool):
+		if not ok:
+			_toast(L.t("ad_failed"))
+			return
+		used_continue = true
+		if time_left <= 0.0:
+			time_left = CONTINUE_TIME
+			_flash_delta("+15", false)
+		if not logic.has_any_move():
+			logic.shuffle_remaining(rng)
+			board.deal_in()
+		Sfx.play("bonus")
+		_resume_play())
+
+
+func _ask_leave() -> void:
+	Sfx.play("click")
+	_show_panel(confirm_panel)
 
 
 func _on_continue() -> void:
@@ -1014,9 +1226,11 @@ func _notification(what: int) -> void:
 func _on_back() -> void:
 	if settings_panel.visible:
 		_close_settings()
+	elif confirm_panel.visible:
+		_show_panel(pause_panel)
 	elif map_panel.visible:
 		_show_panel(mode_panel)
-	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible:
+	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible or pass_panel.visible or stats_panel.visible:
 		_show_panel(menu_panel)
 	elif level_panel.visible:
 		_open_map()
@@ -1024,7 +1238,9 @@ func _on_back() -> void:
 		_show_panel(leaders_return)
 	elif state == State.PLAYING:
 		pause_game()
-	elif state == State.PAUSED or state == State.OVER:
+	elif state == State.PAUSED:
+		_ask_leave()
+	elif state == State.OVER:
 		go_menu()
 	else:
 		get_tree().quit()
@@ -1384,6 +1600,10 @@ func _build() -> void:
 	combo_box.modulate.a = 0.0
 	combo_box.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	trow.add_child(combo_box)
+	if _is_touch_device():
+		# phones: settings next to pause, restart out on the right edge, away from it
+		hud.move_child(btn_settings, 1)
+		hud.move_child(btn_restart, hud.get_child_count() - 1)
 	hud_sets["bright"] = {"roots": [hud, trow], "score": score_label, "best": best_label, "time": time_label,
 		"bar": time_bar, "delta": time_delta, "combo_box": combo_box, "combo_style": combo_style, "combo_mult": combo_mult,
 		"combo_count": combo_count, "combo_bar": combo_bar, "pause": btn_pause, "restart": btn_restart, "settings": btn_settings}
@@ -1566,8 +1786,12 @@ func _build_classic_hud(col: VBoxContainer) -> void:
 	var c_restart := _icon_button("restart", func(): Sfx.play("click"); start_game(mode.id, daily))
 	var c_settings := _icon_button("settings", _open_settings_from_hud)
 	btns.add_child(c_pause)
-	btns.add_child(c_restart)
-	btns.add_child(c_settings)
+	if _is_touch_device():
+		btns.add_child(c_settings)
+		btns.add_child(c_restart)
+	else:
+		btns.add_child(c_restart)
+		btns.add_child(c_settings)
 	hud_classic.add_child(btns)
 	hud_sets["classic"] = {"roots": [hud_classic], "score": c_score, "best": c_best, "time": c_time, "bar": c_bar,
 		"delta": c_delta, "combo_box": c_combo, "combo_style": c_style, "combo_mult": c_mult, "combo_count": c_count,
@@ -1674,6 +1898,14 @@ func _build_menu() -> void:
 	ui.home_best = _label("", f_num, 22, BRASS)
 	brow.add_child(ui.home_best)
 	v.add_child(brow)
+	ui.daily_card = _button("", "calendar", false, func(): Sfx.play("click"); start_game("bright", true))
+	for st in ["normal", "hover", "pressed", "focus"]:
+		ui.daily_card.add_theme_stylebox_override(st, _box(Color("#a35cff", 0.32 if st == "normal" else 0.5), Color("#c99bff"),
+			3 if st == "focus" else 2, 16, Vector4(20, 12, 20, 12)))
+	ui.daily_card.add_theme_font_size_override("font_size", 19)
+	ui.daily_card.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ui.daily_card.custom_minimum_size = Vector2(300, 0)
+	v.add_child(ui.daily_card)
 
 	var gap2 := Control.new()
 	gap2.custom_minimum_size.y = 18
@@ -1690,14 +1922,15 @@ func _build_menu() -> void:
 	row.add_theme_constant_override("h_separation", 14)
 	row.add_theme_constant_override("v_separation", 10)
 	ui.home_leaders = _round_button("trophy", func(): _open_leaders(menu_panel))
-	ui.home_daily = _round_button("calendar", func(): Sfx.play("click"); start_game("", true))
-	ui.home_rules = _round_button("info", func(): Sfx.play("click"); _show_panel(rules_panel))
+	ui.home_rules = _round_button("info", func(): Sfx.play("click"); _show_rules())
+	ui.home_pass = _round_button("ticket", func(): Sfx.play("click"); _refresh_pass(); _show_panel(pass_panel))
+	ui.home_stats = _round_button("chart", func(): Sfx.play("click"); _refresh_stats(); _show_panel(stats_panel))
 	ui.home_settings = _round_button("settings", func(): _open_settings(menu_panel))
 	ui.home_tasks = _round_button("tasks", func(): Sfx.play("click"); _refresh_tasks(); _show_panel(tasks_panel))
 	ui.home_coll = _round_button("crystal", func(): Sfx.play("click"); _refresh_collection(); _show_panel(collection_panel))
 	ui.home_gift = _round_button("gift", func(): Sfx.play("click"); _refresh_gift(); _show_panel(gift_panel))
 	ui.home_ach = _round_button("medal", func(): Sfx.play("click"); _refresh_achievements(); _show_panel(ach_panel))
-	for b in [ui.home_gift, ui.home_tasks, ui.home_ach, ui.home_coll, ui.home_leaders, ui.home_daily, ui.home_rules, ui.home_settings]:
+	for b in [ui.home_gift, ui.home_pass, ui.home_tasks, ui.home_ach, ui.home_coll, ui.home_leaders, ui.home_stats, ui.home_rules, ui.home_settings]:
 		row.add_child(b)
 	v.add_child(row)
 	_build_modes()
@@ -1708,6 +1941,9 @@ func _build_menu() -> void:
 	_build_collection()
 	_build_gift()
 	_build_achievements()
+	_build_pass()
+	_build_stats()
+	_build_confirm()
 
 
 func _crown(px: int) -> TextureRect:
@@ -1854,11 +2090,9 @@ func _build_map() -> void:
 	var cc := CenterContainer.new()
 	cc.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	drag_scrolls.append(scroll)
-	ui.map_grid = GridContainer.new()
-	ui.map_grid.columns = 5
-	ui.map_grid.add_theme_constant_override("h_separation", 12)
-	ui.map_grid.add_theme_constant_override("v_separation", 12)
-	cc.add_child(ui.map_grid)
+	ui.map_list = VBoxContainer.new()
+	ui.map_list.add_theme_constant_override("separation", 14)
+	cc.add_child(ui.map_list)
 	scroll.add_child(cc)
 	v.add_child(scroll)
 
@@ -1874,10 +2108,12 @@ func _icon_tex(name: String, px: int, col := CREAM) -> TextureRect:
 	return t
 
 
-## Rebuild the level buttons: unlocked levels with their stars, then a few locked ones.
+## Rebuild the map: levels in chapters of 20 (a header with the chapter's name, stars and
+## rewards over each), or the puzzles in one grid. Unlocked ones first, then a few locked.
 func _refresh_map() -> void:
-	var grid: GridContainer = ui.map_grid
-	for c in grid.get_children():
+	var list: VBoxContainer = ui.map_list
+	for c in list.get_children():
+		list.remove_child(c)
 		c.queue_free()
 	var puzzles := map_kind == "puzzle"
 	var top := Progress.puzzles + 1 if puzzles else Progress.max_unlocked()
@@ -1885,7 +2121,54 @@ func _refresh_map() -> void:
 	ui.map_title.text = L.t("mode_puzzle" if puzzles else "mode_levels")
 	ui.map_stars.text = str(Progress.puzzles) if puzzles else str(Progress.total_stars())
 	ui.map_star_icon.texture = ICONS["check" if puzzles else "star"]
-	for n in range(1, shown + 1):
+	if puzzles:
+		list.add_child(_map_grid(1, shown, top, true))
+		return
+	var csz := BoardLogic.CHAPTER_SIZE
+	for c in BoardLogic.chapter_of(shown) + 1:
+		list.add_child(_chapter_header(c))
+		list.add_child(_map_grid(c * csz + 1, mini((c + 1) * csz, shown), top, false))
+
+
+func _chapter_header(c: int) -> Control:
+	var th: Dictionary = CHAPTER_THEMES[c % CHAPTER_THEMES.size()]
+	var box := PanelContainer.new()
+	box.add_theme_stylebox_override("panel", _box(Color(th.top, 0.55), Color(th.top.lightened(0.35), 0.8), 2, 14, Vector4(14, 8, 14, 8)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 8)
+	var info := VBoxContainer.new()
+	info.add_theme_constant_override("separation", 0)
+	info.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	info.add_child(_label(L.t("chapter_n", {"n": c + 1}) + " · " + L.t("chapter_%d" % (c % CHAPTER_THEMES.size())), f_display, 20, CREAM))
+	var rule := _label(L.t("boss_rule") + " " + L.t("rule_" + str(BoardLogic.CHAPTER_RULES[c % BoardLogic.CHAPTER_RULES.size()])), f_body, 13, MUTED)
+	rule.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	info.add_child(rule)
+	row.add_child(info)
+	var st := Progress.chapter_stats(c)
+	row.add_child(_icon_tex("star", 18, BRASS))
+	row.add_child(_label("%d/%d" % [st.stars, st.max], f_num, 16, BRASS))
+	var chapter: int = c
+	for what in Progress.chapter_due(c):
+		var kind: String = what
+		var b := _button("+%d" % (Progress.CHAPTER_DONE if kind == "done" else Progress.CHAPTER_FULL), "crystal", true, func():
+			var n := Progress.claim_chapter(chapter, kind)
+			if n > 0:
+				Sfx.play("level")
+				_toast(L.t("chapter_reward", {"n": n}))
+				_refresh_map())
+		b.add_theme_font_size_override("font_size", 15)
+		row.add_child(b)
+	box.add_child(row)
+	return box
+
+
+func _map_grid(from: int, to: int, top: int, puzzles: bool) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = 5
+	grid.add_theme_constant_override("h_separation", 12)
+	grid.add_theme_constant_override("v_separation", 12)
+	grid.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	for n in range(from, to + 1):
 		var cell := VBoxContainer.new()
 		cell.add_theme_constant_override("separation", 2)
 		var b := Button.new()
@@ -1921,6 +2204,7 @@ func _refresh_map() -> void:
 				srow.add_child(_icon_tex("star", 18, BRASS if i < got else Color(1, 1, 1, 0.15)))
 		cell.add_child(srow)
 		grid.add_child(cell)
+	return grid
 
 
 func _build_level_result() -> void:
@@ -1955,6 +2239,10 @@ func _build_level_result() -> void:
 			start_puzzle(puzzle_n)
 		else:
 			start_level(level_n))
+	ui.level_double = _button("", "video", false, _on_double)
+	ui.level_continue = _button("", "video", false, _on_level_continue)
+	v.add_child(ui.level_continue)
+	v.add_child(ui.level_double)
 	ui.level_map = _button("", "map", false, func():
 		Sfx.play("click")
 		_open_map("puzzle" if mode.kind == "puzzle" else "levels"))
@@ -2083,6 +2371,9 @@ func _refresh_collection() -> void:
 			else:
 				b = _button(L.t("season_only"), "", false)
 				b.disabled = true
+		elif not Progress.owns(i) and int(Progress.LOOK_PRICES[i]) == Progress.PASS:
+			b = _button(L.t("pass_only", {"n": 10 if i == Progress.NEON_LOOK else 30}), "", false)
+			b.disabled = true
 		elif not Progress.owns(i) and int(Progress.LOOK_PRICES[i]) == Progress.GIFT:
 			b = _button(L.t("gift_only"), "", false)
 			b.disabled = true
@@ -2170,6 +2461,7 @@ func _build_achievements() -> void:
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.custom_minimum_size.y = 360
 	drag_scrolls.append(scroll)
+	ui.ach_scroll = scroll
 	ui.ach_list = VBoxContainer.new()
 	ui.ach_list.add_theme_constant_override("separation", 8)
 	ui.ach_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -2181,6 +2473,7 @@ func _build_achievements() -> void:
 
 func _refresh_achievements() -> void:
 	for c in ui.ach_list.get_children():
+		ui.ach_list.remove_child(c)
 		c.queue_free()
 	for i in Progress.ACHIEVEMENTS.size():
 		var a: Dictionary = Progress.ACHIEVEMENTS[i]
@@ -2212,6 +2505,173 @@ func _refresh_achievements() -> void:
 		else:
 			row.add_child(_label("%d/%d" % [Progress.achievement_progress(i), int(a.goal)], f_num, 15, MUTED))
 		ui.ach_list.add_child(row)
+	_fit_panels.call_deferred()
+
+
+func _build_pass() -> void:
+	var pv := _panel()
+	pass_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.pass_title = _label("", f_display, 32, BRASS)
+	v.add_child(ui.pass_title)
+	ui.pass_sub = _para("")
+	ui.pass_sub.add_theme_color_override("font_color", MUTED)
+	ui.pass_sub.add_theme_font_size_override("font_size", 17)
+	v.add_child(ui.pass_sub)
+	var brow := HBoxContainer.new()
+	brow.add_theme_constant_override("separation", 10)
+	ui.pass_bar = ProgressBar.new()
+	ui.pass_bar.show_percentage = false
+	ui.pass_bar.custom_minimum_size.y = 12
+	ui.pass_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui.pass_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	ui.pass_xp = _label("", f_num, 16, BRASS_LIGHT)
+	brow.add_child(ui.pass_bar)
+	brow.add_child(ui.pass_xp)
+	v.add_child(brow)
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	ui.pass_scroll = scroll
+	drag_scrolls.append(scroll)
+	ui.pass_list = VBoxContainer.new()
+	ui.pass_list.add_theme_constant_override("separation", 6)
+	ui.pass_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	scroll.add_child(ui.pass_list)
+	v.add_child(scroll)
+	ui.btn_close_pass = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
+	v.add_child(_row([ui.btn_close_pass]))
+
+
+func _refresh_pass() -> void:
+	var tier := Progress.season_tier()
+	var month := int(Progress.season.substr(5, 2))
+	ui.pass_title.text = L.t("pass_title")
+	ui.pass_sub.text = L.t("pass_sub", {"m": L.t("month_%d" % month), "n": tier, "max": Progress.PASS_TIERS})
+	var in_tier := Progress.season_xp - tier * Progress.XP_PER_TIER
+	ui.pass_bar.max_value = Progress.XP_PER_TIER
+	ui.pass_bar.value = Progress.XP_PER_TIER if tier >= Progress.PASS_TIERS else in_tier
+	ui.pass_xp.text = L.t("pass_max") if tier >= Progress.PASS_TIERS else "%d/%d" % [in_tier, Progress.XP_PER_TIER]
+	var list: VBoxContainer = ui.pass_list
+	for c in list.get_children():
+		list.remove_child(c)
+		c.queue_free()
+	for t in range(1, Progress.PASS_TIERS + 1):
+		var r := Progress.pass_reward(t)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 10)
+		var num := _label(str(t), f_display, 20, BRASS if t <= tier else MUTED)
+		num.custom_minimum_size.x = 34
+		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		row.add_child(num)
+		var pic: Control
+		var text := ""
+		match str(r.kind):
+			"crystals":
+				pic = _icon_tex("crystal", 30, Color("#7fd8ff"))
+				text = L.t("pass_crystals", {"n": r.n})
+			"hints":
+				pic = _icon_tex("hint", 30, BRASS_LIGHT)
+				text = L.t("pass_hints", {"n": r.n})
+			"look":
+				var tr := TextureRect.new()
+				tr.texture = load("res://assets/tiles/look_%d_1.png" % int(r.n))
+				tr.custom_minimum_size = Vector2(34, 34)
+				tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+				tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+				pic = tr
+				text = L.t("pass_look", {"name": L.t("look_%d" % int(r.n))})
+		row.add_child(pic)
+		var lbl := _para(text)
+		lbl.add_theme_font_size_override("font_size", 17)
+		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		row.add_child(lbl)
+		var tt: int = t
+		if t in Progress.season_claimed:
+			row.add_child(_label("✓", f_bold, 24, Color("#5cc87a")))
+		elif Progress.pass_claimable(t):
+			var b := _button(L.t("take"), "", true, func():
+				var got := Progress.claim_pass(tt)
+				if not got.is_empty():
+					Sfx.play("star")
+					_refresh_pass()
+					_refresh_menu_bests())
+			b.add_theme_font_size_override("font_size", 15)
+			row.add_child(b)
+		else:
+			row.add_child(_icon_tex("lock", 22, Color(1, 1, 1, 0.3)))
+		list.add_child(row)
+	_fit_panels.call_deferred()
+
+
+func _build_stats() -> void:
+	var pv := _panel()
+	stats_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.stats_title = _label("", f_display, 32, BRASS)
+	v.add_child(ui.stats_title)
+	ui.stats_list = GridContainer.new()
+	ui.stats_list.columns = 2
+	ui.stats_list.add_theme_constant_override("h_separation", 16)
+	ui.stats_list.add_theme_constant_override("v_separation", 8)
+	v.add_child(ui.stats_list)
+	ui.btn_close_stats = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
+	v.add_child(_row([ui.btn_close_stats]))
+
+
+func _refresh_stats() -> void:
+	var grid: GridContainer = ui.stats_list
+	for c in grid.get_children():
+		grid.remove_child(c)
+		c.queue_free()
+	var life: Dictionary = Progress.life
+	var games := 0
+	var fav := ""
+	var fav_n := 0
+	for id in ["classic", "bright", "zen", "levels", "puzzle"]:
+		var n := int(life.get("games_" + id, 0))
+		games += n
+		if n > fav_n:
+			fav_n = n
+			fav = id
+	var mins := int(life.get("play_secs", 0)) / 60
+	var rows := [
+		["stat_games", str(games)],
+		["stat_fav", L.t("mode_" + fav) if fav != "" else "—"],
+		["stat_time", L.t("stat_minutes", {"n": mins})],
+		["stat_gems", str(int(life.get("gems", 0)))],
+		["stat_boards", str(int(life.get("clear_boards", 0)))],
+		["stat_combo", str(int(life.get("max_combo", 0)))],
+		["stat_perfects", str(int(life.get("perfects", 0)))],
+		["stat_levels", str(Progress.max_unlocked() - 1)],
+		["stat_stars", str(Progress.total_stars())],
+		["stat_puzzles", str(Progress.puzzles)],
+		["stat_dailies", str(int(life.get("dailies", 0)))],
+		["stat_best", str(maxi(Save.best, maxi(Save.best_bright, Save.best_zen)))],
+	]
+	for r in rows:
+		var k := _label(L.t(r[0]), f_body, 18, MUTED)
+		k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		grid.add_child(k)
+		var val := _label(r[1], f_num, 19, CREAM)
+		val.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+		grid.add_child(val)
+
+
+## "Leave the game?" before a running game is thrown away.
+func _build_confirm() -> void:
+	var pv := _panel()
+	confirm_panel = pv[0]
+	var v: VBoxContainer = pv[1]
+	ui.confirm_title = _label("", f_display, 32, BRASS)
+	ui.confirm_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ui.confirm_title)
+	ui.confirm_line = _para("")
+	ui.confirm_line.add_theme_color_override("font_color", MUTED)
+	ui.confirm_line.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ui.confirm_line)
+	ui.btn_leave = _button("", "door", false, func(): Sfx.play("click"); go_menu())
+	ui.btn_stay = _button("", "play", true, func(): Sfx.play("click"); _show_panel(pause_panel))
+	v.add_child(_row([ui.btn_stay, ui.btn_leave]))
 
 
 func _refresh_menu_bests() -> void:
@@ -2229,6 +2689,23 @@ func _refresh_menu_bests() -> void:
 	(ui.home_gift.get_meta("caption") as Label).text = L.t("gift") + (" !" if Progress.gift_ready() else "")
 	var adue := Progress.achievements_due()
 	(ui.home_ach.get_meta("caption") as Label).text = L.t("achievements") + (" (%d)" % adue if adue > 0 else "")
+	var pdue := Progress.pass_due()
+	(ui.home_pass.get_meta("caption") as Label).text = L.t("pass") + (" (%d)" % pdue if pdue > 0 else "")
+	if Progress.daily_reward_ready():
+		ui.daily_card.text = L.t("daily_card", {"n": Progress.DAILY_CRYSTALS})
+	else:
+		ui.daily_card.text = L.t("daily_card_done", {"n": Save.daily_best_for(_today())})
+
+
+## How to play: a few short pages turned with the arrows or a swipe.
+const RULE_PAGES := [
+	{"icon": "hand", "keys": ["rule1", "rule2"]},
+	{"icon": "star", "keys": ["rule3", "rule4"], "pay": ["pay2", "pay3", "pay4", "pay_combo", "pay_precise"]},
+	{"icon": "map", "keys": ["rule_bright"]},
+	{"icon": "puzzle", "special": true},
+	{"icon": "calendar", "keys": ["rule5", "rule_daily", "rule_pass"], "pay": ["pay_shine"]},
+]
+const SPECIALS := ["joker", "box", "chain", "ice", "bomb", "chameleon"]
 
 
 func _build_rules() -> void:
@@ -2237,30 +2714,131 @@ func _build_rules() -> void:
 	var v: VBoxContainer = pv[1]
 	ui.how = _label("", f_display, 36, BRASS)
 	v.add_child(ui.how)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	ui.menu_scroll = scroll
-	drag_scrolls.append(scroll)
-	var rules := VBoxContainer.new()
-	rules.add_theme_constant_override("separation", 12)
-	rules.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(rules)
-	ui.menu_rules = rules
-	v.add_child(scroll)
-	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright"]:
-		ui[k] = _para("")
-		rules.add_child(ui[k])
-	var pay := VBoxContainer.new()
-	pay.add_theme_constant_override("separation", 4)
-	for k in ["pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
-		ui[k] = _label("", f_num, 18, BRASS_LIGHT)
-		ui[k].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-		pay.add_child(ui[k])
-	rules.add_child(pay)
+	var holder := VBoxContainer.new()
+	holder.custom_minimum_size.y = 330
+	holder.mouse_filter = Control.MOUSE_FILTER_STOP
+	ui.rules_pages = []
+	for pi in RULE_PAGES.size():
+		var page_def: Dictionary = RULE_PAGES[pi]
+		var page := VBoxContainer.new()
+		page.add_theme_constant_override("separation", 12)
+		page.size_flags_vertical = Control.SIZE_EXPAND_FILL
+		var head := HBoxContainer.new()
+		head.add_theme_constant_override("separation", 10)
+		head.add_child(_icon_tex(page_def.icon, 30, BRASS))
+		ui["rp_%d" % pi] = _label("", f_display, 24, BRASS_LIGHT)
+		head.add_child(ui["rp_%d" % pi])
+		page.add_child(head)
+		for k in page_def.get("keys", []):
+			ui[k] = _para("")
+			ui[k].add_theme_font_size_override("font_size", 18)
+			page.add_child(ui[k])
+		if page_def.get("pay", []).size() > 0:
+			var pay := VBoxContainer.new()
+			pay.add_theme_constant_override("separation", 4)
+			for k in page_def.pay:
+				ui[k] = _label("", f_num, 16, BRASS_LIGHT)
+				ui[k].autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+				pay.add_child(ui[k])
+			page.add_child(pay)
+		if page_def.get("special", false):
+			for sp in SPECIALS:
+				var row := HBoxContainer.new()
+				row.add_theme_constant_override("separation", 12)
+				row.add_child(_special_icon(sp))
+				ui["sp_" + sp] = _para("")
+				ui["sp_" + sp].add_theme_font_size_override("font_size", 16)
+				ui["sp_" + sp].size_flags_vertical = Control.SIZE_SHRINK_CENTER
+				row.add_child(ui["sp_" + sp])
+				page.add_child(row)
+		holder.add_child(page)
+		ui.rules_pages.append(page)
+	v.add_child(holder)
+	# swipe left / right to turn the page
+	holder.gui_input.connect(func(ev: InputEvent):
+		if ev is InputEventMouseButton and ev.button_index == MOUSE_BUTTON_LEFT:
+			if ev.pressed:
+				holder.set_meta("x", ev.position.x)
+			elif holder.has_meta("x"):
+				var dx: float = ev.position.x - float(holder.get_meta("x"))
+				holder.remove_meta("x")
+				if absf(dx) > 50.0:
+					_set_rules_page(rules_page + (1 if dx < 0 else -1)))
+	var nav := HBoxContainer.new()
+	nav.alignment = BoxContainer.ALIGNMENT_CENTER
+	nav.add_theme_constant_override("separation", 16)
+	ui.rules_prev = _icon_button("prev", func(): Sfx.play("click"); _set_rules_page(rules_page - 1))
+	ui.rules_next = _icon_button("next", func(): Sfx.play("click"); _set_rules_page(rules_page + 1))
+	ui.rules_dots = HBoxContainer.new()
+	ui.rules_dots.add_theme_constant_override("separation", 8)
+	ui.rules_dots.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	for pi in RULE_PAGES.size():
+		var dot := Panel.new()
+		dot.custom_minimum_size = Vector2(10, 10)
+		ui.rules_dots.add_child(dot)
+	nav.add_child(ui.rules_prev)
+	nav.add_child(ui.rules_dots)
+	nav.add_child(ui.rules_next)
+	v.add_child(nav)
 	ui.btn_close_rules = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
 	ui.btn_tutorial = _button("", "hand", false, func(): Sfx.play("click"); start_game("tutorial"))
-	v.add_child(_row([ui.btn_tutorial]))
-	v.add_child(_row([ui.btn_close_rules]))
+	v.add_child(_row([ui.btn_tutorial, ui.btn_close_rules]))
+	_set_rules_page(0)
+
+
+## A small picture of a special gem for the rules: a tile with its overlay.
+func _special_icon(sp: String) -> Control:
+	var c := Control.new()
+	c.custom_minimum_size = Vector2(40, 40)
+	c.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var base := TextureRect.new()
+	base.texture = load("res://assets/tiles/joker.png") if sp == "joker" else load("res://assets/tiles/look_0_1.png")
+	base.set_anchors_preset(Control.PRESET_FULL_RECT)
+	base.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	c.add_child(base)
+	var over := {"box": "res://assets/tiles/box.png", "ice": "res://assets/tiles/ice.png", "chameleon": "res://assets/tiles/chameleon.png"}
+	if over.has(sp):
+		var o := TextureRect.new()
+		o.texture = load(over[sp])
+		o.set_anchors_preset(Control.PRESET_FULL_RECT)
+		o.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		c.add_child(o)
+	elif sp == "bomb":
+		var o := TextureRect.new()
+		o.texture = load("res://assets/tiles/bomb.png")
+		o.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		o.position = Vector2(20, -4)
+		o.size = Vector2(24, 24)
+		c.add_child(o)
+	elif sp == "chain":
+		var badge := Panel.new()  # the white link glyph on a dark disc, like on the board
+		badge.add_theme_stylebox_override("panel", _box(Color(0.15, 0.12, 0.3, 0.9), Color(1, 1, 1, 0.6), 1, 11, Vector4.ZERO))
+		badge.position = Vector2(20, -4)
+		badge.size = Vector2(22, 22)
+		var o := TextureRect.new()
+		o.texture = ICONS["link"]
+		o.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		o.position = Vector2(3, 3)
+		o.size = Vector2(16, 16)
+		badge.add_child(o)
+		c.add_child(badge)
+	return c
+
+
+func _set_rules_page(i: int) -> void:
+	rules_page = clampi(i, 0, RULE_PAGES.size() - 1)
+	for pi in ui.rules_pages.size():
+		ui.rules_pages[pi].visible = pi == rules_page
+	ui.rules_prev.disabled = rules_page == 0
+	ui.rules_next.disabled = rules_page == RULE_PAGES.size() - 1
+	for pi in ui.rules_dots.get_child_count():
+		var dot: Panel = ui.rules_dots.get_child(pi)
+		dot.add_theme_stylebox_override("panel", _box(BRASS if pi == rules_page else Color(1, 1, 1, 0.25), Color(0, 0, 0, 0), 0, 5, Vector4.ZERO))
+
+
+func _show_rules() -> void:
+	_set_rules_page(0)
+	_show_panel(rules_panel)
 
 
 func _build_pause() -> void:
@@ -2270,7 +2848,7 @@ func _build_pause() -> void:
 	ui.pause_title = _label("", f_display, 40, BRASS)
 	v.add_child(ui.pause_title)
 	ui.btn_resume = _button("", "play", true, func(): Sfx.play("click"); _resume_play())
-	ui.btn_menu_pause = _button("", "home", false, func(): Sfx.play("click"); go_menu())
+	ui.btn_menu_pause = _button("", "home", false, _ask_leave)
 	ui.btn_settings_pause = _icon_button("settings", func(): _open_settings(pause_panel))
 	v.add_child(_row([ui.btn_resume, ui.btn_menu_pause, ui.btn_settings_pause]))
 
@@ -2288,6 +2866,21 @@ func _build_over() -> void:
 	v.add_child(ui.over_score)
 	v.add_child(ui.over_best)
 	v.add_child(ui.over_line)
+	ui.over_reward = _label("", f_bold, 20, Color("#7fd8ff"))
+	ui.over_reward.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	v.add_child(ui.over_reward)
+	ui.best_box = VBoxContainer.new()
+	ui.best_box.add_theme_constant_override("separation", 2)
+	ui.best_caption = _label("", f_bold, 15, MUTED)
+	ui.best_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	ui.best_view = StrikeReplay.new()
+	ui.best_view.custom_minimum_size = Vector2(220, 180)
+	ui.best_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	ui.best_box.add_child(ui.best_caption)
+	ui.best_box.add_child(ui.best_view)
+	v.add_child(ui.best_box)
+	ui.btn_double = _button("", "video", false, _on_double)
+	v.add_child(ui.btn_double)
 	ui.btn_continue = _button("", "video", false, _on_continue)
 	v.add_child(ui.btn_continue)
 	ui.btn_shuffle = _button("", "shuffle", false, _on_shuffle)
@@ -2428,7 +3021,7 @@ func _close_settings() -> void:
 
 
 func _current_panel() -> Control:
-	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel]:
+	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
 		if p.visible:
 			return p
 	return null
@@ -2448,8 +3041,19 @@ func _apply_texts() -> void:
 	ui.menu_title.text = L.t("title")
 	ui.menu_tag.text = L.t("tagline")
 	ui.how.text = L.t("how_title")
-	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
+	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "rule_daily", "rule_pass", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
 		ui[k].text = L.t(k)
+	for pi in RULE_PAGES.size():
+		ui["rp_%d" % pi].text = L.t("rp_%d" % pi)
+	for sp in SPECIALS:
+		ui["sp_" + sp].text = L.t("sp_" + sp)
+	ui.btn_close_pass.text = L.t("close")
+	ui.btn_close_stats.text = L.t("close")
+	ui.stats_title.text = L.t("stats_title")
+	ui.confirm_title.text = L.t("leave_title")
+	ui.confirm_line.text = L.t("leave_line")
+	ui.btn_leave.text = L.t("leave")
+	ui.btn_stay.text = L.t("stay")
 	ui.btn_home_play.text = L.t("play")
 	ui.mode_title.text = L.t("choose_mode")
 	for id in ["classic", "levels", "bright", "zen", "puzzle"]:
@@ -2472,7 +3076,7 @@ func _apply_texts() -> void:
 	ui.btn_close_ach.text = L.t("close")
 	for k in ["score", "score_bright", "score_zen", "stars"]:
 		ui["lb_tab_" + k].text = L.t("lb_" + k)
-	for pair in [[ui.home_leaders, "leaders"], [ui.home_daily, "daily"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"],
+	for pair in [[ui.home_leaders, "leaders"], [ui.home_pass, "pass"], [ui.home_stats, "stats_title"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"],
 			[ui.home_tasks, "tasks"], [ui.home_coll, "collection"], [ui.home_gift, "gift"], [ui.home_ach, "achievements"]]:
 		(pair[0].get_meta("caption") as Label).text = L.t(pair[1])
 	_refresh_menu_bests()
@@ -2515,7 +3119,7 @@ func _show_panel(p: Control) -> void:
 		_refresh_menu_bests()
 	# the game layer stays out of sight behind the menus and anything opened from them
 	margin.visible = not on_menu and state != State.MENU
-	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel]:
+	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
@@ -2530,13 +3134,14 @@ func _show_panel(p: Control) -> void:
 		await get_tree().process_frame  # let wrapped text settle so the panel's height is real
 		if not p.visible:
 			return
+		_fit_panels()
 		p.pivot_offset = p.size / 2
 		var fit := _panel_fit(p)
 		p.scale = Vector2.ONE * fit * 0.94
 		var tw := create_tween().set_parallel()
 		tw.tween_property(p, "modulate:a", 1.0, 0.18)
 		tw.tween_property(p, "scale", Vector2.ONE * fit, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-		var first: Button = ui["card_play_" + str(Save.mode)] if p == mode_panel else _first_button(p)
+		var first: Button = ui.get("card_play_" + str(Save.mode)) if p == mode_panel else _first_button(p)
 		if first:
 			first.grab_focus.call_deferred()
 
@@ -2578,6 +3183,9 @@ func _update_hud() -> void:
 			level_label.text += "  ·  " + L.t("goal_left", {"n": logic.count_kind(goal_kind)})
 	btn_pause.disabled = state != State.PLAYING
 	btn_restart.disabled = state != State.PLAYING and state != State.PAUSED
+	# the hint button shows an ad badge once the free hint and the spare ones are used up
+	btn_hint.icon = ICONS["hint" if hints > 0 or Progress.hint_tokens > 0 else "video"]
+	btn_hint.text = str(Progress.hint_tokens) if hints <= 0 and Progress.hint_tokens > 0 else ""
 
 
 func _flash_delta(text: String, negative: bool, unit := "time") -> void:
@@ -2715,7 +3323,7 @@ func _on_viewport_resized() -> void:
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
 	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel]:
+			gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
 	var short := s.y < 600
@@ -2743,16 +3351,18 @@ func _panel_fit(p: Control) -> float:
 ## Shrink the scrolling middle of tall panels so the whole panel fits the screen.
 func _fit_panels() -> void:
 	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
-	for pair in [[rules_panel, ui.menu_scroll, ui.menu_rules], [leaders_panel, ui.leaders_scroll, ui.leaders_list]]:
+	for pair in [[leaders_panel, ui.leaders_scroll, ui.leaders_list], [pass_panel, ui.pass_scroll, ui.pass_list],
+			[ach_panel, ui.ach_scroll, ui.ach_list]]:
 		var panel: Control = pair[0]
 		var scroll: ScrollContainer = pair[1]
 		var content: Control = pair[2]
 		scroll.custom_minimum_size.y = 0
 		var fixed := panel.get_combined_minimum_size().y
-		var want := content.get_combined_minimum_size().y
+		# wrapped text overstates its minimum height until laid out, so prefer the real height
+		var want := content.size.y if content.size.y > 0.0 else content.get_combined_minimum_size().y
 		scroll.custom_minimum_size.y = clampf(avail - fixed, 80.0, maxf(80.0, want))
 	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel]:
+			gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
 		if p.visible:
 			p.pivot_offset = p.size / 2
 			p.scale = Vector2.ONE * _panel_fit(p)

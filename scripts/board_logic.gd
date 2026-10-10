@@ -46,6 +46,22 @@ var solution_groups: Array = []
 var hp := PackedByteArray()
 ## Chain gems come in pairs: knocking one out also knocks out its partner (index), else -1.
 var chain := PackedInt32Array()
+## Frozen gems (1): they block like any gem but never match; knocking out a neighbour thaws them.
+var ice := PackedByteArray()
+## Bombs: strikes left before the bomb on that gem goes off (0 = no bomb). Knocking the gem
+## out defuses it.
+var bomb := PackedByteArray()
+## Chameleons (1): the gem shifts to the next kind every few strikes.
+var cham := PackedByteArray()
+## Frozen gems the last remove() thawed, for the view.
+var last_thawed: Array[Vector2i] = []
+
+
+func _reset_extras() -> void:
+	for a in ["ice", "bomb", "cham"]:
+		var b := PackedByteArray()
+		b.resize(cells.size())
+		set(a, b)
 
 
 func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds := KINDS, per_kind := PER_KIND) -> void:
@@ -67,6 +83,7 @@ func setup(c: int, r: int, rng: RandomNumberGenerator, shining := SHINING, kinds
 	chain = PackedInt32Array()
 	chain.resize(cells.size())
 	chain.fill(-1)
+	_reset_extras()
 	solution.clear()
 	solution_groups.clear()
 	var gem_slots: Array[int] = []
@@ -93,6 +110,7 @@ func load_cells(c: int, r: int, data: PackedInt32Array) -> void:
 	chain = PackedInt32Array()
 	chain.resize(cells.size())
 	chain.fill(-1)
+	_reset_extras()
 
 
 func kind_at(p: Vector2i) -> int:
@@ -121,7 +139,10 @@ func hits_from(p: Vector2i) -> Array[Vector2i]:
 
 ## Positions that a press on p would knock out. Empty when the press is a miss.
 func matches_from(p: Vector2i) -> Array[Vector2i]:
-	var hits := hits_from(p)
+	var hits: Array[Vector2i] = []
+	for h in hits_from(p):
+		if not is_frozen(h):
+			hits.append(h)  # a frozen gem blocks the way but never matches
 	var count := {}
 	var jokers := 0
 	for h in hits:
@@ -146,6 +167,18 @@ func matches_from(p: Vector2i) -> Array[Vector2i]:
 		elif count[k] >= 2:
 			out.append(h)
 	return out
+
+
+func is_frozen(p: Vector2i) -> bool:
+	return ice.size() > 0 and ice[p.y * cols + p.x] == 1
+
+
+func bomb_at(p: Vector2i) -> int:
+	return bomb[p.y * cols + p.x] if bomb.size() > 0 else 0
+
+
+func is_chameleon(p: Vector2i) -> bool:
+	return cham.size() > 0 and cham[p.y * cols + p.x] == 1
 
 
 func is_box(p: Vector2i) -> bool:
@@ -179,6 +212,7 @@ func remove(ps: Array[Vector2i]) -> Array[Vector2i]:
 	var extra: Array[Vector2i] = []
 	var queue: Array[Vector2i] = ps.duplicate()
 	var seen := {}
+	last_thawed.clear()
 	while not queue.is_empty():
 		var p: Vector2i = queue.pop_front()
 		var i := p.y * cols + p.x
@@ -190,6 +224,14 @@ func remove(ps: Array[Vector2i]) -> Array[Vector2i]:
 			continue
 		cells[i] = EMPTY
 		shine[i] = 0
+		if ice.size() > i:
+			bomb[i] = 0
+			cham[i] = 0
+			for d in DIRS:
+				var q := p + d
+				if in_bounds(q) and ice[q.y * cols + q.x] == 1:
+					ice[q.y * cols + q.x] = 0
+					last_thawed.append(q)
 		if chain.size() > i and chain[i] >= 0:
 			var j := chain[i]
 			chain[i] = -1
@@ -256,7 +298,7 @@ static func bright_level(level: int) -> Dictionary:
 	# no upper cap: solvable boards almost never open with few moves, and chasing that made
 	# late deals take seconds; difficulty comes from size, kinds, density, boxes and jokers
 	var max_moves := 999
-	return {"slots": slots, "kinds": kinds, "per_kind": per_kind, "min_moves": min_moves, "max_moves": max_moves,
+	var lvd := {"slots": slots, "kinds": kinds, "per_kind": per_kind, "min_moves": min_moves, "max_moves": max_moves,
 		"tries": 15,
 		"jokers": (0.35 if boss else 0.25) if lv >= 6 else 0.0,
 		"boxes": 6 if boss else clampi(lv - 6, 0, 6),
@@ -264,6 +306,39 @@ static func bright_level(level: int) -> Dictionary:
 		"boss": boss,
 		# some levels also ask to knock out every gem of one kind (index into the level's kinds)
 		"goal_kind": (lv * 7) % kinds if lv >= 5 and lv % 3 == 2 else -1}
+	# obstacles come in one by one: ice from 12, bombs from 16, chameleons from 25
+	var ch := chapter_of(lv)
+	lvd.ice = clampi((lv - 9) / 3, 0, 5) if lv >= 12 else 0
+	lvd.bombs = mini(1 + (lv - 16) / 8, 3) if lv >= 16 else 0
+	lvd.bomb_moves = maxi(6, 10 - (lv - 16) / 10)
+	lvd.chameleons = mini(1 + (lv - 25) / 10, 3) if lv >= 25 else 0
+	lvd.chapter = ch
+	lvd.rule = ""
+	if boss:
+		# each chapter's bosses bend the rules their own way
+		lvd.rule = CHAPTER_RULES[ch % CHAPTER_RULES.size()]
+		match lvd.rule:
+			"boxes":
+				lvd.boxes += 6
+			"ice":
+				lvd.ice += 8
+			"bombs":
+				lvd.bombs += 3
+				lvd.bomb_moves = 7
+			"chains":
+				lvd.chains += 4
+			"chameleons":
+				lvd.chameleons += 4
+	return lvd
+
+
+## Levels come in chapters of 20; chapter c (from 0) has its own backdrop and boss rule.
+const CHAPTER_SIZE := 20
+const CHAPTER_RULES := ["boxes", "ice", "bombs", "chains", "chameleons"]
+
+
+static func chapter_of(level: int) -> int:
+	return (maxi(level, 1) - 1) / CHAPTER_SIZE
 
 
 ## Build a board that can be cleared completely by the cross rule alone. It is made
@@ -285,6 +360,7 @@ func setup_solvable(c: int, r: int, rng: RandomNumberGenerator, shining: int, ki
 	chain = PackedInt32Array()
 	chain.resize(c * r)
 	chain.fill(-1)
+	_reset_extras()
 	solution.clear()
 	solution_groups.clear()
 	var used := PackedInt32Array()
@@ -469,7 +545,8 @@ static func puzzle_config(n: int) -> Dictionary:
 	var slots := mini(30 + n * 2, 80)
 	return {"slots": slots, "kinds": k, "per_kind": maxi(2, int(round(slots * 0.7)) / k), "min_moves": 2,
 		"max_moves": 999, "tries": 15, "jokers": 0.2 if n >= 10 else 0.0, "boxes": 1 if n >= 15 else 0,
-		"chains": 1 if n >= 20 else 0, "boss": false, "goal_kind": -1}
+		"chains": 1 if n >= 20 else 0, "boss": false, "goal_kind": -1, "ice": (1 if n < 14 else 2) if n >= 8 else 0,
+		"bombs": 0, "bomb_moves": 0, "chameleons": 0, "chapter": 0, "rule": ""}
 
 
 ## Deal repeatedly and keep the first layout whose number of opening moves falls in
@@ -516,6 +593,9 @@ func clone() -> BoardLogic:
 	b.shine = shine.duplicate()
 	b.hp = hp.duplicate()
 	b.chain = chain.duplicate()
+	b.ice = ice.duplicate()
+	b.bomb = bomb.duplicate()
+	b.cham = cham.duplicate()
 	b.solution = solution.duplicate()
 	b.solution_groups = solution_groups.duplicate(true)
 	return b
@@ -566,6 +646,92 @@ func add_chains(rng: RandomNumberGenerator, pairs: int) -> int:
 	return made
 
 
+## Freeze up to n gems, keeping only freezes that leave the board clearable by its solution.
+func add_ice(rng: RandomNumberGenerator, n: int) -> int:
+	var made := 0
+	for attempt in n * 6:
+		if made >= n:
+			break
+		var i := _random_plain_gem(rng)
+		if i < 0:
+			break
+		ice[i] = 1
+		if replay_clears():
+			made += 1
+		else:
+			ice[i] = 0
+	return made
+
+
+## Put bombs on up to n gems, each going off after `moves` strikes.
+func add_bombs(rng: RandomNumberGenerator, n: int, moves: int) -> int:
+	var made := 0
+	for attempt in n * 4:
+		if made >= n:
+			break
+		var i := _random_plain_gem(rng)
+		if i >= 0:
+			bomb[i] = moves
+			made += 1
+	return made
+
+
+func add_chameleons(rng: RandomNumberGenerator, n: int) -> int:
+	var made := 0
+	for attempt in n * 4:
+		if made >= n:
+			break
+		var i := _random_plain_gem(rng)
+		if i >= 0:
+			cham[i] = 1
+			made += 1
+	return made
+
+
+## A gem with nothing special on it (not a joker, box, chain, ice, bomb or chameleon), or -1.
+func _random_plain_gem(rng: RandomNumberGenerator) -> int:
+	var list: Array[int] = []
+	for i in cells.size():
+		if cells[i] >= 0 and cells[i] != JOKER and hp[i] < 2 and chain[i] < 0 and ice[i] == 0 and bomb[i] == 0 and cham[i] == 0:
+			list.append(i)
+	return list[rng.randi_range(0, list.size() - 1)] if not list.is_empty() else -1
+
+
+## One strike passed: every bomb ticks down. Returns the positions of bombs that went off.
+func tick_bombs() -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for i in bomb.size():
+		if bomb[i] > 0 and cells[i] != EMPTY:
+			bomb[i] -= 1
+			if bomb[i] == 0:
+				out.append(Vector2i(i % cols, i / cols))
+	return out
+
+
+func has_bombs() -> bool:
+	for v in bomb:
+		if v > 0:
+			return true
+	return false
+
+
+func has_chameleons() -> bool:
+	for i in cham.size():
+		if cham[i] == 1 and cells[i] != EMPTY:
+			return true
+	return false
+
+
+## Chameleons step to the next kind. Returns the gems that changed.
+func shift_chameleons(kinds: int) -> Array[Vector2i]:
+	var out: Array[Vector2i] = []
+	for i in cham.size():
+		if cham[i] == 1 and cells[i] >= 0 and cells[i] != JOKER:
+			cells[i] = (cells[i] + 1) % kinds
+			out.append(Vector2i(i % cols, i / cols))
+	return out
+
+
 func count_kind(k: int) -> int:
 	var n := 0
 	for v in cells:
@@ -607,6 +773,15 @@ func transpose() -> void:
 	shine = sh
 	hp = hh
 	chain = ch
+	for a in ["ice", "bomb", "cham"]:
+		var src: PackedByteArray = get(a)
+		if src.size() == cells.size():
+			var dst := PackedByteArray()
+			dst.resize(cells.size())
+			for y in rows:
+				for x in cols:
+					dst[x * rows + y] = src[y * cols + x]
+			set(a, dst)
 	# the cross rule doesn't care about orientation, so the solution just turns with the board
 	for i in solution.size():
 		solution[i] = Vector2i(solution[i].y, solution[i].x)
@@ -637,6 +812,16 @@ func shuffle_remaining(rng: RandomNumberGenerator) -> void:
 				var w := hp[i]
 				hp[i] = hp[j]
 				hp[j] = w
+			if ice.size() == cells.size():
+				var v1 := ice[i]
+				ice[i] = ice[j]
+				ice[j] = v1
+				var v2 := bomb[i]
+				bomb[i] = bomb[j]
+				bomb[j] = v2
+				var v3 := cham[i]
+				cham[i] = cham[j]
+				cham[j] = v3
 		if has_any_move():
 			return
 

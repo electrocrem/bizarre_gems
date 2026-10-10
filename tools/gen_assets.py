@@ -140,6 +140,11 @@ ICONS = {  # 64x64 white glyphs
     "puzzle": '<path d="M8 20h14a6 6 0 1 1 12 0h14v14a6 6 0 1 0 0 12v14H34a6 6 0 1 0-12 0H8V46a6 6 0 1 1 0-12z"/>',
     "hand": '<path d="M26 6a5 5 0 0 1 10 0v22l3-1a5 5 0 0 1 6 3l1 2a5 5 0 0 1 6 3v10c0 10-7 17-17 17h-4c-7 0-12-4-15-10l-7-13a5 5 0 0 1 8-6l9 9z"/>',
     "link": '<rect x="6" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/><rect x="28" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/>',
+    "ticket": '<path d="M6 18a4 4 0 0 1 4-4h44a4 4 0 0 1 4 4v7a7 7 0 0 0 0 14v7a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4v-7a7 7 0 0 0 0-14z"/><path d="M32 22l3 7 7 .6-5.3 4.6 1.7 7-6.4-3.9-6.4 3.9 1.7-7-5.3-4.6 7-.6z" fill="#000" fill-opacity=".55"/>',
+    "chart": '<rect x="8" y="34" width="10" height="22" rx="2"/><rect x="27" y="20" width="10" height="36" rx="2"/><rect x="46" y="8" width="10" height="48" rx="2"/>',
+    "next": '<path d="M24 12l20 20-20 20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
+    "prev": '<path d="M40 12L20 32l20 20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
+    "door": '<path d="M14 8h28v48H14z" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/><path d="M34 32h22M48 24l8 8-8 8" fill="none" stroke="#fff" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>',
     "check": '<path d="M12 34l14 14 26-30" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>',
     "restart": '<path d="M48 22A19 19 0 1 0 51 36" fill="none" stroke="#fff" stroke-width="5.5" stroke-linecap="round"/><path d="M42 10l12 2-2 12z"/>',
 }
@@ -273,6 +278,28 @@ def make_specials():
            + "".join(f'<circle cx="{x}" cy="{y}" r="4" fill="#5b3a1a"/>' for x, y in ((14, 14), (114, 14), (14, 108), (114, 108)))
            + '</svg>')
     svg_to_png(box, A("tiles", "box.png"), 128)
+    # ice: a pale blue sheet with cracks and a glint, drawn over a frozen gem
+    ice = ('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">'
+           '<rect x="4" y="4" width="120" height="114" rx="22" fill="#cfefff" fill-opacity=".62" stroke="#ffffff" stroke-width="6"/>'
+           '<path d="M18 30l26 14 8 26M110 22L84 46l6 30M30 104l24-22 30 4" fill="none" stroke="#fff" stroke-width="4" stroke-opacity=".9"/>'
+           '<path d="M22 20l20-8M96 108l14-10" stroke="#fff" stroke-width="7" stroke-linecap="round"/></svg>')
+    svg_to_png(ice, A("tiles", "ice.png"), 128)
+    # bomb badge (the count is drawn by the game on top of it)
+    bomb = ('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">'
+            '<path d="M40 14c4-6 10-6 14-2" fill="none" stroke="#8a5a2b" stroke-width="4" stroke-linecap="round"/>'
+            '<circle cx="55" cy="10" r="5" fill="#ffcf33"/><circle cx="55" cy="10" r="2.5" fill="#ff5d3a"/>'
+            '<circle cx="30" cy="36" r="24" fill="#1d1d2b" stroke="#ff5d3a" stroke-width="4"/>'
+            '<rect x="34" y="10" width="10" height="10" rx="2" fill="#3a3a52" transform="rotate(35 39 15)"/>'
+            '<ellipse cx="22" cy="26" rx="6" ry="4" fill="#fff" fill-opacity=".35"/></svg>')
+    svg_to_png(bomb, A("tiles", "bomb.png"), 64)
+    # chameleon: a rainbow ring with a little eye
+    ch = ('<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128"><defs>'
+          '<linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff5d7a"/>'
+          '<stop offset="0.33" stop-color="#ffc94d"/><stop offset="0.66" stop-color="#4fd18b"/><stop offset="1" stop-color="#4b9cf0"/></linearGradient></defs>'
+          '<rect x="5" y="5" width="118" height="112" rx="24" fill="none" stroke="url(#c)" stroke-width="9" stroke-dasharray="20 9"/>'
+          '<circle cx="104" cy="22" r="15" fill="#4fd18b" stroke="#1d4a2b" stroke-width="3"/>'
+          '<circle cx="106" cy="22" r="7" fill="#fff"/><circle cx="108" cy="22" r="3.5" fill="#111"/></svg>')
+    svg_to_png(ch, A("tiles", "chameleon.png"), 128)
 
 
 # ---------------- collection packs: each its own tile and its own six pictures ----------------
@@ -374,7 +401,52 @@ def pack_tile_svg(style, icon, color, size=128):
     return f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">{bg}{body}</svg>'
 
 
+def neon_tile_svg(color, cut, size=128):
+    """Season pass pack: dark glass tile with the shape drawn as a glowing neon tube."""
+    c = size / 2
+    R = 36
+    if cut == "round":
+        shape = f'<circle cx="{c}" cy="{c - 2}" r="{R * .8}"'
+    else:
+        P = [(c + x * R, c - 2 + y * R) for x, y in outline(cut)]
+        shape = f'<polygon points="{pts(P)}"'
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">'
+            '<defs><filter id="g" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="5"/></filter></defs>'
+            '<rect x="7" y="11" width="114" height="112" rx="22" fill="#000" fill-opacity=".4"/>'
+            '<rect x="6" y="5" width="116" height="112" rx="22" fill="#0d0b1e"/>'
+            f'<rect x="8" y="7" width="112" height="108" rx="20" fill="none" stroke="{color}" stroke-opacity=".35" stroke-width="2"/>'
+            f'{shape} fill="none" stroke="{color}" stroke-width="12" filter="url(#g)" stroke-linejoin="round"/>'
+            f'{shape} fill="none" stroke="{color}" stroke-width="6" stroke-linejoin="round"/>'
+            f'{shape} fill="none" stroke="#fff" stroke-opacity=".85" stroke-width="2" stroke-linejoin="round"/></svg>')
+
+
+def glass_tile_svg(color, cut, size=128):
+    """Season pass pack: stained glass, facets of the colour split by dark lead lines."""
+    c = size / 2
+    R = 36
+    if cut == "round":
+        shape = f'<circle cx="{c}" cy="{c - 2}" r="{R * .8}"'
+    else:
+        P = [(c + x * R, c - 2 + y * R) for x, y in outline(cut)]
+        shape = f'<polygon points="{pts(P)}"'
+    facets = "".join(f'<path d="{d}" fill="{shade(color, f)}"/>' for d, f in (
+        ("M6 5h58L6 60z", .25), ("M64 5h58v55z", -.1), ("M6 60L64 5l58 55-58 57z", 0), ("M6 60v57h58z", -.25), ("M122 60v57H64z", .1)))
+    return (f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 {size} {size}">'
+            '<clipPath id="k"><rect x="6" y="5" width="116" height="112" rx="16"/></clipPath>'
+            '<rect x="7" y="11" width="114" height="112" rx="16" fill="#000" fill-opacity=".35"/>'
+            f'<g clip-path="url(#k)">{facets}<path d="M6 60L64 5l58 55-58 57zM64 5v112M6 60h116" fill="none" stroke="#2a2030" stroke-width="3"/></g>'
+            f'{shape} fill="#fff" fill-opacity=".9" stroke="#2a2030" stroke-width="6" stroke-linejoin="round"/>'
+            '<rect x="6" y="5" width="116" height="112" rx="16" fill="none" stroke="#2a2030" stroke-width="6"/></svg>')
+
+
+NEON_COLORS = ["#ff3d8b", "#33e1ff", "#7dff5a", "#ffe53d", "#ff8a1f", "#b06bff"]
+GLASS_COLORS = ["#d8283c", "#2a6fd6", "#1fa36a", "#e8b622", "#e8701c", "#8a3fcf"]
+
+
 def make_packs():
+    for k in range(6):
+        svg_to_png(neon_tile_svg(NEON_COLORS[k], BRIGHT_SHAPES[k]), A("tiles", f"look_9_{k}.png"), 128)
+        svg_to_png(glass_tile_svg(GLASS_COLORS[k], BRIGHT_SHAPES[k]), A("tiles", f"look_10_{k}.png"), 128)
     for look in range(1, 9):
         for k in range(6):
             if look == 8:  # gold: the faceted classic gems set on gold

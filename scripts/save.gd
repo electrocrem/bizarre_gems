@@ -27,8 +27,8 @@ func _ready() -> void:
 		best_bright = int(cfg.get_value("game", "best_bright", cfg.get_value("game", "best_compact", 0)))
 		best_zen = int(cfg.get_value("game", "best_zen", 0))
 		mode = str(cfg.get_value("game", "mode", "classic"))
-		if mode == "duel":
-			mode = "bright"  # the duel mode was removed
+		if not (mode in ["classic", "bright", "zen", "levels", "puzzle"]):
+			mode = "bright"  # removed modes (duel) and the tutorial are never the last mode
 		sound = bool(cfg.get_value("audio", "sound", true))
 		music = bool(cfg.get_value("audio", "music", true))
 		vibration = bool(cfg.get_value("audio", "vibration", true))

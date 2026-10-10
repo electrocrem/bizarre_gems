@@ -240,6 +240,42 @@ func _init() -> void:
 	var m3 := tuned.setup_tuned(d3.x, d3.y, rng, 1, l3.kinds, l3.per_kind, l3.min_moves, l3.max_moves, l3.tries, true)
 	check(m3 >= 1 and not tuned.solution.is_empty(), "tuned solvable deal keeps its solution (%d opening moves)" % m3)
 
+	# ice: a frozen gem blocks and never matches; knocking out a neighbour thaws it
+	var ib := board_from(["1.1", "...", "2.2"])
+	ib.ice[0] = 1
+	check(ib.matches_from(Vector2i(1, 0)).is_empty(), "a frozen gem does not match")
+	ib.ice[0] = 0
+	var ib2 := board_from(["21.1", "....", "2..."])
+	ib2.ice[1] = 1
+	check(ib2.matches_from(Vector2i(2, 0)).is_empty(), "the frozen 1 blocks the row")
+	ib2.remove(ib2.matches_from(Vector2i(0, 1)))
+	check(ib2.ice[1] == 0 and Vector2i(1, 0) in ib2.last_thawed, "knocking out a neighbour thaws the ice")
+	check(ib2.matches_from(Vector2i(2, 0)).size() == 2, "a thawed gem matches again")
+	# bombs tick on every strike and go off at zero
+	var bb := board_from(["1.1", "..."])
+	bb.bomb[0] = 2
+	check(bb.tick_bombs().is_empty() and bb.bomb[0] == 1, "a bomb ticks down")
+	var went := bb.tick_bombs()
+	check(went.size() == 1 and went[0] == Vector2i(0, 0), "a bomb goes off at zero")
+	bb.bomb[2] = 3
+	bb.remove(bb.matches_from(Vector2i(1, 0)))
+	check(not bb.has_bombs(), "knocking a bomb gem out defuses it")
+	# chameleons shift kind
+	var chb := board_from(["1.2"])
+	chb.cham[0] = 1
+	chb.shift_chameleons(3)
+	check(chb.cells[0] == 2 and chb.matches_from(Vector2i(1, 0)).size() == 2, "a chameleon turns into the next kind")
+	# frozen solvable boards still clear by their solution
+	var fr := RandomNumberGenerator.new()
+	fr.seed = 7
+	var fb := BoardLogic.new()
+	fb.setup_tuned(8, 12, fr, 0, 5, 12, 2, 999, 10, true, 0.0, 2)
+	var frozen := fb.add_ice(fr, 5)
+	check(frozen >= 3 and fb.replay_clears(), "ice is only placed where the board stays clearable (%d frozen)" % frozen)
+	var lv40 := BoardLogic.bright_level(40)
+	check(BoardLogic.chapter_of(20) == 0 and BoardLogic.chapter_of(21) == 1 and lv40.rule == "ice" and lv40.ice >= 8,
+		"chapters of 20; the second chapter's boss is icy")
+
 	print("ScoreKeeper")
 	var k := ScoreKeeper.new()
 	var r := k.hit(2, 0.0)
