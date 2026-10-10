@@ -448,14 +448,14 @@ func _next_look() -> int:
 	return (theme_i + 1) % 6 if theme_i < 6 else 0
 
 
-## Switch to palette i: background gradient and board hue fade over.
+## Switch the background to palette i (the gradient fades over); the tiles keep the chosen pack.
 func _set_theme(i: int, instant := false) -> void:
 	if mode.skin != "bright":
 		return  # the classic look keeps its colours
 	theme_i = posmod(i, THEMES.size())
 	var t: Dictionary = THEMES[theme_i]
 	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
-	board.palette = theme_i
+	board.palette = Progress.look  # tiles always show the pack chosen in the collection; only the backdrop cycles
 	if not instant:
 		board.flash(Color.WHITE, 0.35)
 		board.glow(1.0)
