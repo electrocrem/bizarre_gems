@@ -179,6 +179,8 @@ var mode_panel: Control  ## mode selection (full screen)
 var _menu_t := 0.0
 var pause_panel: PanelContainer
 var over_panel: PanelContainer
+var safe := Rect2()  ## screen insets (cutout, gesture bar) in logical px: position = left/top, size = right/bottom
+var panel_scale_tween: Tween  ## the grow-in of the panel being shown; a later re-fit replaces it
 var leaders_panel: PanelContainer
 var settings_panel: PanelContainer
 var rules_panel: PanelContainer
@@ -234,7 +236,7 @@ func _ready() -> void:
 		Yandex.sdk_ready.connect(_on_sdk_ready, CONNECT_ONE_SHOT)
 
 
-## Debug builds: ?start=map|tasks|coll|leaders|settings|pause|over|lres|zen|bright|classic|levelN opens that screen directly.
+## Debug builds: ?start=map|tasks|coll|leaders|settings|pause|over|cover|lres|zen|bright|classic|levelN opens that screen directly.
 func _debug_start() -> void:
 	if not (OS.is_debug_build() and OS.has_feature("web")):
 		return
@@ -280,6 +282,11 @@ func _debug_start() -> void:
 		pause_game()
 	elif q == "over":
 		start_game("bright")
+		end_game("time")
+	elif q == "cover":  # classic result with the best-strike replay (the tallest result panel)
+		start_game("classic")
+		score = 6
+		best_strike = {"points": 6, "n": 4, "mult": 1, "parts": [[Vector2i(0, -2), 0], [Vector2i(0, 3), 0], [Vector2i(-1, 0), 1], [Vector2i(4, 0), 1]]}
 		end_game("time")
 	elif q == "lres":
 		start_level(1)
@@ -1640,6 +1647,10 @@ func _build() -> void:
 	center = CenterContainer.new()
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	# a panel taller than the screen makes the container grow; growing both ways keeps its middle at
+	# the screen's middle, so the fit-to-screen scale (around the panel's centre) lands it fully on screen
+	center.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	center.grow_vertical = Control.GROW_DIRECTION_BOTH
 	add_child(center)
 
 	_build_menu()
@@ -1648,6 +1659,9 @@ func _build() -> void:
 	_build_leaders()
 	_build_settings()
 	_center_panel_headings()
+	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
+			gift_panel, ach_panel, stats_panel, confirm_panel]:
+		p.resized.connect(_refit_panel.bind(p))
 
 	toast = _label("", f_bold, 20, INK)
 	var tsb := _box(BRASS_LIGHT, BRASS_LIGHT, 0, 10, Vector4(18, 10, 18, 10))
@@ -3031,9 +3045,11 @@ func _show_panel(p: Control) -> void:
 		p.pivot_offset = p.size / 2
 		var fit := _panel_fit(p)
 		p.scale = Vector2.ONE * fit * 0.94
-		var tw := create_tween().set_parallel()
-		tw.tween_property(p, "modulate:a", 1.0, 0.18)
-		tw.tween_property(p, "scale", Vector2.ONE * fit, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+		create_tween().tween_property(p, "modulate:a", 1.0, 0.18)
+		if panel_scale_tween:
+			panel_scale_tween.kill()
+		panel_scale_tween = create_tween()
+		panel_scale_tween.tween_property(p, "scale", Vector2.ONE * fit, 0.24).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 		var first: Button = ui.get("card_play_" + str(Save.mode)) if p == mode_panel else _first_button(p)
 		if first:
 			first.grab_focus.call_deferred()
@@ -3207,11 +3223,20 @@ func _on_viewport_resized() -> void:
 	title_label.visible = s.x >= 980
 	hud_classic.add_theme_constant_override("separation", 10 if compact else 18)
 	var m := 6 if compact else 16
-	var inset := _safe_insets()
-	margin.add_theme_constant_override("margin_left", m + int(inset.position.x))
-	margin.add_theme_constant_override("margin_top", m + int(inset.position.y))
-	margin.add_theme_constant_override("margin_right", m + int(inset.size.x))
-	margin.add_theme_constant_override("margin_bottom", m + int(inset.size.y))
+	safe = _safe_insets()
+	_inset_margins(margin, m)
+	_inset_margins(menu_panel, 24)
+	_inset_margins(mode_panel, 16)
+	_inset_margins(map_panel, 16)
+	# panels centre in the safe part of the screen; the hint line and toasts keep clear of it too
+	center.offset_left = safe.position.x
+	center.offset_top = safe.position.y
+	center.offset_right = -safe.size.x
+	center.offset_bottom = -safe.size.y
+	tut_label.offset_top = 90.0 + safe.position.y
+	tut_label.offset_bottom = tut_label.offset_top + tut_label.size.y
+	toast.offset_bottom = -40.0 - safe.size.y
+	toast.offset_top = toast.offset_bottom - toast.size.y
 	hud.add_theme_constant_override("separation", 10 if compact else 22)
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
@@ -3236,14 +3261,14 @@ func _on_viewport_resized() -> void:
 func _panel_fit(p: Control) -> float:
 	if p == menu_panel or p == mode_panel or p == map_panel:
 		return 1.0  # full-screen layouts arrange themselves
-	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
+	var avail := get_viewport_rect().size.y - safe.position.y - safe.size.y - (12.0 if compact else 32.0)
 	var h := p.size.y
 	return clampf(avail / maxf(h, 1.0), 0.5, 1.0)
 
 
 ## Shrink the scrolling middle of tall panels so the whole panel fits the screen.
 func _fit_panels() -> void:
-	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
+	var avail := get_viewport_rect().size.y - safe.position.y - safe.size.y - (12.0 if compact else 32.0)
 	for pair in [[leaders_panel, ui.leaders_scroll, ui.leaders_list],
 			[ach_panel, ui.ach_scroll, ui.ach_list]]:
 		var panel: Control = pair[0]
@@ -3262,13 +3287,25 @@ func _fit_panels() -> void:
 	_fit_home()
 
 
+## A panel whose height changes after it was fitted (wrapped text measured too tall on its first
+## frame, the best-strike replay appearing) is fitted again: otherwise it keeps a scale and pivot
+## made for the old height and slides off the bottom of the screen.
+func _refit_panel(p: Control) -> void:
+	if not p.visible or p == menu_panel or p == mode_panel or p == map_panel:
+		return
+	p.pivot_offset = p.size / 2
+	if panel_scale_tween and panel_scale_tween.is_running():
+		panel_scale_tween.kill()
+	p.scale = Vector2.ONE * _panel_fit(p)
+
+
 ## The home screen is laid out for the window in _on_viewport_resized; when its button row wraps
 ## (a narrow window that is not short, long captions) it can still overflow. Then: tighter spacing,
 ## then no gems, then scale the rest down around the screen's centre.
 func _fit_home() -> void:
 	var v := menu_panel.get_child(0) as VBoxContainer
 	v.scale = Vector2.ONE
-	var avail := get_viewport_rect().size.y - 48.0  # the home margins
+	var avail := get_viewport_rect().size.y - 48.0 - safe.position.y - safe.size.y  # the home margins
 	if v.get_combined_minimum_size().y > avail:
 		v.add_theme_constant_override("separation", 8)
 	if v.get_combined_minimum_size().y > avail:
@@ -3277,7 +3314,7 @@ func _fit_home() -> void:
 	if h > avail:
 		var k := maxf(avail / h, 0.5)
 		# pivot chosen so the scaled content ends up centred on the screen, not at the overflowing box's middle
-		var top := (get_viewport_rect().size.y - h * k) / 2.0
+		var top := safe.position.y + (get_viewport_rect().size.y - safe.position.y - safe.size.y - h * k) / 2.0
 		v.pivot_offset = Vector2(v.size.x / 2.0, (top - v.position.y) / (1.0 - k))
 		v.scale = Vector2.ONE * k
 
@@ -3300,10 +3337,34 @@ func _apply_ui_scale() -> void:
 		win.content_scale_size = Vector2i(base, base)
 
 
+func _inset_margins(c: MarginContainer, m: int) -> void:
+	c.add_theme_constant_override("margin_left", m + int(safe.position.x))
+	c.add_theme_constant_override("margin_top", m + int(safe.position.y))
+	c.add_theme_constant_override("margin_right", m + int(safe.size.x))
+	c.add_theme_constant_override("margin_bottom", m + int(safe.size.y))
+
+
 ## Screen areas covered by a camera cutout, rounded corners or the gesture bar, in logical
-## pixels: position = (left, top), size = (right, bottom). Only the Android app needs this;
-## browsers already keep the page inside the safe area.
+## pixels: position = (left, top), size = (right, bottom). The Android app draws under them
+## (immersive mode); a browser page gets CSS env(safe-area-inset-*), which is 0 unless the page
+## itself extends under the cutout. Debug web builds fake a cutout with ?inset=N (top, or left
+## in landscape) to check the layouts.
 func _safe_insets() -> Rect2:
+	if OS.has_feature("web"):
+		var css := str(JavaScriptBridge.eval("(function(){var d=document.createElement('div');" +
+			"d.style.cssText='position:fixed;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';" +
+			"document.body.appendChild(d);var c=getComputedStyle(d);var r=[c.paddingLeft,c.paddingTop,c.paddingRight,c.paddingBottom].map(function(x){return parseFloat(x)/innerHeight;}).join(',');" +
+			"d.remove();var q=new URLSearchParams(location.search).get('inset');return q?r+','+q:r;})()"))
+		var v := css.split(",")
+		if v.size() < 4:
+			return Rect2()
+		var k := get_viewport_rect().size.y  # the page reports fractions of its height
+		var r := Rect2(float(v[0]) * k, float(v[1]) * k, float(v[2]) * k, float(v[3]) * k)
+		if v.size() > 4 and OS.is_debug_build():
+			var n := float(v[4])
+			var s := get_viewport_rect().size
+			r = Rect2(n, 0, 0, 0) if s.x > s.y else Rect2(0, n, 0, 0)
+		return r
 	if not OS.has_feature("android"):
 		return Rect2()
 	var win := get_window()
