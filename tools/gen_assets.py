@@ -798,7 +798,7 @@ VOICE_LINES = {"great": "Great!", "super": "Super!", "amazing": "Amazing!", "inc
                "perfect": "Perfect!", "clear": "Board clear!", "levelup": "Level up!"}
 
 
-PIPER_SPEAKER = 805  # LibriTTS-R speaker: the deepest, steadiest voice of the set (~94 Hz)
+PIPER_SPEAKER = 575  # LibriTTS-R speaker: a lively male voice (~135 Hz) with the widest intonation
 
 
 def make_voices():
@@ -816,7 +816,7 @@ def make_voices():
         with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
             if use_piper:
                 subprocess.run([piper, "--model", os.path.join(piper_dir, "voice.onnx"), "--speaker", str(PIPER_SPEAKER),
-                                "--length_scale", "1.0", "--noise_scale", "0.7", "--noise_w", "0.8", "--output_file", tmp.name],
+                                "--length_scale", "0.88", "--noise_scale", "0.95", "--noise_w", "1.0", "--output_file", tmp.name],
                                input=text.encode(), check=True, capture_output=True)
             else:
                 subprocess.run(["espeak-ng", "-v", "en-us+m3", "-s", "135", "-p", "62", "-w", tmp.name, text], check=True)
@@ -827,7 +827,15 @@ def make_voices():
         nz = np.nonzero(np.abs(x) > 0.01)[0]
         if len(nz):
             x = x[max(0, nz[0] - int(.01 * SR)): nz[-1] + int(.05 * SR)]  # trim silence
-        write_wav(A("audio", f"voice_{name}.wav"), brutal(x))
+        write_wav(A("audio", f"voice_{name}.wav"), natural(x))
+
+
+def natural(x):
+    """Keep the voice human: level it, gently even out the peaks, add the faintest room."""
+    x = x / (np.max(np.abs(x)) + 1e-9)
+    x = np.tanh(x * 1.3) / np.tanh(1.3)
+    y = liven(x, room=.06, width=.05, drive=1.0)
+    return y / (np.max(np.abs(y)) + 1e-9) * .9
 
 
 def brutal(x):
