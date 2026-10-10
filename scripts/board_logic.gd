@@ -25,9 +25,6 @@ const LEVELS := {"id": "levels", "skin": "bright", "kind": "levels", "kinds": 6,
 ## Puzzle: a small board and just enough strikes to clear it.
 const PUZZLE := {"id": "puzzle", "skin": "bright", "kind": "puzzle", "kinds": 4, "per_kind": 6, "cols": 6, "rows": 8,
 	"slots": 48, "shining": 0, "board": "", "waves": false}
-## Duel: two players take turns on one board; the higher score wins.
-const DUEL := {"id": "duel", "skin": "bright", "kind": "duel", "kinds": 5, "per_kind": 12, "cols": 7, "rows": 12,
-	"slots": 84, "shining": 2, "board": "", "waves": false}
 ## First-run tutorial on a small hand-made board.
 const TUTORIAL := {"id": "tutorial", "skin": "bright", "kind": "tutorial", "kinds": 4, "per_kind": 2, "cols": 5, "rows": 5,
 	"slots": 25, "shining": 0, "board": "", "waves": false}

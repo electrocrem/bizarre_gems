@@ -138,7 +138,6 @@ ICONS = {  # 64x64 white glyphs
     "gift": '<rect x="8" y="26" width="48" height="32" rx="4"/><rect x="5" y="17" width="54" height="11" rx="3"/><rect x="28" y="17" width="8" height="41" fill="#000" fill-opacity="0.3"/><path d="M32 17c-6-12-20-8-14 0M32 17c6-12 20-8 14 0" fill="none" stroke="#fff" stroke-width="5" stroke-linecap="round"/>',
     "medal": '<path d="M20 4h10l6 16H26zM34 4h10l-6 16h-10z"/><circle cx="32" cy="40" r="18"/><circle cx="32" cy="40" r="11" fill="none" stroke="#000" stroke-opacity="0.3" stroke-width="4"/>',
     "puzzle": '<path d="M8 20h14a6 6 0 1 1 12 0h14v14a6 6 0 1 0 0 12v14H34a6 6 0 1 0-12 0H8V46a6 6 0 1 1 0-12z"/>',
-    "duel": '<circle cx="20" cy="18" r="9"/><circle cx="44" cy="18" r="9"/><path d="M4 56c0-12 7-20 16-20s16 8 16 20zM28 56c0-12 7-20 16-20s16 8 16 20z"/>',
     "hand": '<path d="M26 6a5 5 0 0 1 10 0v22l3-1a5 5 0 0 1 6 3l1 2a5 5 0 0 1 6 3v10c0 10-7 17-17 17h-4c-7 0-12-4-15-10l-7-13a5 5 0 0 1 8-6l9 9z"/>',
     "link": '<rect x="6" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/><rect x="28" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/>',
     "check": '<path d="M12 34l14 14 26-30" fill="none" stroke="#fff" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>',

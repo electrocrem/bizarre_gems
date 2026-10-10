@@ -59,7 +59,6 @@ const ICONS := {
 	"gift": preload("res://assets/ui/icon_gift.png"),
 	"medal": preload("res://assets/ui/icon_medal.png"),
 	"puzzle": preload("res://assets/ui/icon_puzzle.png"),
-	"duel": preload("res://assets/ui/icon_duel.png"),
 	"hand": preload("res://assets/ui/icon_hand.png"),
 	"check": preload("res://assets/ui/icon_check.png"),
 	"back": preload("res://assets/ui/icon_back.png"),
@@ -83,8 +82,6 @@ var strikes_max := 1
 var hints := 1            ## free hints left this game / level
 var puzzle_n := 1
 var goal_kind := -1       ## level goal: knock out every gem of this kind (-1: none, -2: done)
-var duel_scores := [0, 0]
-var duel_turn := 0
 var tut_step := 0
 var tut_hand: TextureRect
 var tut_label: Label
@@ -226,7 +223,7 @@ func _debug_start() -> void:
 		_show_panel(collection_panel)
 	elif q.begins_with("level"):
 		start_level(maxi(1, int(q.substr(5))))
-	elif q in ["zen", "bright", "classic", "duel", "tutorial"]:
+	elif q in ["zen", "bright", "classic", "tutorial"]:
 		start_game(q)
 	var t := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('t') || ''"))
 	if t != "" and state == State.PLAYING:
@@ -234,6 +231,8 @@ func _debug_start() -> void:
 		strikes = mini(strikes, int(t))
 	elif q == "puzzle":
 		start_puzzle(1)
+	elif q == "modes":
+		_show_panel(mode_panel)
 	elif q == "pmap":
 		_open_map("puzzle")
 	elif q == "gift":
@@ -281,8 +280,6 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	strikes_max = 20
 	strikes = strikes_max
 	hints = 1
-	duel_scores = [0, 0]
-	duel_turn = 0
 	if mode.kind == "puzzle":
 		strikes = logic.solution.size() + 1  # just enough to clear it, plus one spare
 		strikes_max = strikes
@@ -301,8 +298,6 @@ func start_game(mode_id := "", is_daily := false) -> void:
 		_banner(L.t("boss"), 0, 0.0, Color("#ff9ed2"), L.t("boss_sub"))
 	elif mode.kind == "tutorial":
 		_tutorial_step(0)
-	elif mode.kind == "duel":
-		_toast(L.t("duel_turn", {"n": 1}))
 
 
 ## Switch rules and look: "classic" is the original game, "bright" the toy-style mode.
@@ -316,8 +311,6 @@ func _use_mode(id: String) -> void:
 			mode = BoardLogic.ZEN
 		"puzzle":
 			mode = BoardLogic.PUZZLE
-		"duel":
-			mode = BoardLogic.DUEL
 		"tutorial":
 			mode = BoardLogic.TUTORIAL
 		_:
@@ -352,10 +345,6 @@ func _deal_board() -> void:
 		var lv := BoardLogic.bright_level(lvn)
 		if mode.kind == "puzzle":
 			lv = BoardLogic.puzzle_config(puzzle_n)
-		elif mode.kind == "duel":
-			lv = BoardLogic.bright_level(6)
-			lv.boxes = 0
-			lv.chains = 0
 		if mode.kind == "run":
 			# the run plays like classic: one big board for the whole clock, a touch of jokers and boxes
 			lv = {"slots": 200, "kinds": 6, "per_kind": 28, "min_moves": 4, "max_moves": 999, "tries": 30,
@@ -539,7 +528,7 @@ func _end_level() -> void:
 	Sfx.play("level" if got > 0 else "over")
 
 
-# ================= puzzle, duel, tutorial =================
+# ================= puzzle, tutorial =================
 
 func start_puzzle(n: int) -> void:
 	puzzle_n = n
@@ -563,25 +552,6 @@ func _end_puzzle() -> void:
 	Sfx.play("level" if solved else "over")
 
 
-func _duel_next_turn() -> void:
-	keeper.miss()  # each player builds their own combos
-	duel_turn = 1 - duel_turn
-	_update_combo_widget()
-	_toast(L.t("duel_turn", {"n": duel_turn + 1}))
-
-
-func _end_duel() -> void:
-	Progress.report("duels")
-	var w := 0 if duel_scores[0] > duel_scores[1] else (1 if duel_scores[1] > duel_scores[0] else -1)
-	end_game("duel")
-	ui.over_title.text = L.t("duel_draw") if w < 0 else L.t("duel_win", {"n": w + 1})
-	ui.over_score.text = "%d : %d" % [duel_scores[0], duel_scores[1]]
-	ui.over_best.visible = false
-	ui.over_line.text = ""
-	ui.btn_continue.visible = false
-	ui.btn_shuffle.visible = false
-
-
 ## Guided strikes of the tutorial board, then one free strike.
 const TUT_MOVES := [Vector2i(1, 0), Vector2i(1, 2), Vector2i(4, 1)]
 
@@ -602,18 +572,20 @@ func _tutorial_step(i: int) -> void:
 		_place_hand.call_deferred(target)
 
 
+## The hand follows its slot every frame (see _process), so it stays put while the board lays out.
 func _place_hand(target: Vector2i) -> void:
+	tut_hand.set_meta("target", target)
+
+
+func _update_hand() -> void:
+	if not tut_hand.visible or not tut_hand.has_meta("target"):
+		return
+	var target: Vector2i = tut_hand.get_meta("target")
 	var pos := board.global_position + board.slot_center(target) - global_position
-	tut_hand.position = pos + Vector2(-8, 6)
-	var tw := create_tween().set_loops()
-	tw.tween_property(tut_hand, "position:y", pos.y + 18, 0.45)
-	tw.tween_property(tut_hand, "position:y", pos.y + 6, 0.45)
-	tut_hand.set_meta("tween", tw)
+	tut_hand.position = pos + Vector2(-8, 12 + 6 * sin(Time.get_ticks_msec() / 1000.0 * 7.0))
 
 
 func _tutorial_after_strike() -> void:
-	if tut_hand.has_meta("tween"):
-		(tut_hand.get_meta("tween") as Tween).kill()
 	if logic.gems_left() == 0:
 		tut_label.text = L.t("tut_done")
 		tut_hand.visible = false
@@ -657,8 +629,6 @@ func _check_no_moves() -> void:
 			_end_level()
 		"puzzle":
 			_end_puzzle()
-		"duel":
-			_end_duel()
 		"tutorial":
 			pass
 		"run":
@@ -749,8 +719,6 @@ func _on_slot(p: Vector2i) -> void:
 				_end_puzzle()
 			else:
 				end_game("strikes")
-		if mode.kind == "duel":
-			_duel_next_turn()
 		_update_hud()
 		return
 	var kinds: Array[int] = []
@@ -784,8 +752,6 @@ func _on_slot(p: Vector2i) -> void:
 		score = keeper.score
 		cleared += extra.size()
 		board.praise(L.t("chain"), p, Color("#9fe3ff"))
-	if mode.kind == "duel":
-		duel_scores[duel_turn] += res.points + extra.size() * 2
 	if mode.kind == "classic" or mode.kind == "levels":
 		time_left += res.time  # the bright run earns time only by clearing a whole board
 	idle = 0.0
@@ -856,12 +822,6 @@ func _on_slot(p: Vector2i) -> void:
 		_tutorial_after_strike()
 		_update_hud()
 		return
-	if mode.kind == "duel":
-		_duel_next_turn()
-		if not logic.has_any_move():
-			_end_duel()
-		_update_hud()
-		return
 	if mode.kind == "puzzle":
 		if logic.gems_left() == 0:
 			board.play_clear_wave()
@@ -910,6 +870,7 @@ func _process(delta: float) -> void:
 	else:
 		shown_score = score
 	score_label.text = str(int(round(shown_score)))
+	_update_hand()
 	if state != State.PLAYING:
 		return
 	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
@@ -1818,11 +1779,11 @@ func _build_modes() -> void:
 	flow.add_theme_constant_override("h_separation", 20)
 	flow.add_theme_constant_override("v_separation", 20)
 	ui.mode_cards = []
-	for id in (["levels", "bright", "zen", "puzzle", "duel", "classic"] if OS.has_feature("android")
-			else ["classic", "levels", "bright", "zen", "puzzle", "duel"]):
+	for id in (["levels", "bright", "zen", "puzzle", "classic"] if OS.has_feature("android")
+			else ["classic", "levels", "bright", "zen", "puzzle"]):
 		var card := PanelContainer.new()
 		var accent: Color = {"classic": BRASS, "levels": Color("#22c97a"), "bright": Color("#3d8bff"), "zen": Color("#a35cff"),
-			"puzzle": Color("#ff9a2e"), "duel": Color("#ff4d5e")}[id]
+			"puzzle": Color("#ff9a2e")}[id]
 		card.add_theme_stylebox_override("panel", _box(PANEL, accent, 3, 20, Vector4(16, 16, 16, 18)))
 		var cv := VBoxContainer.new()
 		cv.add_theme_constant_override("separation", 10)
@@ -1850,8 +1811,6 @@ func _build_modes() -> void:
 			ui["card_play_" + id] = _button("", "map", true, func(): Sfx.play("click"); _open_map())
 		elif id == "puzzle":
 			ui["card_play_" + id] = _button("", "puzzle", true, func(): Sfx.play("click"); _open_map("puzzle"))
-		elif id == "duel":
-			ui["card_play_" + id] = _button("", "duel", true, func(): Sfx.play("click"); start_game("duel"))
 		else:
 			ui["card_play_" + id] = _button("", "play", true, func(): Sfx.play("click"); start_game(mode_id))
 		cv.add_child(ui["card_play_" + id])
@@ -2260,14 +2219,12 @@ func _refresh_menu_bests() -> void:
 	ui.home_crystals.text = str(Progress.crystals)
 	var due := Progress.unclaimed()
 	(ui.home_tasks.get_meta("caption") as Label).text = L.t("tasks") + (" (%d)" % due if due > 0 else "")
-	for id in ["classic", "levels", "bright", "zen", "puzzle", "duel"]:
+	for id in ["classic", "levels", "bright", "zen", "puzzle"]:
 		var line := L.t("best") + ": " + str(Save.best_for(id))
 		if id == "levels":
 			line = L.t("stars_total") + ": " + str(Progress.total_stars())
 		elif id == "puzzle":
 			line = L.t("puzzles_solved", {"n": Progress.puzzles})
-		elif id == "duel":
-			line = L.t("duel_hint")
 		ui["card_best_" + id].text = line
 	(ui.home_gift.get_meta("caption") as Label).text = L.t("gift") + (" !" if Progress.gift_ready() else "")
 	var adue := Progress.achievements_due()
@@ -2495,7 +2452,7 @@ func _apply_texts() -> void:
 		ui[k].text = L.t(k)
 	ui.btn_home_play.text = L.t("play")
 	ui.mode_title.text = L.t("choose_mode")
-	for id in ["classic", "levels", "bright", "zen", "puzzle", "duel"]:
+	for id in ["classic", "levels", "bright", "zen", "puzzle"]:
 		ui["card_name_" + id].text = L.t("mode_" + id)
 		ui["card_desc_" + id].text = L.t("mode_%s_desc" % id)
 		ui["card_play_" + id].text = L.t("open_map" if id == "levels" or id == "puzzle" else "play")
@@ -2601,8 +2558,6 @@ func _update_hud() -> void:
 		time_label.text = L.t("steps_n", {"n": maxi(strikes, 0)})
 	elif mode.kind == "puzzle":
 		time_label.text = L.t("moves_left", {"n": maxi(strikes, 0)})
-	elif mode.kind == "duel":
-		time_label.text = "%s %d · %s %d" % [L.t("p1"), duel_scores[0], L.t("p2"), duel_scores[1]]
 	elif mode.kind == "tutorial":
 		time_label.text = ""
 	var low := state == State.PLAYING and secs <= 15
@@ -2611,7 +2566,7 @@ func _update_hud() -> void:
 	time_bar.value = clampf(time_left / START_TIME, 0.0, 1.0) * 100.0
 	if mode.kind == "zen" or mode.kind == "puzzle":
 		time_bar.value = clampf(float(strikes) / strikes_max, 0.0, 1.0) * 100.0
-	elif mode.kind == "duel" or mode.kind == "tutorial":
+	elif mode.kind == "tutorial":
 		time_bar.value = 100.0
 	elif mode.kind == "levels":
 		time_bar.value = clampf(time_left / _level_time(level_n), 0.0, 1.0) * 100.0

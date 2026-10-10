@@ -25,7 +25,6 @@ const ACHIEVEMENTS := [
 	{"id": "levels30", "stat": "levels", "goal": 30, "reward": 120},
 	{"id": "stars3x10", "stat": "stars3", "goal": 10, "reward": 80},
 	{"id": "puzzles10", "stat": "puzzles", "goal": 10, "reward": 60},
-	{"id": "duels5", "stat": "duels", "goal": 5, "reward": 40},
 	{"id": "streak7", "stat": "streak", "goal": 7, "reward": 100},
 ]
 ## Daily task pool. "max" tasks track the best single value instead of adding up.
