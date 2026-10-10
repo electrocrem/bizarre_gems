@@ -523,9 +523,9 @@ func _draw() -> void:
 					var bs := gs * 0.55
 					var bp := ctr + Vector2(gs * 0.5 - bs * 0.85, -gs * 0.5 - bs * 0.12)
 					draw_texture_rect(BOMB_TEX, Rect2(bp, Vector2.ONE * bs), false)
-					if number_font:
+					var fs := int(bs * 0.5)
+					if number_font and fs > 0:  # gems grow from nothing while a board is dealt
 						var low := logic.bomb[i] <= 2
-						var fs := int(bs * 0.5)
 						draw_string(number_font, bp + Vector2(0, bs * 0.74), str(logic.bomb[i]), HORIZONTAL_ALIGNMENT_CENTER, bs * 0.94,
 							fs, Color("#ff6b5a") if low else Color.WHITE)
 

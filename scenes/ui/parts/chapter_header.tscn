@@ -1,0 +1,51 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/chapter_header.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_star.png" id="2"]
+
+[node name="ChapterHeader" type="PanelContainer"]
+script = ExtResource("1")
+
+[node name="Row" type="HBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Info" type="VBoxContainer" parent="Row"]
+layout_mode = 2
+theme_override_constants/separation = 0
+size_flags_horizontal = 3
+
+[node name="ChapterName" type="Label" parent="Row/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Heading"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+
+[node name="Rule" type="Label" parent="Row/Info"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 13
+autowrap_mode = 3
+size_flags_horizontal = 3
+
+[node name="StarIcon" type="TextureRect" parent="Row"]
+layout_mode = 2
+custom_minimum_size = Vector2(18, 18)
+size_flags_vertical = 4
+texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(1, 0.7843, 0.2392, 1)
+
+[node name="Stars" type="Label" parent="Row"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"NumberGold"
+theme_override_font_sizes/font_size = 16
+
+[node name="Rewards" type="HBoxContainer" parent="Row"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_override_constants/separation = 6

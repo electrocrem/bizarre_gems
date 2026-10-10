@@ -18,25 +18,78 @@
 ## Структура
 
 ```
-project.godot           настройки (окно 720×720, stretch canvas_items/expand → любой экран)
-export_presets.cfg      пресет «Yandex Web»; в html/head_include живёт JS-мост window.YG к SDK
-scenes/main.tscn        корневая сцена (UI собирается в scripts/main.gd)
+project.godot           настройки (окно 720×720, stretch canvas_items/expand → любой экран);
+						здесь же подключены тема ui/theme.tres и переводы i18n/strings.csv
+scenes/
+  main.tscn             корневая сцена: фон, игровой слой (HUD + поле), все экраны, тосты
+  game/hud_classic.tscn HUD классики (как в первой версии)
+  game/hud_bright.tscn  HUD ярких режимов (крупный счёт)
+  ui/*.tscn             экраны: home, modes, map, pause, result, level_result, leaders, settings,
+						rules, tasks, collection, gift, achievements, stats, more, confirm
+  ui/parts/*.tscn       повторяющиеся куски экранов: строка задания, карточка режима, ячейка карты…
 scripts/
+  main.gd               игра: режимы, ход, очки, конец партии, реклама, переходы между экранами
   board_logic.gd        правила, без графики (class_name BoardLogic)
   board_view.gd         отрисовка поля, эффекты, ввод мышью/тачем/клавиатурой
-  main.gd               состояния игры, интерфейс, реклама, лидерборд
-  yandex.gd   (autoload Yandex)  обёртка SDK; вне браузера всё работает как заглушки
-  save.gd     (autoload Save)    рекорд и настройки звука: user:// + облако Яндекса
-  sfx.gd      (autoload Sfx)     звуки и музыка, глушится на время рекламы
-  i18n.gd     (autoload L)       тексты ru / en / tr
+  score_keeper.gd       очки, комбо, бонусы (class_name ScoreKeeper)
+  ambient.gd            живой фон;  strike_replay.gd — «лучший удар» в итогах
+  ui/screen.gd          базовый класс всех экранов (class_name Screen)
+  ui/hud.gd             общий скрипт обоих HUD (class_name Hud)
+  ui/ui_kit.gd          цвета и иконки для кода (class_name UiKit)
+  ui/<экран>.gd         скрипт каждого экрана и каждой детали из scenes/ui/parts
+  yandex.gd   (autoload Yandex)    обёртка SDK; вне браузера всё работает как заглушки
+  save.gd     (autoload Save)      рекорды и настройки: user:// + облако Яндекса
+  progress.gd (autoload Progress)  кристаллы, звёзды, задания, коллекция, достижения
+  sfx.gd      (autoload Sfx)       звуки и музыка, глушится на время рекламы
+  haptics.gd  (autoload Haptics)   вибрация
+  i18n.gd     (autoload L)         язык; L.t("key", {"n": 5}) для текстов с подстановками
+ui/theme.tres           тема: шрифты, кнопки, панели и стили текста (Title, Muted, Number…)
+ui/fonts/*.tres         начертания шрифтов (вес Manrope / JetBrains Mono)
+i18n/strings.csv        все тексты: колонки keys, ru, en, tr
 assets/                 всё сгенерировано tools/gen_assets.py, шрифты под OFL
 tests/test_logic.gd     тесты правил
+tests/smoke_ui.gd       прогон всех экранов и режимов (ловит ошибки скриптов)
 tools/
   gen_assets.py         пересобирает камни, иконки, текстуры, звуки, иконку и обложку
   serve.py              локальный сервер сборки с имитацией SDK (tools/mock/sdk.js)
 store/                  материалы для карточки игры: иконка, обложка, скриншоты, тексты
 build.sh                импорт → тесты → экспорт → build/bizarre-gems-yandex.zip
 ```
+
+## Как добавлять фичи
+
+**Как всё связано.** `main.gd` знает правила и состояние партии. Экраны (`scenes/ui/*.tscn`)
+только показывают данные и сообщают сигналами, что нажал игрок. Кнопки подключены к методам
+скрипта прямо в сцене (вкладка «Узел → Сигналы» в редакторе). Экран открывает другой экран
+сигналом `navigate.emit(&"tasks")`, где имя — это имя узла экрана в `main.tscn` в snake_case.
+А для действий игры (начать партию, посмотреть рекламу) у экрана есть свои сигналы, их
+подключает `main.gd` в `_connect_screens()`.
+
+**Тексты.** Если в поле `text` у Label или Button написан ключ из `i18n/strings.csv` (например,
+`play`), Godot сам покажет перевод. Новый текст = новая строка в CSV с колонками ru/en/tr.
+В коде: `L.t("key")` или `L.t("key", {"n": 5})`, если в тексте есть `{n}`.
+
+**Внешний вид.** Стиль текста выбирается полем *Theme Type Variation* (Title, Heading, Body,
+Muted, Bold, Caption, Number, NumberGold, Crystals), стиль кнопки — PrimaryButton,
+IconButton, RoundButton, DailyCard, ChallengeCard. Сами стили правятся в `ui/theme.tres`, и это
+меняет все экраны сразу.
+
+**Новый экран**, например «Магазин»:
+1. Создайте `scenes/ui/shop.tscn`: корень `PanelContainer` (диалог по центру) или
+   `MarginContainer` (на весь экран, тогда в инспекторе включите *Full Screen*), внутри — что нужно.
+2. Скрипт `scripts/ui/shop.gd` начинается с `extends Screen`. В `refresh()` заполняете данные,
+   кнопку «Закрыть» подключаете к методу, который делает `click()` и `navigate.emit(&"back")`.
+3. Перетащите сцену в `main.tscn`: диалог — внутрь узла `Center`, полноэкранный — рядом с `Home`.
+   Назовите узел `Shop` и сделайте его невидимым. `main.gd` сам найдёт экран по имени.
+4. Откройте её откуда угодно: `navigate.emit(&"shop")`. Если «Назад» на Android должно вести
+   не на главный экран, допишите это в `_on_back()`.
+
+**Новое правило игры** — `board_logic.gd` (поле и ходы) и `_on_slot()` в `main.gd` (что
+происходит после удара). Логику без графики удобно проверять тестом в `tests/test_logic.gd`.
+
+**Проверка.** `godot --headless --path . --script res://tests/smoke_ui.gd` открывает все экраны
+и играет во все режимы. Если в выводе нет `FAIL` и `SCRIPT ERROR`, ничего не сломано.
+`./build.sh` прогоняет оба теста перед сборкой.
 
 ## Сборка
 

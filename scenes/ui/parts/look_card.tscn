@@ -1,0 +1,46 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/look_card.gd" id="1"]
+
+[node name="LookCard" type="VBoxContainer"]
+script = ExtResource("1")
+size_flags_horizontal = 3
+theme_override_constants/separation = 6
+
+[node name="Tiles" type="HBoxContainer" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+alignment = 1
+
+[node name="Tile0" type="TextureRect" parent="Tiles"]
+layout_mode = 2
+custom_minimum_size = Vector2(34, 34)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Tile1" type="TextureRect" parent="Tiles"]
+layout_mode = 2
+custom_minimum_size = Vector2(34, 34)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Tile2" type="TextureRect" parent="Tiles"]
+layout_mode = 2
+custom_minimum_size = Vector2(34, 34)
+expand_mode = 1
+stretch_mode = 5
+
+[node name="PackName" type="Label" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Bold"
+theme_override_font_sizes/font_size = 15
+horizontal_alignment = 1
+
+[node name="Action" type="Button" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 15
+
+[connection signal="pressed" from="Action" to="." method="_on_action_pressed"]

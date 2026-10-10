@@ -1,0 +1,81 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/map.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_back.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_star.png" id="3"]
+
+[node name="Map" type="MarginContainer"]
+script = ExtResource("1")
+full_screen = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Head" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Back" type="Button" parent="VBox/Head"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"IconButton"
+icon = ExtResource("2")
+custom_minimum_size = Vector2(52, 52)
+icon_alignment = 1
+
+[node name="Title" type="Label" parent="VBox/Head"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Title"
+text = "mode_levels"
+horizontal_alignment = 1
+size_flags_horizontal = 3
+
+[node name="StarBox" type="HBoxContainer" parent="VBox/Head"]
+layout_mode = 2
+theme_override_constants/separation = 4
+size_flags_vertical = 4
+
+[node name="StarIcon" type="TextureRect" parent="VBox/Head/StarBox"]
+layout_mode = 2
+unique_name_in_owner = true
+custom_minimum_size = Vector2(22, 22)
+size_flags_vertical = 4
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(1, 0.7843, 0.2392, 1)
+
+[node name="Stars" type="Label" parent="VBox/Head/StarBox"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"NumberGold"
+text = "0"
+
+[node name="Scroll" type="ScrollContainer" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Center" type="CenterContainer" parent="VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="List" type="VBoxContainer" parent="VBox/Scroll/Center"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_override_constants/separation = 14
+
+[connection signal="pressed" from="VBox/Head/Back" to="." method="_on_back_pressed"]

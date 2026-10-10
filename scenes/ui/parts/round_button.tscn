@@ -1,0 +1,23 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/round_button.gd" id="1"]
+
+[node name="RoundButton" type="VBoxContainer"]
+script = ExtResource("1")
+theme_override_constants/separation = 6
+
+[node name="Button" type="Button" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"RoundButton"
+custom_minimum_size = Vector2(68, 68)
+size_flags_horizontal = 4
+icon_alignment = 1
+
+[node name="Caption" type="Label" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Bold"
+theme_override_colors/font_color = Color(0.6667, 0.7216, 0.9255, 1)
+theme_override_font_sizes/font_size = 14
+horizontal_alignment = 1

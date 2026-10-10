@@ -1,0 +1,220 @@
+keys,ru,en,tr
+title,Алмазная братва,Bizarre Gems,Bizarre Gems
+tagline,Выбивай пары камней крестом на время,"Knock out gem pairs with a cross strike, against the clock","Taş çiftlerini çapraz vuruşla kır, süreye karşı"
+play,Играть,Play,Oyna
+how_title,Как играть,How to play,Nasıl oynanır
+ch_card,Вызов: побей {n} · {m},Challenge: beat {n} · {m},Meydan okuma: {n} puanı geç · {m}
+ch_share,Вызов другу,Challenge a friend,Arkadaşına meydan oku
+ch_share_text,Побей мой счёт {n} в «Алмазной братве» на том же поле!,Beat my {n} in Bizarre Gems on the same board!,Bizarre Gems'te aynı tahtada {n} puanımı geç!
+ch_won,Вызов выигран: ты побил {n}!,Challenge won: you beat {n}!,Meydan okuma kazanıldı: {n} geçildi!
+ch_lost,До победы над {n} не хватило {d},{d} short of beating {n},{n} puanı geçmek için {d} eksik
+ch_copied,Ссылка скопирована,Link copied,Bağlantı kopyalandı
+ch_fail,Не получилось поделиться,Could not share,Paylaşılamadı
+more,Ещё,More,Daha fazla
+rule1,"Нажми на пустую клетку. Игра смотрит вверх, вниз, влево и вправо и берёт первый камень с каждой стороны.","Tap an empty slot. The game looks up, down, left and right and takes the first gem on each side.","Boş bir hücreye dokun. Oyun yukarı, aşağı, sola ve sağa bakar ve her yöndeki ilk taşı alır."
+rule2,"Камни, которые встретились хотя бы дважды, выбиваются.",Every gem that shows up at least twice is knocked out.,En az iki kez görünen her taş kırılır.
+rule3,"Промах отнимает секунду. На старте — 120 секунд. Нет ходов — новое поле и +5 секунд, играешь до конца времени.","A miss costs one second. You start with 120 seconds. No moves left: a new board and +5 seconds, you play until time runs out.","Iska bir saniye kaybettirir. 120 saniyeyle başlarsın. Hamle kalmazsa yeni tahta ve +5 saniye gelir, süre bitene kadar oynarsın."
+pay2,2 камня: +2 очка,2 gems: +2 points,2 taş: +2 puan
+pay3,"3 камня: +4 очка, +1 с","3 gems: +4 points, +1 s","3 taş: +4 puan, +1 sn"
+pay4,"4 камня: +6 очков, +2 с","4 gems: +6 points, +2 s","4 taş: +6 puan, +2 sn"
+time,Время,Time,Süre
+score,Очки,Score,Puan
+best,Рекорд,Best,Rekor
+paused,Пауза,Paused,Duraklatıldı
+resume,Продолжить,Resume,Devam et
+menu,В меню,Menu,Menü
+again,Ещё раз,Play again,Tekrar oyna
+times_up,Время вышло,Time's up,Süre doldu
+stuck,Ходов больше нет,No moves left,Hamle kalmadı
+cleared,Выбито камней: {n} · Полей: {w},Gems knocked out: {n} · Boards: {w},Kırılan taş: {n} · Tahta: {w}
+new_best,Новый рекорд!,New best!,Yeni rekor!
+continue_ad,+15 секунд за рекламу,+15 seconds for an ad,"Reklam izle, +15 saniye"
+shuffle_ad,Перемешать за рекламу,Shuffle for an ad,"Reklam izle, karıştır"
+leaders,Лидеры,Leaderboard,Lider tablosu
+leaders_loading,Загружаем таблицу…,Loading the leaderboard…,Lider tablosu yükleniyor…
+leaders_empty,Пока никого нет. Сыграй первым!,No scores yet. Be the first!,Henüz skor yok. İlk sen ol!
+leaders_offline,Таблица лидеров работает в Яндекс Играх.,The leaderboard works on Yandex Games.,Lider tablosu Yandex Games'te çalışır.
+login,"Войти, чтобы попасть в таблицу",Sign in to get on the board,Tabloya girmek için oturum aç
+close,Закрыть,Close,Kapat
+you,Вы,You,Sen
+anon,Игрок,Player,Oyuncu
+ad_failed,"Реклама сейчас недоступна, попробуй позже","No ad available right now, try again later","Şu anda reklam yok, daha sonra dene"
+plus_time,+15 с,+15 s,+15 sn
+daily,Расклад дня,Daily board,Günün dizilimi
+daily_best,Рекорд дня: {n},Today's best: {n},Günün rekoru: {n}
+new_daily_best,Новый рекорд дня!,New daily best!,Yeni günlük rekor!
+rule5,"Сверкающие камни дают +5 очков и +2 секунды. Расклад дня — одно и то же поле для всех, обновляется каждые сутки.",Sparkling gems give +5 points and +2 seconds. The daily board is the same layout for everyone and changes every day.,Işıldayan taşlar +5 puan ve +2 saniye verir. Günün dizilimi herkes için aynıdır ve her gün değişir.
+pay_shine,"Сверкающий камень: +5 очков, +2 с","Sparkling gem: +5 points, +2 s","Işıldayan taş: +5 puan, +2 sn"
+rotate,Поверните телефон вертикально,Turn your phone upright,Telefonunu dikey çevir
+new_board,Новое поле!,New board!,Yeni tahta!
+clear_board,Чистое поле!,Board cleared!,Tahta temizlendi!
+praise_great,Отлично!,Great!,Harika!
+praise_super,Супер!,Super!,Süper!
+praise_wow,Невероятно!,Incredible!,İnanılmaz!
+restart,Заново,Restart,Yeniden
+mode_classic,Классика,Classic,Klasik
+mode_bright,Яркий забег,Bright run,Parlak koşu
+rule_bright,"Яркие режимы: «Уровни» — карта полей со звёздами; «Яркий забег» — как классика, одно поле на две минуты; «Шаги» — без таймера, промах стоит два шага. Каждое яркое поле можно выбить целиком. С 6-го уровня бывают ящики (два удара) и джокеры (любой цвет). Подсказка показывает следующий верный удар.","Bright modes: Levels — a map of boards with stars; Bright run — like Classic, one board for two minutes; Moves — no clock, a miss costs two moves. Every bright board can be cleared completely. From level 6 there are boxes (two hits) and jokers (any colour). The hint shows the next right strike.","Parlak modlar: Seviyeler — yıldızlı tahta haritası; Parlak koşu — Klasik gibi, iki dakikalık tek tahta; Hamleler — süre yok, ıska iki hamle. Her parlak tahta tamamen temizlenebilir. 6. seviyeden itibaren kutular (iki vuruş) ve jokerler (her renk) çıkar. İpucu bir sonraki doğru vuruşu gösterir."
+choose_mode,Выбор режима,Choose a mode,Mod seç
+mode_classic_desc,"Бархат, огранённые камни и широкое поле на 270 самоцветов.","Velvet, faceted gems and a wide board of 270 jewels.","Kadife, kesme taşlar ve 270 mücevherlik geniş tahta."
+mode_bright_desc,Большие плотные поля на две минуты. Нет ходов — новое поле. Каждое новое поле даёт +10 секунд.,"Big, dense boards for two minutes. No moves left means a new board. Every new board adds 10 seconds.","İki dakikalık büyük, sık tahtalar. Hamle kalmazsa yeni tahta gelir. Her yeni tahta 10 saniye ekler."
+level_up,Уровень {n}!,Level {n}!,Seviye {n}!
+level_short,Ур. {n},Lv {n},Sv {n}
+faster,Время идёт быстрее: ×{x},The clock runs faster: ×{x},Süre hızlanıyor: ×{x}
+points_only,+{p} очков,+{p} points,+{p} puan
+mode_levels,Уровни,Levels,Seviyeler
+mode_levels_desc,Карта уровней: каждое поле можно выбить целиком. Собирай звёзды.,A map of levels: every board can be fully cleared. Collect stars.,Seviye haritası: her tahta tamamen temizlenebilir. Yıldız topla.
+mode_zen,Шаги,Moves,Hamleler
+mode_zen_desc,"Без таймера, но шаги на счету: промах стоит два шага, новое поле даёт немного новых.","No clock, but moves are counted: a miss costs two, a new board gives a few more.","Süre yok ama hamleler sayılı: ıska iki hamle, yeni tahta birkaç hamle verir."
+no_strikes,Шаги кончились,Out of moves,Hamle kalmadı
+level_n,Уровень {n},Level {n},Seviye {n}
+level_passed,Уровень пройден!,Level complete!,Seviye tamam!
+level_failed,Не хватило совсем чуть-чуть,So close — try again,Çok az kaldı — tekrar dene
+level_share,Выбито {p}% камней,{p}% of the gems knocked out,Taşların %{p}'i kırıldı
+next,Дальше,Next,İleri
+map,Карта,Map,Harita
+open_map,Открыть карту,Open the map,Haritayı aç
+stars_total,Звёзд,Stars,Yıldız
+tasks,Задания,Tasks,Görevler
+collection,Коллекция,Collection,Koleksiyon
+collection_hint,Вид плиток в ярких режимах. Кристаллы дают за звёзды и задания.,The tile look for the bright modes. Earn crystals from stars and tasks.,Parlak modlarda karo görünümü. Kristaller yıldız ve görevlerden gelir.
+selected,Выбрано,Selected,Seçildi
+select,Выбрать,Select,Seç
+not_enough,Не хватает кристаллов,Not enough crystals,Yeterli kristal yok
+task_clear_boards,Выбей {n} поля начисто,Clear {n} boards completely,{n} tahtayı tamamen temizle
+task_combo4,Разгони комбо до ×4 {n} раза,Reach a ×4 combo {n} times,{n} kez ×4 komboya ulaş
+task_gems,Выбей {n} камней,Knock out {n} gems,{n} taş kır
+task_stars3,Пройди {n} уровня на 3 звезды,Get 3 stars on {n} levels,{n} seviyede 3 yıldız al
+task_levels,Пройди {n} новых уровня,Complete {n} new levels,{n} yeni seviye geç
+task_run_score,Набери {n} очков в забеге,Score {n} in a bright run,Parlak koşuda {n} puan topla
+task_zen_boards,Пройди {n} поля в режиме «Шаги»,Finish {n} boards in Moves,Hamleler modunda {n} tahta bitir
+task_perfects,Сделай {n} идеальных комбо,Land {n} perfect combos,{n} kusursuz kombo yap
+steps_n,Шаги: {n},Moves: {n},Hamle: {n}
+steps_unit,шаг.,moves,hamle
+boss,Босс-уровень!,Boss level!,Boss seviyesi!
+boss_sub,"Большое поле, ящики и джокеры — тройная награда","A big board, boxes and jokers — triple reward","Büyük tahta, kutular ve jokerler — üç kat ödül"
+chain,Цепь!,Chain!,Zincir!
+goal_done,Цель выполнена!,Goal done!,Hedef tamam!
+goal_failed,Цель уровня не выполнена,The level goal wasn't met,Seviye hedefi tutmadı
+goal_left,цель: ещё {n},goal: {n} left,hedef: {n} kaldı
+puzzle_n,Головоломка {n},Puzzle {n},Bulmaca {n}
+puzzle_solved,Решено!,Solved!,Çözüldü!
+puzzle_failed,Не вышло — попробуй другой порядок,Not quite — try another order,Olmadı — başka bir sıra dene
+puzzle_line,Решение в {n} ударов,Solvable in {n} strikes,{n} vuruşta çözülür
+moves_left,Ходов: {n},Strikes: {n},Vuruş: {n}
+mode_puzzle,Головоломка,Puzzle,Bulmaca
+mode_puzzle_desc,"Маленькое поле и ровно столько ударов, чтобы выбить всё. Найди порядок.",A small board and just enough strikes to clear it. Find the order.,Küçük tahta ve hepsini kırmaya yetecek kadar vuruş. Sırayı bul.
+puzzles_solved,Решено: {n},Solved: {n},Çözülen: {n}
+tutorial,Пройти обучение,Play the tutorial,Eğitimi oyna
+tut1,"Нажми на пустую клетку, на которую показывает рука",Tap the empty slot the hand points at,Elin gösterdiği boş hücreye dokun
+tut2,"Удар идёт крестом. Камни, что встретились дважды, выбиваются!",A strike goes out in a cross. Gems that meet twice are knocked out!,Vuruş çarpı şeklinde gider. İki kez karşılaşan taşlar kırılır!
+tut3,Ещё один — по вертикали тоже работает,One more — it works vertically too,Bir tane daha — dikeyde de işe yarar
+tut4,Теперь сам: выбей последнюю пару,Your turn: knock out the last pair,Sıra sende: son çifti kır
+tut_done,Отлично! Ты готов к игре,Great! You're ready to play,Harika! Oynamaya hazırsın
+tut_wrong,"Нажми туда, куда показывает рука",Tap where the hand points,Elin gösterdiği yere dokun
+gift,Подарок,Gift,Hediye
+gift_title,Ежедневный подарок,Daily gift,Günlük hediye
+take,Забрать,Take,Al
+day_n,День {n},Day {n},Gün {n}
+gift_day7,Заходи каждый день — на 7-й день откроется вид «Золото»,Come back daily — day 7 unlocks the Gold look,Her gün gel — 7. gün Altın görünümü açılır
+gift_tomorrow,Следующий подарок — завтра,The next gift comes tomorrow,Sonraki hediye yarın
+gift_got,+{n} кристаллов,+{n} crystals,+{n} kristal
+gift_look,открыт вид «Золото»!,Gold look unlocked!,Altın görünümü açıldı!
+achievements,Достижения,Achievements,Başarımlar
+ach_clears10,Выбей {n} полей начисто,Clear {n} boards completely,{n} tahtayı tamamen temizle
+ach_clears100,Выбей {n} полей начисто,Clear {n} boards completely,{n} tahtayı tamamen temizle
+ach_gems1000,Выбей {n} камней,Knock out {n} gems,{n} taş kır
+ach_gems10000,Выбей {n} камней,Knock out {n} gems,{n} taş kır
+ach_combo4x10,Разгони комбо до ×4 {n} раз,Reach a ×4 combo {n} times,{n} kez ×4 komboya ulaş
+ach_perfect10,Сделай {n} идеальных комбо,Land {n} perfect combos,{n} kusursuz kombo yap
+ach_levels10,Пройди {n} уровней,Complete {n} levels,{n} seviye geç
+ach_levels30,Пройди {n} уровней,Complete {n} levels,{n} seviye geç
+ach_stars3x10,Получи 3 звезды на {n} уровнях,Get 3 stars on {n} levels,{n} seviyede 3 yıldız al
+ach_puzzles10,Реши {n} головоломок,Solve {n} puzzles,{n} bulmaca çöz
+ach_streak7,Забирай подарок {n} дней подряд,Open the gift {n} days in a row,Hediyeyi {n} gün üst üste al
+lb_score,Классика,Classic,Klasik
+lb_score_bright,Забег,Run,Koşu
+lb_score_zen,Шаги,Moves,Hamleler
+lb_stars,Звёзды,Stars,Yıldızlar
+season_claim,Забрать,Claim,Al
+season_only,В сезон,In season,Sezonda
+gift_only,За 7 дней,Day 7 gift,7. gün
+leaders_local,Мои рекорды на этом устройстве,My best results on this device,Bu cihazdaki en iyi sonuçlarım
+leaders_local_empty,Здесь появятся твои лучшие результаты,Your best results will show up here,En iyi sonuçların burada görünecek
+look_0,Классика,Classic,Klasik
+look_1,Сладости,Sweets,Tatlılar
+look_2,Океан,Ocean,Okyanus
+look_3,Фрукты,Fruit,Meyveler
+look_4,Лес,Forest,Orman
+look_5,Космос,Space,Uzay
+look_6,Зима,Winter,Kış
+look_7,Хэллоуин,Halloween,Cadılar Bayramı
+look_8,Золото,Gold,Altın
+chapter_n,Глава {n},Chapter {n},Bölüm {n}
+chapter_0,Пещеры,Caves,Mağaralar
+chapter_1,Ледник,Glacier,Buzul
+chapter_2,Вулкан,Volcano,Yanardağ
+chapter_3,Джунгли,Jungle,Orman
+chapter_4,Космос,Space,Uzay
+rule_boxes,Каменный завал: вдвое больше ящиков,Rockfall: twice the boxes,Taş yığını: iki kat sandık
+rule_ice,Мороз: поле во льду,Frost: the board is iced over,Ayaz: tahta buz tutmuş
+rule_bombs,Извержение: бомбы с коротким фитилём,Eruption: bombs on short fuses,Patlama: kısa fitilli bombalar
+rule_chains,Лианы: камни связаны цепями,Vines: gems tied in chains,Sarmaşık: taşlar zincirli
+rule_chameleons,Невесомость: камни-хамелеоны,Zero-g: chameleon gems,Yerçekimsiz: bukalemun taşlar
+chapter_reward,Награда главы: +{n} кристаллов,Chapter reward: +{n} crystals,Bölüm ödülü: +{n} kristal
+reshuffled,Ходов нет — поле перемешано,No moves left: board reshuffled,Hamle kalmadı: tahta karıştırıldı
+defused,Обезврежено!,Defused!,Etkisiz!
+boom,Бум!,Boom!,Bum!
+double_ad,×2 кристаллы (+{n}) за рекламу,×2 crystals (+{n}) for an ad,Reklamla ×2 kristal (+{n})
+doubled,Ещё +{n} кристаллов!,+{n} more crystals!,+{n} kristal daha!
+reward_line,+{n} кристаллов,+{n} crystals,+{n} kristal
+best_strike,Лучший удар: {n} камня · +{p},Best strike: {n} gems · +{p},En iyi vuruş: {n} taş · +{p}
+daily_card,Испытание дня · +{n} кристаллов,Daily challenge · +{n} crystals,Günün meydan okuması · +{n} kristal
+daily_card_done,Испытание дня · рекорд {n},Daily challenge · best {n},Günün meydan okuması · rekor {n}
+stats_title,Статистика,Stats,İstatistik
+stat_games,Сыграно партий,Games played,Oynanan oyun
+stat_fav,Любимый режим,Favourite mode,Favori mod
+stat_time,Время в игре,Time played,Oyun süresi
+stat_minutes,{n} мин,{n} min,{n} dk
+stat_gems,Выбито камней,Gems knocked out,Kırılan taş
+stat_boards,Полей зачищено,Boards cleared,Temizlenen tahta
+stat_combo,Лучшая серия,Best streak,En iyi seri
+stat_perfects,Идеальных комбо,Perfect combos,Kusursuz kombo
+stat_levels,Уровней пройдено,Levels passed,Geçilen seviye
+stat_stars,Звёзд,Stars,Yıldız
+stat_puzzles,Головоломок решено,Puzzles solved,Çözülen bulmaca
+stat_dailies,Испытаний дня,Daily challenges,Günlük meydan okuma
+stat_best,Лучший счёт,Best score,En iyi skor
+leave_title,Выйти в меню?,Leave to the menu?,Menüye çıkılsın mı?
+leave_line,Текущая партия не сохранится.,This game won't be saved.,Bu oyun kaydedilmeyecek.
+leave,Выйти,Leave,Çık
+stay,Играть дальше,Keep playing,Oynamaya devam
+rp_0,Удар крестом,The cross strike,Çapraz vuruş
+rp_1,Время и комбо,Time and combos,Süre ve kombo
+rp_2,Режимы,Modes,Modlar
+rp_3,Особые камни,Special gems,Özel taşlar
+rp_4,Каждый день,Every day,Her gün
+sp_joker,"Джокер — становится камнем, которого в ударе больше.",Joker: becomes whichever gem the strike has most of.,Joker: vuruşta en çok olan taşa dönüşür.
+sp_box,Ящик — первый удар его только раскалывает.,Box: the first hit only cracks it.,Sandık: ilk vuruş yalnızca çatlatır.
+sp_chain,"Цепь — выбьешь один камень, уйдёт и его пара.",Chain: knock one out and its partner goes too.,Zincir: birini kırınca eşi de gider.
+sp_ice,"Лёд — камень не выбить, пока не выбьешь соседа.",Ice: the gem can't go until a neighbour is knocked out.,Buz: komşusu kırılana kadar taş kırılmaz.
+sp_bomb,"Бомба — выбей до конца отсчёта, иначе −5 секунд.","Bomb: knock it out before the count ends, or lose 5 seconds.","Bomba: sayaç bitmeden kır, yoksa −5 saniye."
+sp_chameleon,Хамелеон — меняет цвет каждые 3 удара.,Chameleon: changes colour every 3 strikes.,Bukalemun: her 3 vuruşta renk değiştirir.
+rule_daily,Испытание дня — одно поле «Яркого забега» для всех. Первая партия за день даёт +20 кристаллов.,The daily challenge is one Bright run board for everyone. Your first game of the day gives +20 crystals.,Günün meydan okuması herkes için aynı Parlak koşu tahtasıdır. Günün ilk oyunu +20 kristal verir.
+look_9,Неон,Neon,Neon
+look_10,Витраж,Stained glass,Vitray
+boss_rule,Босс:,Boss:,Boss:
+settings,Настройки,Settings,Ayarlar
+sounds,Звуки,Sound effects,Ses efektleri
+music_opt,Музыка,Music,Müzik
+vibration,Вибрация,Vibration,Titreşim
+done,Готово,Done,Tamam
+combo,Комбо,Combo,Kombo
+combo_count,серия {n},streak {n},seri {n}
+precise,Точное комбо!,Precise combo!,Hassas kombo!
+perfect,Идеальное комбо!,Perfect combo!,Kusursuz kombo!
+bonus_line,+{p} очков · +{s} с,+{p} points · +{s} s,+{p} puan · +{s} sn
+stats,Лучшая серия: {combo} · Точных комбо: {precise},Best streak: {combo} · Precise combos: {precise},En iyi seri: {combo} · Hassas kombo: {precise}
+rule4,"Бей без промахов и пауз дольше 3 секунд — растёт комбо и множитель очков. Три удара подряд по 3–4 камня дают точное комбо, четыре и больше — идеальное.","Strike without misses or pauses over 3 seconds to build a combo and a points multiplier. Three strikes in a row of 3–4 gems make a precise combo, four or more a perfect one.","Iskalamadan ve 3 saniyeden uzun durmadan vur, kombo ve puan çarpanı artsın. Üst üste üç kez 3–4 taş kırmak hassas kombo, dört ve fazlası kusursuz kombo verir."
+pay_combo,"Комбо: ×2 со 2-го удара, ×3 с 5-го, ×4 с 9-го","Combo: ×2 from strike 2, ×3 from 5, ×4 from 9","Kombo: 2. vuruştan ×2, 5.'den ×3, 9.'dan ×4"
+pay_precise,"Точное: +10 очков, +3 с · идеальное: +20, +5 с","Precise: +10 points, +3 s · perfect: +20, +5 s","Hassas: +10 puan, +3 sn · kusursuz: +20, +5 sn"

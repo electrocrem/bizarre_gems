@@ -1,0 +1,228 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/stats.gd" id="1"]
+
+[node name="Stats" type="PanelContainer"]
+script = ExtResource("1")
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Title" type="Label" parent="VBox"]
+layout_mode = 2
+theme_type_variation = &"Title"
+theme_override_font_sizes/font_size = 32
+text = "stats_title"
+
+[node name="Grid" type="GridContainer" parent="VBox"]
+layout_mode = 2
+columns = 2
+theme_override_constants/h_separation = 16
+theme_override_constants/v_separation = 8
+
+[node name="GamesName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_games"
+size_flags_horizontal = 3
+
+[node name="Games" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="FavName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_fav"
+size_flags_horizontal = 3
+
+[node name="Fav" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="TimeName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_time"
+size_flags_horizontal = 3
+
+[node name="Time" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="GemsName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_gems"
+size_flags_horizontal = 3
+
+[node name="Gems" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="BoardsName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_boards"
+size_flags_horizontal = 3
+
+[node name="Boards" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="ComboName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_combo"
+size_flags_horizontal = 3
+
+[node name="Combo" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="PerfectsName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_perfects"
+size_flags_horizontal = 3
+
+[node name="Perfects" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="LevelsName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_levels"
+size_flags_horizontal = 3
+
+[node name="Levels" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="StarsName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_stars"
+size_flags_horizontal = 3
+
+[node name="Stars" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="PuzzlesName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_puzzles"
+size_flags_horizontal = 3
+
+[node name="Puzzles" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="DailiesName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_dailies"
+size_flags_horizontal = 3
+
+[node name="Dailies" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="BestName" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 18
+text = "stat_best"
+size_flags_horizontal = 3
+
+[node name="Best" type="Label" parent="VBox/Grid"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Number"
+theme_override_font_sizes/font_size = 19
+text = "0"
+horizontal_alignment = 2
+auto_translate_mode = 2
+
+[node name="CloseRow" type="HFlowContainer" parent="VBox"]
+layout_mode = 2
+alignment = 1
+theme_override_constants/h_separation = 10
+theme_override_constants/v_separation = 10
+
+[node name="Close" type="Button" parent="VBox/CloseRow"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"PrimaryButton"
+text = "close"
+
+[connection signal="pressed" from="VBox/CloseRow/Close" to="." method="_on_close_pressed"]

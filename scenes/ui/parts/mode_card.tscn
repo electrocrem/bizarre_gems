@@ -1,0 +1,65 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/mode_card.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/preview_bright.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_crown.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_play.png" id="4"]
+
+[node name="ModeCard" type="PanelContainer"]
+script = ExtResource("1")
+custom_minimum_size = Vector2(320, 0)
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Preview" type="TextureRect" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+clip_contents = true
+custom_minimum_size = Vector2(0, 150)
+texture = ExtResource("2")
+expand_mode = 1
+stretch_mode = 6
+
+[node name="ModeName" type="Label" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Heading"
+theme_override_font_sizes/font_size = 28
+
+[node name="Desc" type="Label" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"Muted"
+theme_override_font_sizes/font_size = 17
+autowrap_mode = 3
+size_flags_horizontal = 3
+
+[node name="BestRow" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Crown" type="TextureRect" parent="VBox/BestRow"]
+layout_mode = 2
+custom_minimum_size = Vector2(20, 20)
+size_flags_vertical = 4
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+modulate = Color(1, 0.7843, 0.2392, 1)
+
+[node name="Best" type="Label" parent="VBox/BestRow"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"NumberGold"
+theme_override_font_sizes/font_size = 18
+
+[node name="Play" type="Button" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"PrimaryButton"
+text = "play"
+icon = ExtResource("4")
+
+[connection signal="pressed" from="VBox/Play" to="." method="_on_play_pressed"]

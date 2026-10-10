@@ -40,6 +40,15 @@ window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 window/handheld/orientation=5
 
+[gui]
+
+theme/custom="res://ui/theme.tres"
+
+[internationalization]
+
+locale/translations=PackedStringArray("res://i18n/strings.ru.translation", "res://i18n/strings.en.translation", "res://i18n/strings.tr.translation")
+locale/fallback="en"
+
 [rendering]
 
 renderer/rendering_method="gl_compatibility"

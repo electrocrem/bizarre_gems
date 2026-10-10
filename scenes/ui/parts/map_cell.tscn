@@ -1,0 +1,49 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/map_cell.gd" id="1"]
+[ext_resource type="FontFile" path="res://assets/fonts/RussoOne-Regular.ttf" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_star.png" id="3"]
+
+[node name="MapCell" type="VBoxContainer"]
+script = ExtResource("1")
+theme_override_constants/separation = 2
+
+[node name="Button" type="Button" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+custom_minimum_size = Vector2(64, 64)
+theme_override_fonts/font = ExtResource("2")
+theme_override_font_sizes/font_size = 24
+theme_override_constants/icon_max_width = 18
+
+[node name="Marks" type="HBoxContainer" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+theme_override_constants/separation = 0
+alignment = 1
+
+[node name="Star0" type="TextureRect" parent="Marks"]
+layout_mode = 2
+custom_minimum_size = Vector2(18, 18)
+size_flags_vertical = 4
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star1" type="TextureRect" parent="Marks"]
+layout_mode = 2
+custom_minimum_size = Vector2(18, 18)
+size_flags_vertical = 4
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="Star2" type="TextureRect" parent="Marks"]
+layout_mode = 2
+custom_minimum_size = Vector2(18, 18)
+size_flags_vertical = 4
+texture = ExtResource("3")
+expand_mode = 1
+stretch_mode = 5
+
+[connection signal="pressed" from="Button" to="." method="_on_button_pressed"]

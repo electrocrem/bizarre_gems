@@ -1,0 +1,111 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/modes.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_back.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/preview_classic.png" id="3"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_play.png" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/mode_card.tscn" id="5"]
+[ext_resource type="Texture2D" path="res://assets/ui/preview_bright.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_map.png" id="7"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_puzzle.png" id="8"]
+
+[node name="Modes" type="MarginContainer"]
+script = ExtResource("1")
+full_screen = true
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 16
+theme_override_constants/margin_top = 16
+theme_override_constants/margin_right = 16
+theme_override_constants/margin_bottom = 16
+
+[node name="VBox" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 14
+
+[node name="Head" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="Back" type="Button" parent="VBox/Head"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"IconButton"
+icon = ExtResource("2")
+custom_minimum_size = Vector2(52, 52)
+icon_alignment = 1
+
+[node name="Title" type="Label" parent="VBox/Head"]
+layout_mode = 2
+theme_type_variation = &"Title"
+text = "choose_mode"
+horizontal_alignment = 1
+size_flags_horizontal = 3
+
+[node name="Balance" type="Control" parent="VBox/Head"]
+layout_mode = 2
+custom_minimum_size = Vector2(52, 52)
+
+[node name="Scroll" type="ScrollContainer" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+size_flags_vertical = 3
+horizontal_scroll_mode = 0
+
+[node name="Center" type="CenterContainer" parent="VBox/Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="Cards" type="HFlowContainer" parent="VBox/Scroll/Center"]
+layout_mode = 2
+unique_name_in_owner = true
+alignment = 1
+theme_override_constants/h_separation = 20
+theme_override_constants/v_separation = 20
+
+[node name="Classic" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+layout_mode = 2
+mode_id = "classic"
+accent = Color(1, 0.7843, 0.2392, 1)
+preview = ExtResource("3")
+play_icon = ExtResource("4")
+play_text = "play"
+
+[node name="Levels" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+layout_mode = 2
+mode_id = "levels"
+accent = Color(0.1333, 0.7882, 0.4784, 1)
+preview = ExtResource("6")
+play_icon = ExtResource("7")
+play_text = "open_map"
+
+[node name="Bright" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+layout_mode = 2
+mode_id = "bright"
+accent = Color(0.2392, 0.5451, 1, 1)
+preview = ExtResource("6")
+play_icon = ExtResource("4")
+play_text = "play"
+
+[node name="Zen" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+layout_mode = 2
+mode_id = "zen"
+accent = Color(0.6392, 0.3608, 1, 1)
+preview = ExtResource("6")
+play_icon = ExtResource("4")
+play_text = "play"
+
+[node name="Puzzle" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+layout_mode = 2
+mode_id = "puzzle"
+accent = Color(1, 0.6039, 0.1804, 1)
+preview = ExtResource("6")
+play_icon = ExtResource("8")
+play_text = "open_map"
+
+[connection signal="pressed" from="VBox/Head/Back" to="." method="_on_back_pressed"]
