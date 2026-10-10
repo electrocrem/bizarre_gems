@@ -527,26 +527,64 @@ def marimba(freq, dur=.5, vol=.4):
     return x * np.minimum(t / .002, 1) * vol
 
 
+def fm_ding(freq, dur=.45, vol=.4, index=3.0, ratio=3.5):
+    """Clean arcade 'ding': a small FM bell with a bright attack that mellows quickly."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    mod = index * np.exp(-t / .06) * np.sin(2 * np.pi * freq * ratio * t)
+    x = np.sin(2 * np.pi * freq * t + mod) * np.exp(-t / (dur * .35))
+    x += .25 * np.sin(2 * np.pi * freq * 2 * t) * np.exp(-t / (dur * .15))
+    return x * np.minimum(t / .0015, 1) * vol
+
+
+def whoosh(dur, f0, f1, vol=.25, seed=5):
+    """Rising filtered-noise sweep."""
+    n = int(SR * dur); t = np.arange(n) / SR
+    noise = np.random.default_rng(seed).normal(0, 1, n)
+    out = np.zeros(n); y1 = y2 = 0.0
+    fc = f0 * (f1 / f0) ** (t / dur)
+    for i in range(n):  # simple resonant band-pass that follows fc
+        g = 2 * np.sin(np.pi * fc[i] / SR)
+        y1 += g * (noise[i] - y1 - .6 * y2)
+        y2 += g * y1
+        out[i] = y1
+    env_ = np.sin(np.pi * np.minimum(t / dur, 1)) ** 1.5
+    return out / (np.max(np.abs(out)) + 1e-9) * env_ * vol
+
+
+def _mix(*parts):
+    n = max(len(p) for p, _ in parts)
+    x = np.zeros(n)
+    for p, off in parts:
+        o = int(off * SR)
+        x[o:o + len(p)] += p[:max(0, n - o)]
+    return x
+
+
 def make_bright_sounds(rng):
-    """Bright mode: glassy marimba hits and bells. The knock is one note; the game plays it at
-    pentatonic pitches so a combo streak turns into a little tune."""
+    """Bright mode: arcade-style dings that climb with the combo (the game plays the knock at
+    rising pitches), whooshes and chord hits for combo steps, and bells."""
     for k in (2, 3, 4):
-        x = marimba(523.25, .55, .42)
-        for i in range(k - 2):
-            m = marimba(523.25 * (1.5 if i == 0 else 2.0), .5, .2); o = int((i + 1) * .035 * SR); x[o:o + len(m)] += m[:len(x) - o]
+        x = _mix((fm_ding(880, .45, .42), 0), (fm_ding(1760, .3, .12, 1.5), .005))
+        if k >= 3:
+            x = _mix((x, 0), (fm_ding(1318.5, .4, .2), .03))
+        if k >= 4:
+            x = _mix((x, 0), (fm_ding(2637, .35, .12), .05), (shimmer(rng, .4, .06), .02))
         write_sfx(A("audio", f"b_knock{k}.wav"), x)
     n = int(SR * .25); t = np.arange(n) / SR
     write_sfx(A("audio", "b_miss.wav"), np.sin(2 * np.pi * (180 - 60 * t / .25) * t) * np.exp(-t / .07) * .5)
-    write_sfx(A("audio", "b_combo_up.wav"), arpeggio((1318.5, 1568, 2093, 2637), .04, .4, .18, .2))
+    write_sfx(A("audio", "b_combo_up.wav"), _mix((whoosh(.28, 400, 4000, .2), 0),
+        (fm_ding(1046.5, .3, .3), .18), (fm_ding(1568, .3, .3), .23), (fm_ding(2093, .45, .32), .28)))
     cb = marimba(392, .4, .25)
     m2 = np.pad(marimba(330, .3, .2), (int(.08 * SR), 0))
     cb[:min(len(cb), len(m2))] += m2[:min(len(cb), len(m2))]
     write_sfx(A("audio", "b_combo_break.wav"), cb)
-    x = arpeggio((1046.5, 1318.5, 1568, 2093, 2637), .06, .9, .3, .22); g = shimmer(rng, .9, .1); x[:len(g)] += g[:len(x)]
-    write_sfx(A("audio", "b_precise.wav"), x)
-    x = arpeggio((523, 659, 784, 1047, 1319, 1568, 2093, 2637), .055, 1.4, .45, .22); g = shimmer(rng, 1.8, .12)
-    x = np.pad(x, (0, max(0, len(g) - len(x)))); x[:len(g)] += g
-    write_sfx(A("audio", "b_perfect.wav"), np.tanh(x * 1.2) * .8)
+    chord = _mix((fm_ding(1046.5, .9, .3), 0), (fm_ding(1318.5, .9, .26), 0), (fm_ding(1568, .9, .26), 0))
+    write_sfx(A("audio", "b_precise.wav"), _mix((whoosh(.35, 300, 5000, .25, 7), 0), (_kick() * .6, .33), (chord, .33),
+        (shimmer(rng, .9, .1), .35)))
+    arp = [(fm_ding(f, .6, .26), .32 + i * .05) for i, f in enumerate((523, 659, 784, 1047, 1319, 1568, 2093, 2637))]
+    big = _mix((whoosh(.36, 250, 6000, .28, 9), 0), (_kick(), .34), (_snare(rng) * .5, .34), *arp,
+               (shimmer(rng, 1.6, .12), .4))
+    write_sfx(A("audio", "b_perfect.wav"), np.tanh(big * 1.2) * .8)
     write_sfx(A("audio", "b_start.wav"), arpeggio((784, 988, 1175, 1568), .06, .5, .2, .24))
     write_sfx(A("audio", "b_bonus.wav"), arpeggio((1568, 2093), .06, .35, .12, .22))
     write_sfx(A("audio", "b_over.wav"), arpeggio((784, 659, 523, 392), .12, .9, .3, .25))
@@ -647,32 +685,38 @@ VOICE_LINES = {"great": "Great!", "super": "Super!", "amazing": "Amazing!", "inc
                "perfect": "Perfect!", "clear": "Board clear!", "levelup": "Level up!"}
 
 
+PIPER_SPEAKER = 512  # LibriTTS-R speaker: a lively mid-low male voice
+
+
 def make_voices():
-    """Announcer call-outs, spoken by espeak-ng and dressed up: a little higher, doubled for
-    width, squashed and given a short shimmering tail."""
+    """Announcer call-outs. With Piper (set PIPER_DIR to the folder holding the piper binary and
+    voice.onnx, the en_US-libritts_r-medium voice, CC BY 4.0) they sound like a real person;
+    otherwise espeak-ng is used. Light processing only: level, a little glue, a short room."""
     import shutil, tempfile
-    if not shutil.which("espeak-ng"):
-        print("espeak-ng not found, keeping existing voice files")
+    piper_dir = os.environ.get("PIPER_DIR", "")
+    piper = os.path.join(piper_dir, "piper", "piper") if piper_dir else ""
+    use_piper = piper and os.path.exists(piper)
+    if not use_piper and not shutil.which("espeak-ng"):
+        print("no speech synthesiser found, keeping existing voice files")
         return
     for name, text in VOICE_LINES.items():
         with tempfile.NamedTemporaryFile(suffix=".wav") as tmp:
-            subprocess.run(["espeak-ng", "-v", "en-us+m3", "-s", "135", "-p", "62", "-a", "180", "-w", tmp.name, text], check=True)
+            if use_piper:
+                subprocess.run([piper, "--model", os.path.join(piper_dir, "voice.onnx"), "--speaker", str(PIPER_SPEAKER),
+                                "--length_scale", "0.85", "--noise_scale", "0.9", "--noise_w", "0.9", "--output_file", tmp.name],
+                               input=text.encode(), check=True, capture_output=True)
+            else:
+                subprocess.run(["espeak-ng", "-v", "en-us+m3", "-s", "135", "-p", "62", "-w", tmp.name, text], check=True)
             with wave.open(tmp.name) as w:
                 sr = w.getframerate()
                 x = np.frombuffer(w.readframes(w.getnframes()), dtype="<i2").astype(float) / 32768
-        # resample to SR, nudged up ~3 semitones for an excited announcer
-        n_out = int(len(x) * SR / sr / 1.19)
-        x = np.interp(np.linspace(0, len(x) - 1, n_out), np.arange(len(x)), x)
-        # double-track: a slightly delayed, slightly detuned copy
-        d = int(.012 * SR)
-        y = x.copy()
-        y[d:] += .55 * np.interp(np.linspace(0, len(x) - 1, len(x) - d) * 1.004, np.arange(len(x)), x)
-        y = np.tanh(y * 2.2)  # push it forward
-        # short shimmering tail
-        tail = np.random.default_rng(1).normal(0, 1, int(.35 * SR)) * np.exp(-np.arange(int(.35 * SR)) / (.08 * SR)) * .02
-        y = np.convolve(y, np.concatenate([[1.0], tail]))[: len(y) + int(.3 * SR)]
-        y = y / (np.max(np.abs(y)) + 1e-9) * .9
-        write_wav(A("audio", f"voice_{name}.wav"), y)
+        x = np.interp(np.linspace(0, len(x) - 1, int(len(x) * SR / sr)), np.arange(len(x)), x)
+        nz = np.nonzero(np.abs(x) > 0.01)[0]
+        if len(nz):
+            x = x[max(0, nz[0] - int(.01 * SR)): nz[-1] + int(.05 * SR)]  # trim silence
+        x = np.tanh(x / (np.max(np.abs(x)) + 1e-9) * 1.6)
+        y = liven(x, room=.12, width=.15, drive=1.1)
+        write_wav(A("audio", f"voice_{name}.wav"), y / (np.max(np.abs(y)) + 1e-9) * .92)
 
 
 def make_music():

@@ -90,5 +90,8 @@ python3 tools/serve.py          # http://127.0.0.1:8060/  (?lang=en, ?lang=tr)
 
 ## Лицензии
 
-Код и графика созданы для этого проекта. Шрифты Russo One, Manrope и JetBrains Mono —
+Код, графика, музыка и звуковые эффекты созданы для этого проекта. Голос ведущего синтезирован
+Piper (MIT) голосом en_US-libritts_r-medium, обученным на LibriTTS-R (CC BY 4.0) — подробности в
+`assets/audio/CREDITS.txt`. Чтобы пересобрать голос, задайте `PIPER_DIR` (папка с `piper/piper` и
+`voice.onnx`) при запуске `tools/gen_assets.py`, иначе используется espeak-ng. Шрифты Russo One, Manrope и JetBrains Mono —
 SIL Open Font License, тексты лицензий лежат рядом со шрифтами в `assets/fonts/`.
