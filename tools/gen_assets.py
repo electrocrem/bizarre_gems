@@ -402,7 +402,7 @@ def pack_tile_svg(style, icon, color, size=128):
 
 
 def neon_tile_svg(color, cut, size=128):
-    """Season pass pack: dark glass tile with the shape drawn as a glowing neon tube."""
+    """Rare pack: dark glass tile with the shape drawn as a glowing neon tube."""
     c = size / 2
     R = 36
     if cut == "round":
@@ -421,7 +421,7 @@ def neon_tile_svg(color, cut, size=128):
 
 
 def glass_tile_svg(color, cut, size=128):
-    """Season pass pack: stained glass, facets of the colour split by dark lead lines."""
+    """Rare pack: stained glass, facets of the colour split by dark lead lines."""
     c = size / 2
     R = 36
     if cut == "round":

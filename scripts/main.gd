@@ -103,11 +103,9 @@ const BOMB_TIME := 5.0    ## a bomb going off costs this many seconds (steps mod
 const BOMB_STEPS := 3
 const DEFUSE_POINTS := 10
 var paid_crystals := 0    ## crystals already paid for this game's score (a continued game pays the rest)
-var paid_xp := 0
 var last_earned := 0      ## crystals paid by the last result screen, for the x2 reward
 var best_strike := {}     ## the game's highest-scoring strike, replayed on the result screen
 var confirm_panel: PanelContainer
-var pass_panel: PanelContainer
 var stats_panel: PanelContainer
 var tut_step := 0
 var tut_hand: TextureRect
@@ -236,7 +234,7 @@ func _ready() -> void:
 		Yandex.sdk_ready.connect(_on_sdk_ready, CONNECT_ONE_SHOT)
 
 
-## Debug builds: ?start=map|tasks|coll|zen|bright|classic|levelN opens that screen directly.
+## Debug builds: ?start=map|tasks|coll|leaders|settings|pause|over|lres|zen|bright|classic|levelN opens that screen directly.
 func _debug_start() -> void:
 	if not (OS.is_debug_build() and OS.has_feature("web")):
 		return
@@ -267,15 +265,25 @@ func _debug_start() -> void:
 	elif q == "ach":
 		_refresh_achievements()
 		_show_panel(ach_panel)
-	elif q == "pass":
-		_refresh_pass()
-		_show_panel(pass_panel)
 	elif q == "stats":
 		_refresh_stats()
 		_show_panel(stats_panel)
 	elif q.begins_with("rules"):
 		_show_rules()
 		_set_rules_page(int(q.substr(5)))
+	elif q == "leaders":
+		_open_leaders(menu_panel)
+	elif q == "settings":
+		_open_settings(menu_panel)
+	elif q == "pause":
+		start_game("bright")
+		pause_game()
+	elif q == "over":
+		start_game("bright")
+		end_game("time")
+	elif q == "lres":
+		start_level(1)
+		_end_level()
 	elif q == "leave":
 		start_game("bright")
 		pause_game()
@@ -331,7 +339,6 @@ func start_game(mode_id := "", is_daily := false) -> void:
 	used_continue = false
 	used_shuffle = false
 	paid_crystals = 0
-	paid_xp = 0
 	strikes_done = 0
 	best_strike = {}
 	board.clear_fx()
@@ -565,7 +572,6 @@ func _end_level() -> void:
 		Progress.crystals += gained * Progress.STAR_CRYSTALS * 2  # bosses pay triple
 		last_earned *= 3
 		Progress.flush()
-	_pay_xp(10 + got * 10)
 	Progress.report("games_levels")
 	Progress.report("play_secs", int(play_time))
 	Progress.add_local_score("stars", Progress.total_stars())
@@ -617,7 +623,6 @@ func _end_puzzle() -> void:
 			last_earned = 10
 			Progress.add_crystals(10)
 		Progress.solved_puzzle(puzzle_n)
-		_pay_xp(25)
 	Progress.report("games_puzzle")
 	ui.level_double.visible = last_earned > 0
 	ui.level_double.text = L.t("double_ad", {"n": last_earned})
@@ -766,7 +771,6 @@ func end_game(reason: String) -> void:
 	var daily_paid := Progress.pay_daily() if daily else 0
 	Progress.add_crystals(maxi(earned, 0))
 	last_earned = maxi(earned, 0) + daily_paid
-	var tiers := _pay_xp(10 + mini(score / 50, 40) + (30 if daily_paid > 0 else 0))
 	Progress.report("games_" + mode.id)
 	Progress.report("max_combo", keeper.best_combo)
 	Progress.report("play_secs", int(play_time))
@@ -778,7 +782,7 @@ func end_game(reason: String) -> void:
 	ui.over_line.text = L.t("cleared", {"n": cleared, "w": wave}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
 	if daily:
 		ui.over_line.text = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(_today())}) + "\n" + ui.over_line.text
-	ui.over_reward.text = L.t("reward_line", {"n": last_earned}) + ("  ·  " + L.t("pass_up") if tiers > 0 else "")
+	ui.over_reward.text = L.t("reward_line", {"n": last_earned})
 	ui.over_reward.visible = last_earned > 0
 	ui.btn_double.visible = last_earned > 0
 	ui.btn_double.text = L.t("double_ad", {"n": last_earned})
@@ -1078,14 +1082,6 @@ func _show_hint() -> void:
 		Sfx.play("hint")
 
 
-## Pass XP for this game up to `total` (a continued game only pays what it adds). Returns
-## how many pass tiers were reached.
-func _pay_xp(total: int) -> int:
-	var add := maxi(0, total - paid_xp)
-	paid_xp = maxi(paid_xp, total)
-	return Progress.add_xp(add)
-
-
 ## After every strike (and miss): bombs tick down and may go off; every few hits the
 ## chameleons change colour.
 func _tick_obstacles(hit: bool) -> void:
@@ -1230,7 +1226,7 @@ func _on_back() -> void:
 		_show_panel(pause_panel)
 	elif map_panel.visible:
 		_show_panel(mode_panel)
-	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible or pass_panel.visible or stats_panel.visible:
+	elif rules_panel.visible or mode_panel.visible or tasks_panel.visible or collection_panel.visible or gift_panel.visible or ach_panel.visible or stats_panel.visible:
 		_show_panel(menu_panel)
 	elif level_panel.visible:
 		_open_map()
@@ -1923,14 +1919,13 @@ func _build_menu() -> void:
 	row.add_theme_constant_override("v_separation", 10)
 	ui.home_leaders = _round_button("trophy", func(): _open_leaders(menu_panel))
 	ui.home_rules = _round_button("info", func(): Sfx.play("click"); _show_rules())
-	ui.home_pass = _round_button("ticket", func(): Sfx.play("click"); _refresh_pass(); _show_panel(pass_panel))
 	ui.home_stats = _round_button("chart", func(): Sfx.play("click"); _refresh_stats(); _show_panel(stats_panel))
 	ui.home_settings = _round_button("settings", func(): _open_settings(menu_panel))
 	ui.home_tasks = _round_button("tasks", func(): Sfx.play("click"); _refresh_tasks(); _show_panel(tasks_panel))
 	ui.home_coll = _round_button("crystal", func(): Sfx.play("click"); _refresh_collection(); _show_panel(collection_panel))
 	ui.home_gift = _round_button("gift", func(): Sfx.play("click"); _refresh_gift(); _show_panel(gift_panel))
 	ui.home_ach = _round_button("medal", func(): Sfx.play("click"); _refresh_achievements(); _show_panel(ach_panel))
-	for b in [ui.home_gift, ui.home_pass, ui.home_tasks, ui.home_ach, ui.home_coll, ui.home_leaders, ui.home_stats, ui.home_rules, ui.home_settings]:
+	for b in [ui.home_gift, ui.home_tasks, ui.home_ach, ui.home_coll, ui.home_leaders, ui.home_stats, ui.home_rules, ui.home_settings]:
 		row.add_child(b)
 	v.add_child(row)
 	_build_modes()
@@ -1941,7 +1936,6 @@ func _build_menu() -> void:
 	_build_collection()
 	_build_gift()
 	_build_achievements()
-	_build_pass()
 	_build_stats()
 	_build_confirm()
 
@@ -2371,9 +2365,6 @@ func _refresh_collection() -> void:
 			else:
 				b = _button(L.t("season_only"), "", false)
 				b.disabled = true
-		elif not Progress.owns(i) and int(Progress.LOOK_PRICES[i]) == Progress.PASS:
-			b = _button(L.t("pass_only", {"n": 10 if i == Progress.NEON_LOOK else 30}), "", false)
-			b.disabled = true
 		elif not Progress.owns(i) and int(Progress.LOOK_PRICES[i]) == Progress.GIFT:
 			b = _button(L.t("gift_only"), "", false)
 			b.disabled = true
@@ -2508,101 +2499,6 @@ func _refresh_achievements() -> void:
 	_fit_panels.call_deferred()
 
 
-func _build_pass() -> void:
-	var pv := _panel()
-	pass_panel = pv[0]
-	var v: VBoxContainer = pv[1]
-	ui.pass_title = _label("", f_display, 32, BRASS)
-	v.add_child(ui.pass_title)
-	ui.pass_sub = _para("")
-	ui.pass_sub.add_theme_color_override("font_color", MUTED)
-	ui.pass_sub.add_theme_font_size_override("font_size", 17)
-	v.add_child(ui.pass_sub)
-	var brow := HBoxContainer.new()
-	brow.add_theme_constant_override("separation", 10)
-	ui.pass_bar = ProgressBar.new()
-	ui.pass_bar.show_percentage = false
-	ui.pass_bar.custom_minimum_size.y = 12
-	ui.pass_bar.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui.pass_bar.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-	ui.pass_xp = _label("", f_num, 16, BRASS_LIGHT)
-	brow.add_child(ui.pass_bar)
-	brow.add_child(ui.pass_xp)
-	v.add_child(brow)
-	var scroll := ScrollContainer.new()
-	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	ui.pass_scroll = scroll
-	drag_scrolls.append(scroll)
-	ui.pass_list = VBoxContainer.new()
-	ui.pass_list.add_theme_constant_override("separation", 6)
-	ui.pass_list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	scroll.add_child(ui.pass_list)
-	v.add_child(scroll)
-	ui.btn_close_pass = _button("", "", true, func(): Sfx.play("click"); _show_panel(menu_panel))
-	v.add_child(_row([ui.btn_close_pass]))
-
-
-func _refresh_pass() -> void:
-	var tier := Progress.season_tier()
-	var month := int(Progress.season.substr(5, 2))
-	ui.pass_title.text = L.t("pass_title")
-	ui.pass_sub.text = L.t("pass_sub", {"m": L.t("month_%d" % month), "n": tier, "max": Progress.PASS_TIERS})
-	var in_tier := Progress.season_xp - tier * Progress.XP_PER_TIER
-	ui.pass_bar.max_value = Progress.XP_PER_TIER
-	ui.pass_bar.value = Progress.XP_PER_TIER if tier >= Progress.PASS_TIERS else in_tier
-	ui.pass_xp.text = L.t("pass_max") if tier >= Progress.PASS_TIERS else "%d/%d" % [in_tier, Progress.XP_PER_TIER]
-	var list: VBoxContainer = ui.pass_list
-	for c in list.get_children():
-		list.remove_child(c)
-		c.queue_free()
-	for t in range(1, Progress.PASS_TIERS + 1):
-		var r := Progress.pass_reward(t)
-		var row := HBoxContainer.new()
-		row.add_theme_constant_override("separation", 10)
-		var num := _label(str(t), f_display, 20, BRASS if t <= tier else MUTED)
-		num.custom_minimum_size.x = 34
-		num.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		row.add_child(num)
-		var pic: Control
-		var text := ""
-		match str(r.kind):
-			"crystals":
-				pic = _icon_tex("crystal", 30, Color("#7fd8ff"))
-				text = L.t("pass_crystals", {"n": r.n})
-			"hints":
-				pic = _icon_tex("hint", 30, BRASS_LIGHT)
-				text = L.t("pass_hints", {"n": r.n})
-			"look":
-				var tr := TextureRect.new()
-				tr.texture = load("res://assets/tiles/look_%d_1.png" % int(r.n))
-				tr.custom_minimum_size = Vector2(34, 34)
-				tr.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-				tr.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-				pic = tr
-				text = L.t("pass_look", {"name": L.t("look_%d" % int(r.n))})
-		row.add_child(pic)
-		var lbl := _para(text)
-		lbl.add_theme_font_size_override("font_size", 17)
-		lbl.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		row.add_child(lbl)
-		var tt: int = t
-		if t in Progress.season_claimed:
-			row.add_child(_label("✓", f_bold, 24, Color("#5cc87a")))
-		elif Progress.pass_claimable(t):
-			var b := _button(L.t("take"), "", true, func():
-				var got := Progress.claim_pass(tt)
-				if not got.is_empty():
-					Sfx.play("star")
-					_refresh_pass()
-					_refresh_menu_bests())
-			b.add_theme_font_size_override("font_size", 15)
-			row.add_child(b)
-		else:
-			row.add_child(_icon_tex("lock", 22, Color(1, 1, 1, 0.3)))
-		list.add_child(row)
-	_fit_panels.call_deferred()
-
-
 func _build_stats() -> void:
 	var pv := _panel()
 	stats_panel = pv[0]
@@ -2689,8 +2585,6 @@ func _refresh_menu_bests() -> void:
 	(ui.home_gift.get_meta("caption") as Label).text = L.t("gift") + (" !" if Progress.gift_ready() else "")
 	var adue := Progress.achievements_due()
 	(ui.home_ach.get_meta("caption") as Label).text = L.t("achievements") + (" (%d)" % adue if adue > 0 else "")
-	var pdue := Progress.pass_due()
-	(ui.home_pass.get_meta("caption") as Label).text = L.t("pass") + (" (%d)" % pdue if pdue > 0 else "")
 	if Progress.daily_reward_ready():
 		ui.daily_card.text = L.t("daily_card", {"n": Progress.DAILY_CRYSTALS})
 	else:
@@ -2703,7 +2597,7 @@ const RULE_PAGES := [
 	{"icon": "star", "keys": ["rule3", "rule4"], "pay": ["pay2", "pay3", "pay4", "pay_combo", "pay_precise"]},
 	{"icon": "map", "keys": ["rule_bright"]},
 	{"icon": "puzzle", "special": true},
-	{"icon": "calendar", "keys": ["rule5", "rule_daily", "rule_pass"], "pay": ["pay_shine"]},
+	{"icon": "calendar", "keys": ["rule5", "rule_daily"], "pay": ["pay_shine"]},
 ]
 const SPECIALS := ["joker", "box", "chain", "ice", "bomb", "chameleon"]
 
@@ -3021,7 +2915,7 @@ func _close_settings() -> void:
 
 
 func _current_panel() -> Control:
-	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
+	for p in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, stats_panel, confirm_panel]:
 		if p.visible:
 			return p
 	return null
@@ -3041,13 +2935,12 @@ func _apply_texts() -> void:
 	ui.menu_title.text = L.t("title")
 	ui.menu_tag.text = L.t("tagline")
 	ui.how.text = L.t("how_title")
-	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "rule_daily", "rule_pass", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
+	for k in ["rule1", "rule2", "rule3", "rule4", "rule5", "rule_bright", "rule_daily", "pay2", "pay3", "pay4", "pay_combo", "pay_precise", "pay_shine"]:
 		ui[k].text = L.t(k)
 	for pi in RULE_PAGES.size():
 		ui["rp_%d" % pi].text = L.t("rp_%d" % pi)
 	for sp in SPECIALS:
 		ui["sp_" + sp].text = L.t("sp_" + sp)
-	ui.btn_close_pass.text = L.t("close")
 	ui.btn_close_stats.text = L.t("close")
 	ui.stats_title.text = L.t("stats_title")
 	ui.confirm_title.text = L.t("leave_title")
@@ -3076,7 +2969,7 @@ func _apply_texts() -> void:
 	ui.btn_close_ach.text = L.t("close")
 	for k in ["score", "score_bright", "score_zen", "stars"]:
 		ui["lb_tab_" + k].text = L.t("lb_" + k)
-	for pair in [[ui.home_leaders, "leaders"], [ui.home_pass, "pass"], [ui.home_stats, "stats_title"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"],
+	for pair in [[ui.home_leaders, "leaders"], [ui.home_stats, "stats_title"], [ui.home_rules, "how_title"], [ui.home_settings, "settings"],
 			[ui.home_tasks, "tasks"], [ui.home_coll, "collection"], [ui.home_gift, "gift"], [ui.home_ach, "achievements"]]:
 		(pair[0].get_meta("caption") as Label).text = L.t(pair[1])
 	_refresh_menu_bests()
@@ -3119,7 +3012,7 @@ func _show_panel(p: Control) -> void:
 		_refresh_menu_bests()
 	# the game layer stays out of sight behind the menus and anything opened from them
 	margin.visible = not on_menu and state != State.MENU
-	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
+	for x in [menu_panel, mode_panel, pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, map_panel, level_panel, tasks_panel, collection_panel, gift_panel, ach_panel, stats_panel, confirm_panel]:
 		x.visible = x == p
 	dim.visible = p != null
 	btn_pause.disabled = state != State.PLAYING
@@ -3323,7 +3216,7 @@ func _on_viewport_resized() -> void:
 	combo_box.custom_minimum_size.x = 64 if compact else 96
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
 	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
+			gift_panel, ach_panel, stats_panel, confirm_panel]:
 		p.custom_minimum_size.x = w
 		p.add_theme_stylebox_override("panel", panel_style_compact if compact else panel_style)
 	var short := s.y < 600
@@ -3351,7 +3244,7 @@ func _panel_fit(p: Control) -> float:
 ## Shrink the scrolling middle of tall panels so the whole panel fits the screen.
 func _fit_panels() -> void:
 	var avail := get_viewport_rect().size.y - (12.0 if compact else 32.0)
-	for pair in [[leaders_panel, ui.leaders_scroll, ui.leaders_list], [pass_panel, ui.pass_scroll, ui.pass_list],
+	for pair in [[leaders_panel, ui.leaders_scroll, ui.leaders_list],
 			[ach_panel, ui.ach_scroll, ui.ach_list]]:
 		var panel: Control = pair[0]
 		var scroll: ScrollContainer = pair[1]
@@ -3362,10 +3255,31 @@ func _fit_panels() -> void:
 		var want := content.size.y if content.size.y > 0.0 else content.get_combined_minimum_size().y
 		scroll.custom_minimum_size.y = clampf(avail - fixed, 80.0, maxf(80.0, want))
 	for p in [pause_panel, over_panel, leaders_panel, settings_panel, rules_panel, level_panel, tasks_panel, collection_panel,
-			gift_panel, ach_panel, pass_panel, stats_panel, confirm_panel]:
+			gift_panel, ach_panel, stats_panel, confirm_panel]:
 		if p.visible:
 			p.pivot_offset = p.size / 2
 			p.scale = Vector2.ONE * _panel_fit(p)
+	_fit_home()
+
+
+## The home screen is laid out for the window in _on_viewport_resized; when its button row wraps
+## (a narrow window that is not short, long captions) it can still overflow. Then: tighter spacing,
+## then no gems, then scale the rest down around the screen's centre.
+func _fit_home() -> void:
+	var v := menu_panel.get_child(0) as VBoxContainer
+	v.scale = Vector2.ONE
+	var avail := get_viewport_rect().size.y - 48.0  # the home margins
+	if v.get_combined_minimum_size().y > avail:
+		v.add_theme_constant_override("separation", 8)
+	if v.get_combined_minimum_size().y > avail:
+		ui.home_gems[0].get_parent().visible = false
+	var h := v.get_combined_minimum_size().y
+	if h > avail:
+		var k := maxf(avail / h, 0.5)
+		# pivot chosen so the scaled content ends up centred on the screen, not at the overflowing box's middle
+		var top := (get_viewport_rect().size.y - h * k) / 2.0
+		v.pivot_offset = Vector2(v.size.x / 2.0, (top - v.position.y) / (1.0 - k))
+		v.scale = Vector2.ONE * k
 
 
 ## Pick the logical resolution from the kind of device, not from DPI (DPI reports are

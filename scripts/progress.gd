@@ -9,13 +9,7 @@ const STAR_CRYSTALS := 5          ## crystals per newly earned star
 ## Price per tile look: crystals, SEASON (free while its season is on) or GIFT (7-day streak).
 const SEASON := -1
 const GIFT := -2
-const PASS := -3  ## won on the season pass
-const LOOK_PRICES := [0, 60, 90, 120, 160, 200, SEASON, SEASON, GIFT, PASS, PASS]
-const NEON_LOOK := 9
-const GLASS_LOOK := 10
-## Season pass: a new season every calendar month, 30 tiers of XP_PER_TIER each.
-const PASS_TIERS := 30
-const XP_PER_TIER := 100
+const LOOK_PRICES := [0, 60, 90, 120, 160, 200, SEASON, SEASON, GIFT, 250, 300]
 ## Daily challenge: crystals for the first finished challenge of the day.
 const DAILY_CRYSTALS := 20
 ## Chapter rewards: all levels passed / all stars.
@@ -64,10 +58,7 @@ var puzzles := 0        ## puzzles solved (the next one is puzzles + 1)
 var tutorial := false   ## the first-run tutorial was completed
 ## Local leaderboards (Android and anywhere without Yandex): board -> [{score, date}], best 10.
 var local_scores := {}
-var season := ""            ## season id "YYYY-MM" the XP below belongs to
-var season_xp := 0
-var season_claimed: Array = []  ## tiers already claimed this season
-var hint_tokens := 0        ## spare hints (season pass rewards), used after the free one
+var hint_tokens := 0        ## spare hints (from the old season pass), used after the free one
 var daily_reward_date := ""  ## last day the daily challenge paid its crystals
 var chapter_claims: Array = []  ## "c<n>_done" / "c<n>_full" already paid
 var _dirty := false
@@ -92,15 +83,10 @@ func _ready() -> void:
 		puzzles = int(cfg.get_value("meta", "puzzles", 0))
 		tutorial = bool(cfg.get_value("meta", "tutorial", false))
 		local_scores = cfg.get_value("meta", "local_scores", {})
-		season = str(cfg.get_value("pass", "season", ""))
-		season_xp = int(cfg.get_value("pass", "xp", 0))
-		season_claimed = cfg.get_value("pass", "claimed", [])
 		hint_tokens = int(cfg.get_value("pass", "hints", 0))
 		daily_reward_date = str(cfg.get_value("meta", "daily_reward_date", ""))
 		chapter_claims = cfg.get_value("meta", "chapter_claims", [])
 	refresh_tasks()
-	_check_season()
-
 
 func _save() -> void:
 	_dirty = false
@@ -119,9 +105,6 @@ func _save() -> void:
 	cfg.set_value("meta", "puzzles", puzzles)
 	cfg.set_value("meta", "tutorial", tutorial)
 	cfg.set_value("meta", "local_scores", local_scores)
-	cfg.set_value("pass", "season", season)
-	cfg.set_value("pass", "xp", season_xp)
-	cfg.set_value("pass", "claimed", season_claimed)
 	cfg.set_value("pass", "hints", hint_tokens)
 	cfg.set_value("meta", "daily_reward_date", daily_reward_date)
 	cfg.set_value("meta", "chapter_claims", chapter_claims)
@@ -133,8 +116,7 @@ func _save() -> void:
 ## Everything worth keeping across devices, for the player's Yandex cloud data.
 func to_dict() -> Dictionary:
 	return {"stars": stars, "crystals": crystals, "owned": owned, "look": look, "life": life, "achieved": achieved,
-		"gift_date": gift_date, "streak": streak, "puzzles": puzzles, "tutorial": tutorial, "season": season,
-		"season_xp": season_xp, "season_claimed": season_claimed, "hint_tokens": hint_tokens,
+		"gift_date": gift_date, "streak": streak, "puzzles": puzzles, "tutorial": tutorial, "hint_tokens": hint_tokens,
 		"daily_reward_date": daily_reward_date, "chapter_claims": chapter_claims}
 
 
@@ -160,11 +142,6 @@ func merge(d: Dictionary) -> void:
 		streak = int(d.get("streak", streak))
 	puzzles = maxi(puzzles, int(d.get("puzzles", 0)))
 	tutorial = tutorial or bool(d.get("tutorial", false))
-	if str(d.get("season", "")) == season:
-		season_xp = maxi(season_xp, int(d.get("season_xp", 0)))
-		for t in d.get("season_claimed", []):
-			if not (int(t) in season_claimed):
-				season_claimed.append(int(t))
 	hint_tokens = maxi(hint_tokens, int(d.get("hint_tokens", 0)))
 	if str(d.get("daily_reward_date", "")) > daily_reward_date:
 		daily_reward_date = str(d.get("daily_reward_date", ""))
@@ -284,7 +261,6 @@ func claim_achievement(i: int) -> int:
 		return 0
 	achieved.append(a.id)
 	crystals += int(a.reward)
-	add_xp(40)
 	_save()
 	return int(a.reward)
 
@@ -387,7 +363,6 @@ func claim(i: int) -> int:
 		return 0
 	tasks[i].claimed = true
 	crystals += int(tasks[i].reward)
-	add_xp(25)
 	_save()
 	return int(tasks[i].reward)
 
@@ -420,86 +395,6 @@ func select(i: int) -> void:
 	if owns(i):
 		look = i
 		_save()
-
-
-# ---------------- season pass ----------------
-
-static func season_id() -> String:
-	var d := Time.get_date_dict_from_system(true)
-	return "%04d-%02d" % [d.year, d.month]
-
-
-## A new month starts a new season: XP and claimed tiers reset, owned rewards stay.
-func _check_season() -> void:
-	var id := season_id()
-	if season != id:
-		season = id
-		season_xp = 0
-		season_claimed = []
-		_save()
-
-
-func season_tier() -> int:
-	_check_season()
-	return mini(season_xp / XP_PER_TIER, PASS_TIERS)
-
-
-## Add pass XP. Returns how many tiers were reached by it.
-func add_xp(n: int) -> int:
-	_check_season()
-	var before := season_tier()
-	season_xp = mini(season_xp + maxi(n, 0), PASS_TIERS * XP_PER_TIER)
-	_dirty = true
-	return season_tier() - before
-
-
-## Reward of tier t: {"kind": "crystals"|"hints"|"look", "n": amount or look index}.
-static func pass_reward(t: int) -> Dictionary:
-	match t:
-		5, 20:
-			return {"kind": "hints", "n": 3 if t == 5 else 5}
-		10:
-			return {"kind": "look", "n": NEON_LOOK}
-		15:
-			return {"kind": "crystals", "n": 100}
-		25:
-			return {"kind": "crystals", "n": 150}
-		30:
-			return {"kind": "look", "n": GLASS_LOOK}
-	return {"kind": "crystals", "n": 15 + (t / 5) * 5}
-
-
-func pass_claimable(t: int) -> bool:
-	return t <= season_tier() and not (t in season_claimed)
-
-
-## Claim tier t. A look the player already owns pays 200 crystals instead.
-func claim_pass(t: int) -> Dictionary:
-	if not pass_claimable(t):
-		return {}
-	var r := pass_reward(t)
-	season_claimed.append(t)
-	match str(r.kind):
-		"crystals":
-			crystals += int(r.n)
-		"hints":
-			hint_tokens += int(r.n)
-		"look":
-			if owns(int(r.n)):
-				r = {"kind": "crystals", "n": 200}
-				crystals += 200
-			else:
-				owned.append(int(r.n))
-	_save()
-	return r
-
-
-func pass_due() -> int:
-	var n := 0
-	for t in range(1, season_tier() + 1):
-		if not (t in season_claimed):
-			n += 1
-	return n
 
 
 func use_hint_token() -> bool:
