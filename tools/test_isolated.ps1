@@ -135,6 +135,7 @@ foreach ($script in $Scripts) {
         'res://tests/smoke_ui.gd' { 'smoke test done' }
         'res://tests/run_runtime_suite.gd' { 'RUNTIME_SUITE ' }
         'res://tests/run_strike_accounting.gd' { 'STRIKE_ACCOUNTING_DONE' }
+        'res://tests/run_combo_suite.gd' { 'COMBO_SUITE_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)

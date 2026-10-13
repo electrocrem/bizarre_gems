@@ -267,7 +267,7 @@ func slot_at(pos: Vector2) -> Vector2i:
 # ---------------- effects ----------------
 
 ## mult is the combo multiplier (1..4): more sparks and a hotter colour for the score text.
-func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points: int, mult := 1, rainbow := false) -> void:
+func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points: int, mult := 1, rainbow := false, rewards: Dictionary = {}) -> void:
 	var c := slot_center(from)
 	for i in gone.size():
 		var h := slot_center(gone[i])
@@ -295,7 +295,9 @@ func play_knock(from: Vector2i, gone: Array[Vector2i], kinds: Array[int], points
 			_sparks.append({"p": h, "v": Vector2.from_angle(a) * cell * randf_range(2, 5 + mult), "t": 0.0,
 				"life": randf_range(0.35, 0.6), "s": randf_range(0.25, 0.5), "c": _spark_color(rainbow)})
 	var col: Color = TEXT_COLORS[clampi(mult, 1, 4) - 1]
-	_texts.append({"p": c, "s": "+%d" % points, "t": 0.0, "c": col, "k": 1.0 + (mult - 1) * 0.18})
+	# Carry the keeper's receipt unchanged; later feedback/HUD work must not recalculate bonuses.
+	_texts.append({"p": c, "s": "+%d" % points, "t": 0.0, "c": col, "k": 1.0 + (mult - 1) * 0.18,
+		"rewards": rewards.duplicate()})
 	_hint = Vector2i(-1, -1)
 	queue_redraw()  # gems were removed
 

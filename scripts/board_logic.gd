@@ -16,7 +16,7 @@ const SHINING := 8  ## gems with a bonus on them at the start of a game
 ## on phones), and the round ends when no moves are left. Bright is the toy-style mode: fewer,
 ## bigger tiles, a fresh board whenever moves run out. Each has its own leaderboard.
 const CLASSIC := {"id": "classic", "skin": "classic", "kind": "classic", "kinds": 10, "per_kind": 27, "cols": 23,
-	"rows": 15, "slots": 345, "shining": 8, "board": "score", "waves": true}
+	"rows": 15, "slots": 345, "shining": 8, "board": "score", "waves": false}
 const BRIGHT := {"id": "bright", "skin": "bright", "kind": "run", "kinds": 6, "per_kind": 28, "cols": 10, "rows": 20,
 	"slots": 200, "shining": 6, "board": "score_bright", "waves": true}
 ## Level map: each level is one fixed, fully solvable board scored with 1-3 stars.
@@ -152,10 +152,7 @@ func matches_from(p: Vector2i) -> Array[Vector2i]:
 		else:
 			count[k] = count.get(k, 0) + 1
 	# jokers join the most common kind among the hits (the first one on a tie)
-	var join := -1
-	for k in count:
-		if join < 0 or count[k] > count[join]:
-			join = k
+	var join := _joker_join_kind(count)
 	if join >= 0:
 		count[join] += jokers
 	var out: Array[Vector2i] = []
@@ -167,6 +164,25 @@ func matches_from(p: Vector2i) -> Array[Vector2i]:
 		elif count[k] >= 2:
 			out.append(h)
 	return out
+
+
+## Read before removal. Uses the same ray order and tie rule as matches_from().
+## This effective color is only for Color Chain; stored joker kinds remain unchanged.
+func joker_match_kind(p: Vector2i) -> int:
+	var count := {}
+	for h in hits_from(p):
+		var kind := kind_at(h)
+		if not is_frozen(h) and kind != JOKER:
+			count[kind] = int(count.get(kind, 0)) + 1
+	return _joker_join_kind(count)
+
+
+static func _joker_join_kind(count: Dictionary) -> int:
+	var join := EMPTY
+	for kind in count:
+		if join < 0 or count[kind] > count[join]:
+			join = kind
+	return join
 
 
 func is_frozen(p: Vector2i) -> bool:

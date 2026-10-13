@@ -37,7 +37,7 @@ func run_suite(main) -> Dictionary:
 	_case(main, progress, "both partners in cross", "direct", 0, 0, 2, 2, 0.0)
 	_case(main, progress, "partner outside cross", "outside", 0, 0, 3, 6, 1.0)
 	_case(main, progress, "box cracks but stays", "box", 0, 0, 1, 2, 0.0)
-	_case(main, progress, "outside partner at x2", "outside", 1, 0, 3, 10, 1.0 + ScoreKeeper.TIER_TIME)
+	_case(main, progress, "outside partner at x2", "outside", 1, 0, 3, 10, 1.0 + ScoreKeeper.CLASSIC_TIER_TIME)
 	_case(main, progress, "direct pair with shining bonus", "direct", 0, 1, 2, 7, 2.0)
 	_case(main, progress, "outside linked box only cracks", "chained_box", 0, 0, 2, 2, 0.0)
 	_case(main, progress, "direct linked box only cracks", "linked_box", 0, 0, 1, 2, 0.0)
@@ -45,7 +45,7 @@ func run_suite(main) -> Dictionary:
 	_repeat_boxes(main, progress)
 	_case(main, progress, "transposed outside partner", "outside", 0, 0, 3, 6, 1.0, true)
 	_ignored_input(main, progress)
-	# Exercise upstream mode branches without integrating their stage 2/3 rules.
+	# Modern Classic/Run and retained hidden modes use the same removal accounting.
 	main._use_mode("bright")
 	_case(main, progress, "bright outside partner", "outside", 0, 0, 3, 6, 0.0)
 	_case(main, progress, "bright linked box only cracks", "linked_box", 0, 0, 1, 2, 0.0)
@@ -95,8 +95,7 @@ func _case(main, progress, label: String, kind: String, prior_hits: int, shining
 	main.board.clear_fx()
 	main.board.refresh()
 	main.keeper = ScoreKeeper.new()
-	# Stage 1 preserves upstream time/combo rules; balance is integrated in stage 2.
-	main.keeper.time_bonuses = main.mode.kind == "classic"
+	main._configure_keeper()
 	for i in prior_hits:
 		main.keeper.hit(2, float(i))
 	main.score = main.keeper.score
@@ -156,8 +155,8 @@ func _repeat_boxes(main, progress) -> void:
 	_check(int(progress.life.get("gems", 0)) - before_report == 2, "second hit reports only its actual removals")
 	_check(main.keeper.combo == 2 and main.strikes_done == 2, "box damage and destruction are separate successful strikes")
 	_check(main.best_strike.n == 2 and main.best_strike.parts.size() == 2, "second hit replaces empty-removal replay with destroyed boxes")
-	_check(main.score == 6 and main.keeper.score == main.score, "second hit retains current upstream x2 scoring")
-	_check(is_equal_approx(main.time_left, 120.0 + ScoreKeeper.TIER_TIME), "second hit retains current upstream tier time")
+	_check(main.score == 6 and main.keeper.score == main.score, "second hit retains x2 scoring without a bonus from box damage")
+	_check(is_equal_approx(main.time_left, 120.0 + ScoreKeeper.CLASSIC_TIER_TIME), "second hit uses approved Classic tier time")
 	_check(main.state == main.State.PLAYING and main.logic.has_any_move(), "box repeat leaves a legal move and no result rewards")
 	main.state = main.State.MENU
 

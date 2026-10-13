@@ -35,8 +35,36 @@ The stage 1 strike-accounting suite already has a dedicated scene-based adapter:
 ./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/test_logic.gd','res://tests/run_strike_accounting.gd','res://tests/smoke_ui.gd'
 ```
 
-It retains refinement's hit/removal expectations. Its x2 timing uses the current
-upstream `ScoreKeeper.TIER_TIME` until stage 2 ports the approved combo balance.
+It retains refinement's hit/removal expectations. Since stage 2 it uses the same
+mode configuration as the game, including Classic's one-second tier reward.
+
+For the complete stage 2 regression:
+
+```powershell
+./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/test_logic.gd','res://tests/run_combo_suite.gd','res://tests/run_strike_accounting.gd','res://tests/smoke_ui.gd'
+```
+
+`run_combo_suite.gd` runs the pure special-combo, bonus-combo, balance and shared
+Classic/Run rules from `refinement@bcee016`, with their original expectations.
+Their runtime checks are adapted to upstream scenes in `test_combo_runtime.gd`:
+real score/time receipts, destroyed colors, boxes/chains/jokers, finite Classic,
+Challenge seeding, pause/transpose, transitions and deferred rewarded callbacks.
+The phase 1 x2 expectation changed from +2 tier seconds to the approved +1;
+legacy modes retain the default 3-second window and legacy special/reward rules.
+
+Only the required Run combo contract is integrated in stage 2: transition clocks
+freeze, a new board resets the pending Double Hit slot, eligible time-continue
+keeps the same keeper, and callbacks from replaced games are rejected. The full
+refinement Run/Daily generation, geometry, obstacles, transition reward schedule,
+Daily date pinning and broader lifecycle regression are stage 3 work. The existing
+transition economy is therefore not asserted as the final approved economy here.
+
+Refinement's experiment-dependent startup checks, lesson-specific configuration,
+HUD/layout/popup and platform input checks are outside this suite: stages 8, 7
+and 6 respectively. Their original source remains pinned at `bcee016` for those
+ports. The view now carries the keeper's receipt in each feedback packet; it
+does not compute Double Hit or Color Chain rewards. No new HUD layout is tested.
+
 Do not run them against the original worktree. Existing `build.sh` and
 `build_android.sh` execute tests directly in their project; do not use those scripts
 for integration verification until their test commands are isolated as well.

@@ -76,6 +76,8 @@ var last_tick := -1
 var autoplay := false  # debug builds only: plays itself, for testing effects and screenshots
 var _auto_t := 0.0
 var _stuck_t := 0.0
+## Invalidates pending deals and Run continuations when their game is left/replaced.
+var _game_generation := 0
 
 # ---- nodes of scenes/main.tscn ----
 @onready var ambient: Ambient = $Ambient
@@ -317,6 +319,8 @@ func _on_language_changed() -> void:
 # ================= game flow =================
 
 func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
+	_game_generation += 1
+	dealing = false
 	daily = is_daily
 	challenge = ch
 	game_seed = int(ch.seed) if not ch.is_empty() else int(rng.randi())
@@ -334,7 +338,6 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	score = 0
 	shown_score = 0.0
 	keeper.reset()
-	keeper.time_bonuses = mode.kind == "classic"
 	play_time = 0.0
 	hud.set_combo(0)
 	cleared = 0
@@ -383,6 +386,7 @@ func _use_mode(id: String) -> void:
 			mode = BoardLogic.TUTORIAL
 		_:
 			mode = BoardLogic.CLASSIC
+	_configure_keeper()
 	board.skin = mode.skin
 	board.zoom_enabled = mode.skin == "classic" and _is_touch_device()
 	board.reset_zoom()
@@ -396,6 +400,14 @@ func _use_mode(id: String) -> void:
 	_update_hud()
 	if is_node_ready():
 		_on_viewport_resized.call_deferred()
+
+
+## Rule selection stays independent of the rendering skin. Tutorial is ported in stage 7.
+func _configure_keeper() -> void:
+	var classic: bool = mode.id == "classic" and not daily
+	keeper.configure_time_rewards(classic)
+	keeper.configure_combo_rules(classic, mode.kind == "run")
+	keeper.time_bonuses = mode.kind == "classic"
 
 
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
@@ -503,6 +515,12 @@ func _share_challenge() -> void:
 
 ## A board ran out of moves: deal the next one with a time bonus, the game goes on.
 func _next_wave(at: Vector2i) -> void:
+	if dealing or state != State.PLAYING or not mode.waves:
+		return
+	if mode.kind == "run":
+		if keeper.update(play_time):
+			_combo_break()
+		keeper.reset_double_hit()  # Only the pending position belongs to the old board.
 	var full_clear := logic.gems_left() == 0
 	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
 	if mode.kind == "run":
@@ -543,7 +561,10 @@ func _next_wave(at: Vector2i) -> void:
 	_set_theme(_next_look())
 	var tw := create_tween()
 	tw.tween_interval(1.2 if full_clear else 0.7)
+	var generation := _game_generation
 	tw.tween_callback(func():
+		if generation != _game_generation:
+			return
 		_deal_board()
 		board.clear_fx()
 		board.refresh()
@@ -777,6 +798,9 @@ func pause_game() -> void:
 
 
 func go_menu() -> void:
+	keeper.reset_bonus_combos()
+	_game_generation += 1
+	dealing = false
 	if state == State.PLAYING:
 		Yandex.gameplay(false)
 	state = State.MENU
@@ -790,6 +814,12 @@ func end_game(reason: String) -> void:
 		return
 	if mode.kind == "run":
 		Progress.report("run_score", score)
+	# Result screens freeze play_time; a first Run time-continue retains eligible clocks.
+	if mode.kind == "run" and reason == "time" and not used_continue:
+		if keeper.update(play_time):
+			_combo_break()
+	else:
+		keeper.reset_bonus_combos()
 	state = State.OVER
 	end_reason = reason
 	board.interactive = false
@@ -870,6 +900,7 @@ func _on_slot(p: Vector2i) -> void:
 	for g in gone:
 		kinds.append(logic.kind_at(g))
 	var nshine := logic.shining_count(gone)
+	var joker_color := logic.joker_match_kind(p) if mode.kind == "run" else BoardLogic.EMPTY
 	var vanish := logic.vanishing(gone)
 	var before := logic.cells.duplicate()
 	var defused := 0
@@ -887,7 +918,12 @@ func _on_slot(p: Vector2i) -> void:
 	for i in gone.size():
 		if gone[i] in vanish:
 			vkinds.append(kinds[i])
-	var res := keeper.hit(n, play_time, nshine)
+	var color_kinds: Array[int] = vkinds.duplicate()
+	if joker_color >= 0:
+		for i in color_kinds.size():
+			if color_kinds[i] == BoardLogic.JOKER:
+				color_kinds[i] = joker_color
+	var res := keeper.hit(n, play_time, nshine, p, color_kinds)
 	score = keeper.score
 	hud.pop(hud.score_label, 1.3)
 	if nshine > 0:
@@ -919,7 +955,7 @@ func _on_slot(p: Vector2i) -> void:
 		time_left += res.time  # the bright run earns time only by clearing a whole board
 	idle = 0.0
 	var event: String = res.event
-	board.play_knock(p, vanish, vkinds, res.points, res.mult, event != "")
+	board.play_knock(p, vanish, vkinds, res.points, res.mult, event != "", res)
 	if vanish.size() < gone.size():
 		board.shake(0.08)  # a box cracked
 	if mode.skin == "bright":
@@ -1020,22 +1056,29 @@ func _process(delta: float) -> void:
 	_update_hand()
 	if state != State.PLAYING:
 		return
+	if mode.kind == "run" and dealing:
+		return  # The transition's mandatory input lock must not consume combo windows.
+	# Stop Run's combo clock at actual time exhaustion; deal economy/generation is stage 3.
+	var game_delta := minf(delta, maxf(time_left, 0.0)) if mode.kind == "run" else delta
 	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
-		time_left -= delta * _time_speed()
-	_stuck_t += delta
+		time_left -= game_delta * _time_speed()
+	if mode.kind == "run":
+		play_time += game_delta
+	_stuck_t += game_delta
 	if _stuck_t > 0.5:
 		_stuck_t = 0.0
 		_check_no_moves()
-		if state != State.PLAYING:
+		if state != State.PLAYING or (mode.kind == "run" and dealing):
 			return
-	play_time += delta
+	if mode.kind != "run":
+		play_time += game_delta
 	if keeper.update(play_time):
 		_combo_break()
 	if keeper.combo >= 2:
-		hud.combo_bar.value = keeper.window_left(play_time) / ScoreKeeper.COMBO_WINDOW * 100.0
-	idle += delta
+		hud.combo_bar.value = keeper.window_left(play_time) / keeper.combo_window * 100.0
+	idle += game_delta
 	if autoplay:
-		_auto_t += delta
+		_auto_t += game_delta
 		if _auto_t > 0.45:
 			_auto_t = 0.0
 			_auto_move()
@@ -1178,7 +1221,12 @@ func _on_level_continue() -> void:
 
 
 func _on_continue() -> void:
+	var generation := _game_generation
+	var run_continuation: bool = mode.kind == "run"
 	Yandex.show_rewarded(func(ok: bool):
+		if run_continuation and (generation != _game_generation or state != State.OVER \
+				or end_reason != "time" or used_continue):
+			return
 		if not ok:
 			_toast(L.t("ad_failed"))
 			return
@@ -1484,6 +1532,7 @@ func _relayout_board() -> void:
 			board.clear_fx()
 		elif Vector2i(logic.rows, logic.cols) == d:
 			logic.transpose()
+			keeper.transpose_bonus_slot()
 			board.transposed()
 	# a board dealt before the screen turned (Android leaving a sideways classic game) gets
 	# turned to match: a tall screen gets a tall board, a wide one a wide board
@@ -1493,6 +1542,7 @@ func _relayout_board() -> void:
 	if (screen_tall and logic.cols > logic.rows) or (screen_wide and logic.rows > logic.cols):
 		if not (mode.id == "classic" and not _is_touch_device() and challenge.is_empty()):
 			logic.transpose()
+			keeper.transpose_bonus_slot()
 			board.transposed()
 	board.refresh()
 
