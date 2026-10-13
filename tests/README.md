@@ -9,7 +9,8 @@ Run from the integration worktree, using the installed Godot 4.7.2 executable:
 The runner first proves the engine's actual `user://` path in a minimal project
 without game autoloads. It then imports a fresh resource copy without Godot AI,
 tests real Save/Progress persistence and disconnected native Yandex stubs, runs
-`test_logic.gd` and `smoke_ui.gd`, and starts the main scene for 120 frames.
+`test_logic.gd` and `smoke_ui.gd`, and runs `smoke_startup.gd`: the main scene for
+120 frames, a home-screen assertion, then explicit audio stop before engine exit.
 Every process has its own profile, APPDATA, LOCALAPPDATA and temporary directories
 under ignored `build/verification/<unique id>/`. The live editor and both real
 player profiles are untouched. The first test-only autoload checks the project,
@@ -28,6 +29,14 @@ For an adapted regression suite:
 ```
 
 That adapter and the refinement suites must first be ported to the new contracts.
+The stage 1 strike-accounting suite already has a dedicated scene-based adapter:
+
+```powershell
+./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/test_logic.gd','res://tests/run_strike_accounting.gd','res://tests/smoke_ui.gd'
+```
+
+It retains refinement's hit/removal expectations. Its x2 timing uses the current
+upstream `ScoreKeeper.TIER_TIME` until stage 2 ports the approved combo balance.
 Do not run them against the original worktree. Existing `build.sh` and
 `build_android.sh` execute tests directly in their project; do not use those scripts
 for integration verification until their test commands are isolated as well.

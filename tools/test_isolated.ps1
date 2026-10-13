@@ -134,6 +134,7 @@ foreach ($script in $Scripts) {
         'res://tests/test_logic.gd' { 'all passed' }
         'res://tests/smoke_ui.gd' { 'smoke test done' }
         'res://tests/run_runtime_suite.gd' { 'RUNTIME_SUITE ' }
+        'res://tests/run_strike_accounting.gd' { 'STRIKE_ACCOUNTING_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)
@@ -141,5 +142,5 @@ foreach ($script in $Scripts) {
     Invoke-IsolatedGodot ("suite-$index") $argsForTest $completion
     $index++
 }
-Invoke-IsolatedGodot 'startup' @('--quit-after', '120')
+Invoke-IsolatedGodot 'startup' @('--script', 'res://tests/smoke_startup.gd') 'STARTUP_SMOKE_DONE'
 Write-Output "All isolated checks passed. Profiles and logs retained: $runRoot"

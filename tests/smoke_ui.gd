@@ -73,6 +73,13 @@ func _run() -> void:
 	await _frames()
 	_check(main.home.get_node("%Play").text == "play", "buttons keep their keys")
 	_check(tr("play") == "Play", "English text")
+	# Finish playback before shutting down the native headless audio server.
+	for player in root.get_node("Sfx").get_children():
+		if player is AudioStreamPlayer:
+			player.stop()
+	await create_timer(0.1).timeout
+	main.queue_free()
+	await process_frame
 	print("smoke test done")
 	quit()
 
