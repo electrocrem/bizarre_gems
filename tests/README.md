@@ -100,6 +100,23 @@ does not cover Web, Android hardware, visual layout, export or live advertising.
 Browser testing will require a separate origin/profile and local mock SDK; Android
 testing will require an isolated application ID/data directory before installation.
 
+For the Run HUD navigation regression:
+
+```powershell
+./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Render -Scripts 'res://tests/test_hud_routes.gd','res://tests/test_hud_runtime.gd','res://tests/test_hud_layout.gd' -TimeoutSeconds 600
+```
+
+`test_hud_routes.gd` compares the real scene after menu launches and tutorial
+skip, exit, completion and replacement, for Bright Run, Daily and Run Challenge.
+It uses identical seeded fields and viewport sizes, including narrow screens and
+the Android layout fixture. It also covers restart, the mocked fullscreen-ad
+callback, resize round trips, badge appearance/fade and, with `-Render`, native
+window/fullscreen transitions. It checks the actual field frame and adaptive
+header height without manually forcing a layout after starting a game; that
+would hide a missing production relayout. Geometry comparisons tolerate normal
+floating-point rounding. Rendered captures use Dummy too; browser fullscreen and
+physical Android remain manual platform checks.
+
 Godot's directory settings are documented in
 [ProjectSettings](https://docs.godotengine.org/en/stable/classes/class_projectsettings.html#class-projectsettings-property-application-config-custom-user-dir-name).
 The Windows engine reads APPDATA in

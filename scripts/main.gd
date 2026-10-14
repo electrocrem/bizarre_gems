@@ -466,6 +466,9 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	best_strike = {}
 	board.clear_fx()
 	board.refresh()
+	# The new field can change cols/rows without resizing the Board Control.
+	# Fit the HUD to its actual frame, not the previous mode's field used during layout settling.
+	_layout_game()
 	board.deal_in()
 	ambient.pulse(UiKit.BRASS, 0.6)
 	Sfx.play("start")

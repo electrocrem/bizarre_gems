@@ -212,6 +212,7 @@ foreach ($script in $Scripts) {
         'res://tests/run_tutorial_suite.gd' { 'TUTORIAL_SUITE_DONE' }
         'res://tests/test_menu_reference.gd' { 'MENU_REFERENCE_DONE' }
         'res://tests/test_dummy_audio.gd' { 'DUMMY_AUDIO_DONE' }
+        'res://tests/test_hud_routes.gd' { 'HUD_ROUTES_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)
