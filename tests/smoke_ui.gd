@@ -1,7 +1,7 @@
 extends SceneTree
 ## Smoke test of the whole UI: opens every screen, plays a little of every mode, ends games.
 ## Any script error is printed by Godot; the test fails if one shows up in the log.
-## godot --headless --path . --script res://tests/smoke_ui.gd
+## Launch via tools/test_isolated.ps1 (always --audio-driver Dummy).
 
 var main: Node
 

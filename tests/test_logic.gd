@@ -1,5 +1,5 @@
 extends SceneTree
-## Rule tests. Run:  godot --headless --path . --script res://tests/test_logic.gd
+## Rule tests. Run via tools/test_isolated.ps1 (always --audio-driver Dummy).
 
 var failed := 0
 

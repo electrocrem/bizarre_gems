@@ -93,6 +93,9 @@ IconButton, RoundButton, DailyCard, ChallengeCard. Сами стили прав�
 Команды, ограничения платформ и запуск отдельных наборов: [tests/README.md](tests/README.md).
 Прямые запуски тестов и тестовые команды в `build.sh` / `build_android.sh` пока используют
 обычный профиль игры; для проверки интеграции используйте изолированный runner.
+Все автоматические проверки, включая Windows/OpenGL, запускаются с `--audio-driver Dummy`.
+Глобальную громкость и реальные настройки игры для тестов не менять. Проверка с слышимым
+звуком требует отдельной согласованной безопасной процедуры; APK автоматически не запускается.
 
 ## Сборка
 
@@ -105,7 +108,7 @@ python3 tools/serve.py          # http://127.0.0.1:8060/  (?lang=en, ?lang=tr)
 тестовых игрока. В редакторе Godot SDK нет, награда за рекламу выдаётся сразу.
 
 Автоигра для проверки эффектов и скриншотов (только debug-сборка):
-`godot --headless --path . --export-debug "Yandex Web" build/webdebug/index.html`, затем
+`godot --headless --audio-driver Dummy --path . --export-debug "Yandex Web" build/webdebug/index.html`, затем
 `python3 tools/serve.py 8061 build/webdebug` и открыть `http://127.0.0.1:8061/?autoplay`.
 
 Перегенерировать ассеты: `python3 tools/gen_assets.py` (нужны rsvg-convert, Pillow, numpy).

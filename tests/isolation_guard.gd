@@ -2,6 +2,11 @@ extends Node
 ## First autoload in the disposable test project only. Never registered in production.
 
 func _enter_tree() -> void:
+	if AudioServer.get_driver_name() != "Dummy":
+		push_error("TEST ISOLATION: actual audio driver must be Dummy")
+		get_tree().quit(90)
+		return
+	print("ISOLATED_AUDIO_DUMMY")
 	var expected := OS.get_environment("BIZARRE_TEST_USER_DIR").replace("\\", "/").simplify_path()
 	var project := OS.get_environment("BIZARRE_TEST_PROJECT").replace("\\", "/").simplify_path()
 	var actual := OS.get_user_data_dir().replace("\\", "/").simplify_path()

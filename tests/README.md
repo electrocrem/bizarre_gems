@@ -84,6 +84,15 @@ Do not run them against the original worktree. Existing `build.sh` and
 `build_android.sh` execute tests directly in their project; do not use those scripts
 for integration verification until their test commands are isolated as well.
 
+Every automatic Godot invocation must explicitly use `--audio-driver Dummy`,
+including Windows/OpenGL captures, probe, editor imports, storage and startup.
+The runner enforces this centrally, records each argument vector in `launch.json`,
+and verifies `AudioServer.get_driver_name()` before loading game autoloads. Headless alone is
+not the rule: rendered tests also need Dummy. Sound-event/music-selection tests
+still run normally; only physical output is isolated. Do not change Windows volume,
+real Save audio settings or production playback. Audible tests require a separate
+explicitly agreed safe procedure; this runner has no physical-audio opt-out.
+
 Nonzero exit, Godot errors, failed assertions, `FAIL` output, missing known suite
 completion markers and timeouts fail the runner. Custom suites must return a
 nonzero exit or report an error on failure. This launcher is Windows-only and

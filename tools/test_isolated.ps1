@@ -44,7 +44,15 @@ function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Comp
     $start.RedirectStandardError = $true
     # Only explicitly requested suites render; probe/import/storage/startup stay headless.
     [string[]]$driverArgs = if ($Rendered) { @('--rendering-method', 'gl_compatibility') } else { @('--headless') }
-    foreach ($arg in $driverArgs + @('--path', $fixture, '--log-file', (Join-Path $caseRoot 'engine.log')) + $Arguments) {
+    # Audio-event logic still runs, but no automated invocation may open a physical audio output.
+    # This applies to probe, both editor imports, storage, every rendered/headless suite and startup.
+    foreach ($arg in $Arguments) {
+        if ($arg -eq '--') { break } # UserArgs after -- cannot override engine options.
+        if ($arg -match '^--audio-driver($|=)') { throw 'The isolated runner always uses the Dummy audio driver.' }
+    }
+    [string[]]$launchArgs = $driverArgs + @('--audio-driver', 'Dummy', '--path', $fixture, '--log-file', (Join-Path $caseRoot 'engine.log')) + $Arguments
+    Write-Utf8 (Join-Path $caseRoot 'launch.json') (ConvertTo-Json -InputObject $launchArgs)
+    foreach ($arg in $launchArgs) {
         $start.ArgumentList.Add($arg)
     }
     foreach ($key in @('APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP')) {
@@ -81,6 +89,9 @@ function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Comp
         if ($Completion -and -not $log.Contains($Completion)) { throw "Missing completion marker: $Name (logs: $caseRoot)" }
         if ($Name -notin @('probe', 'resources-import', 'project-import') -and -not $log.Contains('ISOLATED_PROFILE_READY')) {
             throw "Missing isolation guard: $Name (logs: $caseRoot)"
+        }
+        if ($Name -notin @('resources-import', 'project-import') -and -not $log.Contains('ISOLATED_AUDIO_DUMMY')) {
+            throw "Missing Dummy audio guard: $Name (logs: $caseRoot)"
         }
         Write-Output "PASS $Name (logs: $caseRoot)"
     } finally {
@@ -200,6 +211,7 @@ foreach ($script in $Scripts) {
         'res://tests/test_hud_runtime.gd' { 'HUD_RUNTIME_DONE' }
         'res://tests/run_tutorial_suite.gd' { 'TUTORIAL_SUITE_DONE' }
         'res://tests/test_menu_reference.gd' { 'MENU_REFERENCE_DONE' }
+        'res://tests/test_dummy_audio.gd' { 'DUMMY_AUDIO_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)

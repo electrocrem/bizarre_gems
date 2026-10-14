@@ -1,5 +1,5 @@
 extends SceneTree
-## Timing of tuned solvable deals per level.  godot --headless --path . --script res://tests/bench_deal.gd
+## Timing of tuned solvable deals per level. Use tools/test_isolated.ps1 (--audio-driver Dummy).
 
 func _init() -> void:
 	var rng := RandomNumberGenerator.new()

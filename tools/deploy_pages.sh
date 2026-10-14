@@ -7,8 +7,8 @@ cd "$(dirname "$0")/.."
 GODOT=${GODOT:-godot}
 OUT=build/pages
 rm -rf "$OUT" && mkdir -p "$OUT"
-"$GODOT" --headless --path . --import >/dev/null 2>&1 || true
-"$GODOT" --headless --path . --export-debug "Yandex Web" "$OUT/index.html" 2>&1 | grep -E "ERROR" || true
+"$GODOT" --headless --audio-driver Dummy --path . --import >/dev/null 2>&1 || true
+"$GODOT" --headless --audio-driver Dummy --path . --export-debug "Yandex Web" "$OUT/index.html" 2>&1 | grep -E "ERROR" || true
 touch "$OUT/.nojekyll"
 REMOTE=$(git remote get-url origin)
 cd "$OUT"

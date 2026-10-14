@@ -12,6 +12,9 @@ func _initialize() -> void:
 	_run.call_deferred()
 
 func _run() -> void:
+	var dummy := AudioServer.get_driver_name() == "Dummy"
+	check(dummy,"actual Dummy audio driver prevents physical output")
+	if dummy: print("ISOLATED_AUDIO_DUMMY")
 	var expected := OS.get_environment("BIZARRE_TEST_USER_DIR").replace("\\", "/").simplify_path()
 	check(not expected.is_empty() and OS.get_user_data_dir().simplify_path() == expected, "user:// resolves inside the disposable profile")
 	check(ProjectSettings.globalize_path("user://save.cfg").simplify_path() == expected.path_join("save.cfg"), "save.cfg uses the same isolated directory")
