@@ -5,6 +5,9 @@
 .godot/
 .nomedia
 
+# Local Godot AI plugin
+/addons/godot_ai/
+
 # Godot-specific ignores
 .import/
 export.cfg
@@ -21,6 +24,8 @@ mono_crash.*.json
 
 # Export outputs
 *.exe
+/*.apk
+/*.idsig
 # Uncomment if your project does not version PCK files as runtime dependencies.
 # *.pck
 
