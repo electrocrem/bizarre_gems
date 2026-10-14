@@ -39,7 +39,7 @@ func _run() -> void:
 		await _frames()
 	main._open_map("levels")
 	await _frames()
-	_check(main.map.visible, "level map")
+	_check(not main.map.visible and main.modes.visible, "dormant level map is gated")
 	main._open_map("puzzle")
 	await _frames()
 	for id in ["classic", "bright", "zen", "tutorial"]:

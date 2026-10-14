@@ -55,7 +55,7 @@ size_flags_vertical = 4
 texture = ExtResource("3")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
 [node name="Stars" type="Label" parent="VBox/Head/StarBox"]
 layout_mode = 2

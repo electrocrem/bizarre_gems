@@ -29,19 +29,30 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="Scroll" type="ScrollContainer" parent="."]
+layout_mode = 2
+unique_name_in_owner = true
+horizontal_scroll_mode = 0
+follow_focus = true
+
+[node name="Content" type="CenterContainer" parent="Scroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="VBox" type="VBoxContainer" parent="Scroll/Content"]
 layout_mode = 2
 unique_name_in_owner = true
 alignment = 1
-theme_override_constants/separation = 18
+theme_override_constants/separation = 16
 
-[node name="Gems" type="HBoxContainer" parent="VBox"]
+[node name="Gems" type="HBoxContainer" parent="Scroll/Content/VBox"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_override_constants/separation = 22
 alignment = 1
 
-[node name="Gem0" type="TextureRect" parent="VBox/Gems"]
+[node name="Gem0" type="TextureRect" parent="Scroll/Content/VBox/Gems"]
 layout_mode = 2
 custom_minimum_size = Vector2(76, 76)
 pivot_offset = Vector2(38, 38)
@@ -49,7 +60,7 @@ texture = ExtResource("2")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Gem1" type="TextureRect" parent="VBox/Gems"]
+[node name="Gem1" type="TextureRect" parent="Scroll/Content/VBox/Gems"]
 layout_mode = 2
 custom_minimum_size = Vector2(76, 76)
 pivot_offset = Vector2(38, 38)
@@ -57,7 +68,7 @@ texture = ExtResource("3")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Gem2" type="TextureRect" parent="VBox/Gems"]
+[node name="Gem2" type="TextureRect" parent="Scroll/Content/VBox/Gems"]
 layout_mode = 2
 custom_minimum_size = Vector2(76, 76)
 pivot_offset = Vector2(38, 38)
@@ -65,18 +76,18 @@ texture = ExtResource("4")
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Title" type="Label" parent="VBox"]
+[node name="Title" type="Label" parent="Scroll/Content/VBox"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"Title"
-theme_override_font_sizes/font_size = 64
+theme_override_font_sizes/font_size = 58
 text = "title"
 horizontal_alignment = 1
 autowrap_mode = 3
-theme_override_constants/outline_size = 16
+theme_override_constants/outline_size = 0
 theme_override_colors/font_outline_color = Color(0.04, 0.05, 0.15, 0.85)
 
-[node name="Tagline" type="Label" parent="VBox"]
+[node name="Tagline" type="Label" parent="Scroll/Content/VBox"]
 layout_mode = 2
 theme_type_variation = &"Muted"
 text = "tagline"
@@ -84,68 +95,74 @@ horizontal_alignment = 1
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="Gap" type="Control" parent="VBox"]
+[node name="Gap" type="Control" parent="Scroll/Content/VBox"]
 layout_mode = 2
 custom_minimum_size = Vector2(0, 12)
 
-[node name="Play" type="Button" parent="VBox"]
+[node name="Play" type="Button" parent="Scroll/Content/VBox"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"PrimaryButton"
 text = "play"
 icon = ExtResource("5")
-custom_minimum_size = Vector2(280, 78)
+custom_minimum_size = Vector2(280, 68)
 size_flags_horizontal = 4
 theme_override_constants/icon_max_width = 34
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 28
 
-[node name="BestRow" type="HBoxContainer" parent="VBox"]
+[node name="BestRow" type="HBoxContainer" parent="Scroll/Content/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 8
 alignment = 1
 
-[node name="Crown" type="TextureRect" parent="VBox/BestRow"]
+[node name="Crown" type="TextureRect" parent="Scroll/Content/VBox/BestRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(24, 24)
 size_flags_vertical = 4
 texture = ExtResource("6")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
-[node name="Best" type="Label" parent="VBox/BestRow"]
+[node name="Best" type="Label" parent="Scroll/Content/VBox/BestRow"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"NumberGold"
-theme_override_font_sizes/font_size = 22
+theme_override_font_sizes/font_size = 18
 
-[node name="Daily" type="Button" parent="VBox"]
+[node name="Daily" type="Button" parent="Scroll/Content/VBox"]
+clip_text = true
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"DailyCard"
 icon = ExtResource("7")
 custom_minimum_size = Vector2(300, 0)
+theme_override_font_sizes/font_size = 17
+autowrap_mode = 3
 size_flags_horizontal = 4
 
-[node name="Challenge" type="Button" parent="VBox"]
+[node name="Challenge" type="Button" parent="Scroll/Content/VBox"]
+clip_text = true
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"ChallengeCard"
 icon = ExtResource("8")
 custom_minimum_size = Vector2(300, 0)
+theme_override_font_sizes/font_size = 17
+autowrap_mode = 3
 size_flags_horizontal = 4
 visible = false
 
-[node name="Gap2" type="Control" parent="VBox"]
+[node name="Gap2" type="Control" parent="Scroll/Content/VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 18)
+custom_minimum_size = Vector2(0, 8)
 
-[node name="CrystalRow" type="HBoxContainer" parent="VBox"]
+[node name="CrystalRow" type="HBoxContainer" parent="Scroll/Content/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 6
 alignment = 1
 
-[node name="CrystalIcon" type="TextureRect" parent="VBox/CrystalRow"]
+[node name="CrystalIcon" type="TextureRect" parent="Scroll/Content/VBox/CrystalRow"]
 layout_mode = 2
 custom_minimum_size = Vector2(24, 24)
 size_flags_vertical = 4
@@ -154,54 +171,54 @@ expand_mode = 1
 stretch_mode = 5
 modulate = Color(0.498, 0.8471, 1, 1)
 
-[node name="Crystals" type="Label" parent="VBox/CrystalRow"]
+[node name="Crystals" type="Label" parent="Scroll/Content/VBox/CrystalRow"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"Crystals"
 text = "0"
 
-[node name="RoundButtons" type="HFlowContainer" parent="VBox"]
+[node name="RoundButtons" type="HFlowContainer" parent="Scroll/Content/VBox"]
 layout_mode = 2
 alignment = 1
 theme_override_constants/h_separation = 14
 theme_override_constants/v_separation = 10
 
-[node name="Gift" parent="VBox/RoundButtons" instance=ExtResource("11")]
+[node name="Gift" parent="Scroll/Content/VBox/RoundButtons" instance=ExtResource("11")]
 layout_mode = 2
 unique_name_in_owner = true
 icon = ExtResource("10")
 caption = "gift"
 
-[node name="Tasks" parent="VBox/RoundButtons" instance=ExtResource("11")]
+[node name="Tasks" parent="Scroll/Content/VBox/RoundButtons" instance=ExtResource("11")]
 layout_mode = 2
 unique_name_in_owner = true
 icon = ExtResource("12")
 caption = "tasks"
 
-[node name="Collection" parent="VBox/RoundButtons" instance=ExtResource("11")]
+[node name="Collection" parent="Scroll/Content/VBox/RoundButtons" instance=ExtResource("11")]
 visible = false
 layout_mode = 2
 unique_name_in_owner = true
 icon = ExtResource("9")
 caption = "collection"
 
-[node name="Leaders" parent="VBox/RoundButtons" instance=ExtResource("11")]
+[node name="Leaders" parent="Scroll/Content/VBox/RoundButtons" instance=ExtResource("11")]
 layout_mode = 2
 unique_name_in_owner = true
 icon = ExtResource("13")
 caption = "leaders"
 
-[node name="More" parent="VBox/RoundButtons" instance=ExtResource("11")]
+[node name="More" parent="Scroll/Content/VBox/RoundButtons" instance=ExtResource("11")]
 layout_mode = 2
 unique_name_in_owner = true
 icon = ExtResource("14")
 caption = "more"
 
-[connection signal="pressed" from="VBox/Play" to="." method="_on_play_pressed"]
-[connection signal="pressed" from="VBox/Daily" to="." method="_on_daily_pressed"]
-[connection signal="pressed" from="VBox/Challenge" to="." method="_on_challenge_pressed"]
-[connection signal="pressed" from="VBox/RoundButtons/Gift" to="." method="_on_gift_pressed"]
-[connection signal="pressed" from="VBox/RoundButtons/Tasks" to="." method="_on_tasks_pressed"]
-[connection signal="pressed" from="VBox/RoundButtons/Collection" to="." method="_on_collection_pressed"]
-[connection signal="pressed" from="VBox/RoundButtons/Leaders" to="." method="_on_leaders_pressed"]
-[connection signal="pressed" from="VBox/RoundButtons/More" to="." method="_on_more_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/Play" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/Daily" to="." method="_on_daily_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/Challenge" to="." method="_on_challenge_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/RoundButtons/Gift" to="." method="_on_gift_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/RoundButtons/Tasks" to="." method="_on_tasks_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/RoundButtons/Collection" to="." method="_on_collection_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/RoundButtons/Leaders" to="." method="_on_leaders_pressed"]
+[connection signal="pressed" from="Scroll/Content/VBox/RoundButtons/More" to="." method="_on_more_pressed"]

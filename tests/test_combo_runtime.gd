@@ -53,14 +53,15 @@ func configuration(main) -> void:
 	for config in [["classic", false], ["bright", false], ["bright", true], ["levels", false],
 			["zen", false], ["puzzle", false], ["tutorial", false], ["classic", true], ["classic", false]]:
 		await start(main, config[0], config[1])
-		var classic: bool = config[0] == "classic" and not config[1]
+		# Stage 7 practice begins with the pinned Classic lesson and uses modern rules.
+		var classic: bool = (config[0] == "classic" and not config[1]) or config[0] == "tutorial"
 		var run: bool = config[0] == "bright"
 		check(main.keeper.combo_window == (3.5 if classic or run else 3.0), str(config) + ": ordinary window")
 		check(main.keeper.timed_special == (classic or run) and main.keeper.classic_bonus_combos == (classic or run),
 			str(config) + ": rule opt-in independent of skin")
 		check(main.keeper.tier_time == (1.0 if classic else 2.0) and main.keeper.streak_time == (1.0 if classic else 3.0),
 			str(config) + ": modern/legacy time selection")
-		check(main.keeper.time_bonuses == (config[0] == "classic") and main.keeper.hit_time_rewards == not run,
+		check(main.keeper.time_bonuses == (config[0] in ["classic","tutorial"]) and main.keeper.hit_time_rewards == not run,
 			str(config) + ": hit time eligibility")
 		main.go_menu()
 

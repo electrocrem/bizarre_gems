@@ -22,6 +22,35 @@ const CHAPTER_THEMES := [
 ]
 
 const NUMBER_FONT := preload("res://ui/fonts/numbers.tres")
+const MENU_BRASS := Color("#c6a35c")
+const MENU_TEXT := Color("#f4edda")
+const MENU_MUTED := Color("#a6b7b7")
+const MENU_PANEL := Color("#10272b")
+static var _menu_theme: Theme
+
+## A separate theme for screens; the accepted game HUD keeps its original theme.
+static func menu_theme() -> Theme:
+	if _menu_theme: return _menu_theme
+	var theme: Theme = preload("res://ui/theme.tres").duplicate(true)
+	for type in ["Label","Body","Bold","Heading","Title","Number","NumberGold","Crystals"]:
+		theme.set_color("font_color",type,MENU_TEXT)
+	theme.set_color("font_color","Muted",MENU_MUTED)
+	for type in ["Button","IconButton","RoundButton","DailyCard","ChallengeCard","PrimaryButton"]:
+		var primary: bool = type == "PrimaryButton"
+		for state in ["normal","hover","pressed","disabled","focus"]:
+			var fill := MENU_BRASS if primary else Color(MENU_PANEL,.85)
+			var edge := Color(MENU_BRASS,.6)
+			if state == "hover": fill = fill.lightened(.12); edge = MENU_TEXT
+			elif state == "pressed": fill = fill.darkened(.15)
+			elif state == "focus": fill = Color.TRANSPARENT; edge = MENU_TEXT
+			elif state == "disabled": fill.a = .35; edge.a = .25
+			theme.set_stylebox(state,type,box(fill,edge,2 if state == "focus" else 1,10,Vector4(16,12,16,12)))
+		for key in ["font_color","font_hover_color","font_pressed_color","font_focus_color","icon_normal_color","icon_hover_color","icon_pressed_color","icon_focus_color"]:
+			theme.set_color(key,type,Color("#112326") if primary else MENU_TEXT)
+	for type in ["PanelContainer","PanelCompact"]:
+		theme.set_stylebox("panel",type,box(Color(MENU_PANEL,.97),Color(MENU_BRASS,.45),1,14,Vector4(18,16,18,16)))
+	_menu_theme = theme
+	return theme
 
 
 ## An icon from assets/ui by name: "play" -> res://assets/ui/icon_play.png.

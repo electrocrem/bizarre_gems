@@ -1,0 +1,66 @@
+[gd_scene format=3]
+
+[ext_resource type="Script" path="res://scripts/ui/tutorial.gd" id="1"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_restart.png" id="2"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_home.png" id="3"]
+
+[node name="Tutorial" type="PanelContainer"]
+visible = false
+mouse_filter = 0
+script = ExtResource("1")
+
+[node name="Card" type="VBoxContainer" parent="."]
+layout_mode = 2
+theme_override_constants/separation = 6
+
+[node name="Caption" type="Label" parent="Card"]
+layout_mode = 2
+theme_type_variation = &"Bold"
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(0.77647, 0.63921, 0.36078, 1)
+autowrap_mode = 3
+
+[node name="Instruction" type="Label" parent="Card"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
+horizontal_alignment = 0
+autowrap_mode = 3
+mouse_filter = 2
+
+[node name="Actions" type="HFlowContainer" parent="Card"]
+layout_mode = 2
+theme_override_constants/h_separation = 4
+theme_override_constants/v_separation = 4
+
+[node name="Skip" type="Button" parent="Card/Actions"]
+layout_mode = 2
+custom_minimum_size = Vector2(36,44)
+theme_override_font_sizes/font_size = 13
+text = "lesson_skip"
+
+[node name="Retry" type="Button" parent="Card/Actions"]
+layout_mode = 2
+custom_minimum_size = Vector2(36,44)
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+icon = ExtResource("2")
+
+[node name="Exit" type="Button" parent="Card/Actions"]
+layout_mode = 2
+custom_minimum_size = Vector2(36,44)
+theme_override_constants/icon_max_width = 18
+icon_alignment = 1
+icon = ExtResource("3")
+
+[node name="Spacer" type="Control" parent="Card/Actions"]
+visible = false
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Next" type="Button" parent="Card/Actions"]
+layout_mode = 2
+custom_minimum_size = Vector2(36,44)
+theme_type_variation = &"PrimaryButton"
+theme_override_font_sizes/font_size = 14
+text = "next"

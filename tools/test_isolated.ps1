@@ -5,6 +5,7 @@ param(
     [switch]$Render,
     [switch]$ReferenceVisuals,
     [switch]$ReferenceHud,
+    [switch]$ReferenceMenu,
     [ValidateSet('none', 'cosmetics-enabled', 'double-reward')][string]$Mutation = 'none',
     [ValidateRange(1, 1800)][int]$TimeoutSeconds = 180
 )
@@ -117,6 +118,11 @@ foreach ($relative in $paths | Sort-Object -Unique) {
     Copy-Item -LiteralPath $source -Destination $target -Force
 }
 $config = [IO.File]::ReadAllText((Join-Path $projectRoot 'project.godot')).Replace("`r`n", "`n")
+if ($ReferenceMenu) {
+    $referencePreview = (& git -C $projectRoot show 'bcee01634740130b6f2bf8f1193adc49e3f68e1f:scripts/menu_preview.gd') -join "`n"
+    if ($LASTEXITCODE -ne 0) { throw 'Missing pinned menu preview.' }
+    Write-Utf8 (Join-Path $fixture 'tests/reference_menu/preview.gd') ($referencePreview + "`n")
+}
 if ($ReferenceVisuals) {
     # Read pinned renderers directly from Git; never run or modify the source worktree.
     foreach ($name in @('board_view', 'ambient', 'special_gem_art')) {
@@ -192,6 +198,8 @@ foreach ($script in $Scripts) {
         'res://tests/test_hud_layout.gd' { 'HUD_LAYOUT_DONE' }
         'res://tests/test_hud_reference.gd' { 'HUD_REFERENCE_DONE' }
         'res://tests/test_hud_runtime.gd' { 'HUD_RUNTIME_DONE' }
+        'res://tests/run_tutorial_suite.gd' { 'TUTORIAL_SUITE_DONE' }
+        'res://tests/test_menu_reference.gd' { 'MENU_REFERENCE_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)

@@ -51,6 +51,7 @@ layout_mode = 2
 custom_minimum_size = Vector2(52, 52)
 
 [node name="Scroll" type="ScrollContainer" parent="VBox"]
+follow_focus = true
 layout_mode = 2
 unique_name_in_owner = true
 size_flags_vertical = 3
@@ -61,22 +62,23 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="Cards" type="HFlowContainer" parent="VBox/Scroll/Center"]
+[node name="Cards" type="GridContainer" parent="VBox/Scroll/Center"]
 layout_mode = 2
 unique_name_in_owner = true
-alignment = 1
-theme_override_constants/h_separation = 20
+columns = 2
+theme_override_constants/h_separation = 24
 theme_override_constants/v_separation = 20
 
 [node name="Classic" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
 layout_mode = 2
 mode_id = "classic"
-accent = Color(1, 0.7843, 0.2392, 1)
+accent = Color(0.77647, 0.63921, 0.36078, 1)
 preview = ExtResource("3")
 play_icon = ExtResource("4")
 play_text = "play"
 
 [node name="Levels" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+visible = false
 layout_mode = 2
 mode_id = "levels"
 accent = Color(0.1333, 0.7882, 0.4784, 1)
@@ -93,6 +95,7 @@ play_icon = ExtResource("4")
 play_text = "play"
 
 [node name="Zen" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+visible = false
 layout_mode = 2
 mode_id = "zen"
 accent = Color(0.6392, 0.3608, 1, 1)
@@ -101,6 +104,7 @@ play_icon = ExtResource("4")
 play_text = "play"
 
 [node name="Puzzle" parent="VBox/Scroll/Center/Cards" instance=ExtResource("5")]
+visible = false
 layout_mode = 2
 mode_id = "puzzle"
 accent = Color(1, 0.6039, 0.1804, 1)

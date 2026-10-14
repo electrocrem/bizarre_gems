@@ -16,9 +16,10 @@ theme_override_font_sizes/font_size = 36
 text = "settings"
 horizontal_alignment = 1
 
-[node name="SoundRow" type="HBoxContainer" parent="VBox"]
+[node name="SoundRow" type="HFlowContainer" parent="VBox"]
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 8
 
 [node name="Sound" type="CheckButton" parent="VBox/SoundRow"]
 layout_mode = 2
@@ -34,9 +35,10 @@ size_flags_vertical = 4
 max_value = 1.0
 step = 0.05
 
-[node name="MusicRow" type="HBoxContainer" parent="VBox"]
+[node name="MusicRow" type="HFlowContainer" parent="VBox"]
 layout_mode = 2
-theme_override_constants/separation = 14
+theme_override_constants/h_separation = 14
+theme_override_constants/v_separation = 8
 
 [node name="Music" type="CheckButton" parent="VBox/MusicRow"]
 layout_mode = 2
@@ -71,6 +73,7 @@ theme_type_variation = &"PrimaryButton"
 text = "done"
 
 [node name="ScaleInfo" type="Label" parent="VBox"]
+autowrap_mode = 3
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"Number"

@@ -2,6 +2,31 @@ extends Control
 ## Geometry only: scene-owned HUD/board nodes, independent of game state and generation.
 ## Preserve refinement's board sizing reservations even when the visible Run header is compact.
 
+func arrange_practice(board: BoardView, hud: Hud, card: PanelContainer) -> void:
+	if size.x < 1 or size.y < 1: return
+	var header := 116.0 if size.x < 680 else 64.0
+	hud.position = Vector2.ZERO
+	hud.size = size
+	hud.layout_practice(Rect2(0,0,size.x,header))
+	var area := Vector2(size.x,maxf(1,size.y-header-10))
+	var wide := area.x >= 820 and area.x > area.y*1.25
+	var width := clampf(area.x*.24,280,320) if wide else minf(area.x,420)
+	card.size.x = width
+	var height := card.get_combined_minimum_size().y
+	card.size.y = height
+	var gap := 28.0 if wide else 10.0
+	var side := maxf(1,floorf(minf(area.y,area.x-width-gap) if wide else minf(area.x,area.y-height-gap)))
+	board.size = Vector2.ONE*side
+	if wide:
+		var left := floorf((area.x-width-gap-side)*.5)
+		card.position = Vector2(left,header+10+floorf((area.y-height)*.5))
+		board.position = Vector2(left+width+gap,header+10+floorf((area.y-side)*.5))
+	else:
+		var top := maxf(0,floorf((area.y-height-gap-side)*.5))
+		card.position = Vector2(floorf((area.x-width)*.5),header+10+top)
+		board.position = Vector2(floorf((area.x-side)*.5),header+10+top+height+gap)
+	board.refresh()
+
 func arrange(board: BoardView, hud: Hud, mode_id: String, android: bool,
 		view: Vector2, insets: Rect2) -> void:
 	if size.x <= 0 or size.y <= 0:

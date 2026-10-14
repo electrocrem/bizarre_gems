@@ -13,15 +13,16 @@ func refresh() -> void:
 
 
 func set_page(i: int) -> void:
+	%Scroll.scroll_vertical = 0
 	var pages := %Pages.get_children()
 	page = clampi(i, 0, pages.size() - 1)
 	for pi in pages.size():
 		pages[pi].visible = pi == page
-	$VBox/Nav/Prev.disabled = page == 0
-	$VBox/Nav/Next.disabled = page == pages.size() - 1
+	$Scroll/VBox/Nav/Prev.disabled = page == 0
+	$Scroll/VBox/Nav/Next.disabled = page == pages.size() - 1
 	for pi in %Dots.get_child_count():
 		(%Dots.get_child(pi) as Panel).add_theme_stylebox_override("panel",
-			UiKit.box(UiKit.BRASS if pi == page else Color(1, 1, 1, 0.25), Color.TRANSPARENT, 0, 5, Vector4.ZERO))
+			UiKit.box(UiKit.MENU_BRASS if pi == page else Color(1, 1, 1, 0.25), Color.TRANSPARENT, 0, 5, Vector4.ZERO))
 
 
 ## swipe left / right to turn the page
@@ -54,3 +55,11 @@ func _on_tutorial_pressed() -> void:
 func _on_close_pressed() -> void:
 	click()
 	navigate.emit(&"back")
+
+## Long translations remain at readable size; every page and its actions can be scrolled.
+func fit(avail: float) -> void:
+	%Scroll.custom_minimum_size.y = maxf(1,avail-32)
+
+func focus_page() -> void:
+	%Scroll.grab_focus()
+	%Scroll.scroll_vertical = 0

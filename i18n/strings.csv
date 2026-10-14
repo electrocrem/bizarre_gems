@@ -13,7 +13,7 @@ ch_fail,Не получилось поделиться,Could not share,Paylaşı
 more,Ещё,More,Daha fazla
 rule1,"Нажми на пустую клетку. Игра смотрит вверх, вниз, влево и вправо и берёт первый камень с каждой стороны.","Tap an empty slot. The game looks up, down, left and right and takes the first gem on each side.","Boş bir hücreye dokun. Oyun yukarı, aşağı, sola ve sağa bakar ve her yöndeki ilk taşı alır."
 rule2,"Камни, которые встретились хотя бы дважды, выбиваются.",Every gem that shows up at least twice is knocked out.,En az iki kez görünen her taş kırılır.
-rule3,"Промах отнимает секунду. На старте — 120 секунд. Нет ходов — новое поле и +5 секунд, играешь до конца времени.","A miss costs one second. You start with 120 seconds. No moves left: a new board and +5 seconds, you play until time runs out.","Iska bir saniye kaybettirir. 120 saniyeyle başlarsın. Hamle kalmazsa yeni tahta ve +5 saniye gelir, süre bitene kadar oynarsın."
+rule3,"Промах отнимает секунду. На старте — 120 секунд. В классике партия кончается, когда ходов не осталось.",A miss costs one second. You start with 120 seconds. In Classic the round ends when no moves are left.,Iska bir saniye kaybettirir. 120 saniyeyle başlarsın. Klasik modda hamle kalmayınca tur biter.
 pay2,2 камня: +2 очка,2 gems: +2 points,2 taş: +2 puan
 pay3,"3 камня: +4 очка, +1 с","3 gems: +4 points, +1 s","3 taş: +4 puan, +1 sn"
 pay4,"4 камня: +6 очков, +2 с","4 gems: +6 points, +2 s","4 taş: +6 puan, +2 sn"
@@ -43,8 +43,8 @@ plus_time,+15 с,+15 s,+15 sn
 daily,Расклад дня,Daily board,Günün dizilimi
 daily_best,Рекорд дня: {n},Today's best: {n},Günün rekoru: {n}
 new_daily_best,Новый рекорд дня!,New daily best!,Yeni günlük rekor!
-rule5,"Сверкающие камни дают +5 очков и +2 секунды. Расклад дня — одно и то же поле для всех, обновляется каждые сутки.",Sparkling gems give +5 points and +2 seconds. The daily board is the same layout for everyone and changes every day.,Işıldayan taşlar +5 puan ve +2 saniye verir. Günün dizilimi herkes için aynıdır ve her gün değişir.
-pay_shine,"Сверкающий камень: +5 очков, +2 с","Sparkling gem: +5 points, +2 s","Işıldayan taş: +5 puan, +2 sn"
+rule5,Сверкающий камень даёт +5 очков; в Classic ещё +2 с. Расклад дня — Bright Run с ежедневным фиксированным полем и отдельным рекордом.,"A sparkling gem gives +5 points, plus 2 s in Classic. Daily Challenge is Bright Run with daily fixed boards and its own record.","Işıldayan taş +5 puan, Klasik'te ayrıca +2 sn verir. Günün dizilimi, günlük sabit tahtalı ve ayrı rekorlu Parlak koşudur."
+pay_shine,Сверкание: +5 очков · +2 с только в Classic,Sparkle: +5 points · +2 s only in Classic,Parıltı: +5 puan · yalnızca Klasik'te +2 sn
 rotate,Поверните телефон вертикально,Turn your phone upright,Telefonunu dikey çevir
 new_board,Новое поле!,New board!,Yeni tahta!
 clear_board,Чистое поле!,Board cleared!,Tahta temizlendi!
@@ -56,10 +56,10 @@ praise_wow,Невероятно!,Incredible!,İnanılmaz!
 restart,Заново,Restart,Yeniden
 mode_classic,Классика,Classic,Klasik
 mode_bright,Яркий забег,Bright run,Parlak koşu
-rule_bright,"Яркие режимы: «Уровни» — карта полей со звёздами; «Яркий забег» — как классика, одно поле на две минуты; «Шаги» — без таймера, промах стоит два шага. Каждое яркое поле можно выбить целиком. С 6-го уровня бывают ящики (два удара) и джокеры (любой цвет). Подсказка показывает следующий верный удар.","Bright modes: Levels — a map of boards with stars; Bright run — like Classic, one board for two minutes; Moves — no clock, a miss costs two moves. Every bright board can be cleared completely. From level 6 there are boxes (two hits) and jokers (any colour). The hint shows the next right strike.","Parlak modlar: Seviyeler — yıldızlı tahta haritası; Parlak koşu — Klasik gibi, iki dakikalık tek tahta; Hamleler — süre yok, ıska iki hamle. Her parlak tahta tamamen temizlenebilir. 6. seviyeden itibaren kutular (iki vuruş) ve jokerler (her renk) çıkar. İpucu bir sonraki doğru vuruşu gösterir."
+rule_bright,"Bright Run: 120 с на старте, общие с Classic комбо и очки. Удары не дают секунд. Нет ходов — новое поле: +40/30/20/10 с, затем +10. Полная очистка: ещё +20 с и 100 + 50 за каждое предыдущее поле очков. Есть джокеры, ящики, связи, хамелеоны. Лёд и бомбы отключены.","Bright Run starts with 120 s and shares Classic combos and points. Strikes add no seconds. No moves starts a new board: +40/30/20/10 s, then +10. Full clear adds 20 s and 100 + 50 points per previous board. Jokers, boxes, links and chameleons are active; ice and bombs are disabled.","Parlak koşu 120 sn ile başlar; Klasik'le aynı kombo ve puan kurallarını kullanır. Vuruşlar süre vermez. Hamle bitince yeni tahta: +40/30/20/10 sn, sonra +10. Tam temizleme ek 20 sn ve önceki tahta başına 100 + 50 puan verir. Joker, kutu, bağ ve bukalemun var; buz ve bombalar kapalı."
 choose_mode,Выбор режима,Choose a mode,Mod seç
 mode_classic_desc,"Бархат, огранённые камни и широкое поле на 270 самоцветов.","Velvet, faceted gems and a wide board of 270 jewels.","Kadife, kesme taşlar ve 270 mücevherlik geniş tahta."
-mode_bright_desc,Большие плотные поля на две минуты. Нет ходов — новое поле. Каждое новое поле даёт +10 секунд.,"Big, dense boards for two minutes. No moves left means a new board. Every new board adds 10 seconds.","İki dakikalık büyük, sık tahtalar. Hamle kalmazsa yeni tahta gelir. Her yeni tahta 10 saniye ekler."
+mode_bright_desc,120 секунд на старте. Нет ходов — новое поле: +40/30/20/10 с. Полная очистка даёт ещё время и очки.,Start with 120 seconds. No moves starts a new board: +40/30/20/10 s. Full clear adds time and points.,120 saniyeyle başla. Hamle bitince yeni tahta: +40/30/20/10 sn. Tam temizleme ek süre ve puan verir.
 level_up,Уровень {n}!,Level {n}!,Seviye {n}!
 level_short,Ур. {n},Lv {n},Sv {n}
 faster,Время идёт быстрее: ×{x},The clock runs faster: ×{x},Süre hızlanıyor: ×{x}
@@ -203,7 +203,7 @@ sp_chain,"Цепь — выбьешь один камень, уйдёт и ег�
 sp_ice,"Лёд — камень не выбить, пока не выбьешь соседа.",Ice: the gem can't go until a neighbour is knocked out.,Buz: komşusu kırılana kadar taş kırılmaz.
 sp_bomb,"Бомба — выбей до конца отсчёта, иначе −5 секунд.","Bomb: knock it out before the count ends, or lose 5 seconds.","Bomba: sayaç bitmeden kır, yoksa −5 saniye."
 sp_chameleon,Хамелеон — меняет цвет каждые 3 удара.,Chameleon: changes colour every 3 strikes.,Bukalemun: her 3 vuruşta renk değiştirir.
-rule_daily,Испытание дня — одно поле «Яркого забега» для всех. Первая партия за день даёт +20 кристаллов.,The daily challenge is one Bright run board for everyone. Your first game of the day gives +20 crystals.,Günün meydan okuması herkes için aynı Parlak koşu tahtasıdır. Günün ilk oyunu +20 kristal verir.
+rule_daily,Испытание дня — одинаковая последовательность полей Bright Run для всех. Дата UTC закрепляется при старте партии. Первая завершённая партия дня даёт +20 кристаллов.,Daily Challenge gives everyone the same Bright Run board sequence. The UTC date is fixed when the game starts. The first completed game of the day gives +20 crystals.,Günlük Meydan Okuma herkese aynı Parlak koşu tahta dizisini verir. UTC tarihi oyun başında sabitlenir. Günün ilk tamamlanan oyunu +20 kristal verir.
 look_9,Неон,Neon,Neon
 look_10,Витраж,Stained glass,Vitray
 boss_rule,Босс:,Boss:,Boss:
@@ -218,9 +218,9 @@ precise,Точное комбо!,Precise combo!,Hassas kombo!
 perfect,Идеальное комбо!,Perfect combo!,Kusursuz kombo!
 bonus_line,+{p} очков · +{s} с,+{p} points · +{s} s,+{p} puan · +{s} sn
 stats,Лучшая серия: {combo} · Точных комбо: {precise},Best streak: {combo} · Precise combos: {precise},En iyi seri: {combo} · Hassas kombo: {precise}
-rule4,"Бей без промахов и пауз дольше 3 секунд — растёт комбо и множитель очков. Три удара подряд по 3–4 камня дают точное комбо, четыре и больше — идеальное.","Strike without misses or pauses over 3 seconds to build a combo and a points multiplier. Three strikes in a row of 3–4 gems make a precise combo, four or more a perfect one.","Iskalamadan ve 3 saniyeden uzun durmadan vur, kombo ve puan çarpanı artsın. Üst üste üç kez 3–4 taş kırmak hassas kombo, dört ve fazlası kusursuz kombo verir."
+rule4,"Окно серии — 3,5 с. Удар по 3+ камня обновляет специальное окно до 5 с; пара сохраняет прогресс и добавляет 0,5 с. Третий большой удар — точное, четвёртый — идеальное комбо и новый цикл. Промах или потеря общей серии сбрасывает всё. В Classic новый множитель и каждый 10-й удар дают +1 с.","Streak window: 3.5 s. A 3+ strike refreshes the special window to 5 s; a pair keeps progress and adds 0.5 s. The third large strike earns Precise, the fourth Perfect and a new cycle. A miss or lost main streak resets all. In Classic each new tier and every 10th strike add 1 s.","Seri süresi 3,5 sn. 3+ vuruş özel süreyi 5 sn yapar; çift ilerlemeyi korur ve 0,5 sn ekler. Üçüncü büyük vuruş Hassas, dördüncü Kusursuz ve yeni döngü verir. Iska veya ana seri kaybı hepsini sıfırlar. Klasik'te yeni çarpan ve her 10. vuruş +1 sn verir."
 pay_combo,"Комбо: ×2 со 2-го удара, ×3 с 5-го, ×4 с 9-го","Combo: ×2 from strike 2, ×3 from 5, ×4 from 9","Kombo: 2. vuruştan ×2, 5.'den ×3, 9.'dan ×4"
-pay_precise,"Точное: +10 очков, +3 с · идеальное: +20, +5 с","Precise: +10 points, +3 s · perfect: +20, +5 s","Hassas: +10 puan, +3 sn · kusursuz: +20, +5 sn"
+pay_precise,Точное: +10 · идеальное: +20 очков. +3/+5 с только в Classic,Precise: +10 · Perfect: +20 points. +3/+5 s only in Classic,Hassas: +10 · Kusursuz: +20 puan. +3/+5 sn yalnızca Klasik'te
 color_chain_start,ЦЕПЬ!,COLOR CHAIN!,RENK ZİNCİRİ!
 color_chain_length,ЦЕПЬ {n},CHAIN {n},ZİNCİR {n}
 double_hit,ДВОЙНОЙ УДАР!,DOUBLE HIT!,ÇİFTE VURUŞ!
@@ -228,3 +228,85 @@ hit_total,ИТОГО +{n},TOTAL +{n},TOPLAM +{n}
 streak_caption,Серия,Streak,Seri
 color_streak_chain,цепь,chain,zincir
 run_field_caption,Поле,Board,Tahta
+lesson_continue,Продолжи задание на поле.,Continue the exercise on the board.,Tahtadaki alıştırmaya devam et.
+lesson_practice,Практика,Practice,Alıştırma
+lesson_cross_title,Две пары за удар,Two pairs at once,Tek vuruşta iki çift
+lesson_cross,Выбей крест из двух разных пар. Совпадения каждого цвета проверяются отдельно.,Remove a cross containing two different pairs. Each colour is matched separately.,İki farklı çift içeren haçı kır. Her renk ayrı eşleştirilir.
+lesson_cross_result,"Убраны обе пары: {n} камня, +{p} очков и +{s} с в Classic. Четыре камня не обязаны быть одного цвета.","Both pairs removed: {n} gems, +{p} points and +{s} s in Classic. Four gems need not share one colour.","İki çift de kaldırıldı: {n} taş, Klasik'te +{p} puan ve +{s} sn. Dördü aynı renk olmak zorunda değil."
+lesson_help,Подсказка,Hint,İpucu
+lesson_skip,Пропустить,Skip,Atla
+lesson_retry,Повторить этап,Retry lesson,Dersi tekrarla
+lesson_finish,Выбрать режим,Choose mode,Mod seç
+lesson_idle,Часы стоят. Нужна помощь — нажми лампочку вверху.,Clocks are paused. Tap the bulb above for help.,Saatler durdu. Yardım için üstteki ampule dokun.
+lesson_occupied,Начни удар в пустой клетке.,Start in an empty slot.,Boş hücreden başla.
+lesson_wrong,Нужна другая клетка. Поможет лампочка вверху.,Try another slot. The bulb above can help.,Başka hücre dene. Üstteki ampul yardımcı olur.
+lesson_no_match,Здесь нет пары. Попробуй другую клетку.,No pair here. Try another slot.,Burada çift yok. Başka hücre dene.
+lesson_receipt,Убрано: {n} · +{p} очков · ×{m},Removed: {n} · +{p} points · ×{m},Kaldırılan: {n} · +{p} puan · ×{m}
+lesson_special_progress,{n}/4 · {s} с,{n}/4 · {s} s,{n}/4 · {s} sn
+lesson_empty_title,Пустая клетка,Empty slot,Boş hücre
+lesson_empty,Нажми пустую клетку под рукой: одинаковые камни по обе стороны исчезнут. Здесь часы стоят.,Tap the empty slot under the hand to remove the matching pair. Clocks are paused here.,Elin altındaki boş hücreye dokun; iki yandaki eş taşlar kaybolur. Burada saatler durur.
+lesson_empty_result,"Два одинаковых камня выбиты: +{p} очков. Начало удара — пустая клетка, не сам камень.",Two matching gems removed: +{p} points. A strike starts in an empty slot.,İki eş taş kırıldı: +{p} puan. Vuruş boş hücrede başlar.
+lesson_rays_title,Ближайшие камни,First gems,İlk taşlar
+lesson_rays,"Нажми под рукой. Удар проходит пустоты, но видит лишь первый камень с каждой стороны.",Tap under the hand. A strike crosses gaps but sees only the first gem on each side.,"Elin altına dokun. Vuruş boşluklardan geçer, her yönde yalnızca ilk taşı görür."
+lesson_rays_result,Пара выбита: +{p}. Дальний камень справа был закрыт ближайшим и остался. Диагонали не участвуют.,Pair removed: +{p}. The farther gem on the right was blocked by the first one. Diagonals do not count.,Çift kırıldı: +{p}. Sağdaki uzak taşı ilk taş engelledi. Çapraz köşeler sayılmaz.
+lesson_vertical_title,Четыре направления,Four directions,Dört yön
+lesson_vertical,Теперь нажми между одинаковыми камнями сверху и снизу. Один удар проверяет все четыре направления.,Now tap between the matching gems above and below. A strike checks all four directions.,Şimdi üstteki ve alttaki eş taşların arasına dokun. Vuruş dört yönü de kontrol eder.
+lesson_vertical_result,"Вертикальная пара тоже выбита: +{p}. Любой цвет, встретившийся дважды в кресте, подходит.",Vertical pair removed: +{p}. Any colour appearing twice in the cross qualifies.,Dikey çift de kırıldı: +{p}. Haçta iki kez görülen her renk uygundur.
+lesson_free_title,Твой ход,Your move,Sıra sende
+lesson_free,"Сам найди пустую клетку, из которой видна последняя пара. Рука больше не указывает каждый ход.",Find an empty slot that sees the last pair. The hand no longer picks every move.,Son çifti gören boş hücreyi kendin bul. El artık her hamleyi göstermez.
+lesson_free_result,Поле очищено твоим ходом: +{p}. В обычной игре ищи такие пустые клетки самостоятельно.,Your move cleared the board: +{p}. Look for these empty slots when playing.,Hamlen tahtayı temizledi: +{p}. Oyunda bu boş hücreleri kendin ara.
+lesson_miss_title,Промах,Miss,Iska
+lesson_miss,"Нажми отмеченную пустую клетку: вокруг четыре разных цвета. Посмотри, что будет без совпадений.",Tap the marked empty slot: four different colours surround it. See what happens without a match.,İşaretli boş hücreye dokun: çevresinde dört farklı renk var. Eşleşme olmayınca ne olduğunu gör.
+lesson_miss_result,"Камни остались, время уменьшилось на 1 с. В обоих режимах промах также сбрасывает серию и все комбо.",Gems stayed; time fell by 1 s. A miss also resets the streak and all combos in both modes.,"Taşlar kaldı, süre 1 sn azaldı. Iska iki modda da seriyi ve tüm komboları sıfırlar."
+lesson_streak_title,Множитель,Multiplier,Çarpan
+lesson_streak,Выбей 9 пар: каждый раз нажимай между новой парой. Часы стоят; серия растёт вверху.,"Remove 9 pairs, tapping between each new pair. Clocks are paused; watch the streak above.",Her yeni çiftin arasına dokunarak 9 çifti kır. Saatler durdu; üstteki seriyi izle.
+lesson_streak_result,"Девятый удар: ×{m}, +{p} очков. ×2 со 2-го, ×3 с 5-го, ×4 с 9-го удара. В игре окно между ударами — 3,5 с.","Strike 9: ×{m}, +{p} points. ×2 from strike 2, ×3 from 5, ×4 from 9. In play, strike again within 3.5 s.","9. vuruş: ×{m}, +{p} puan. 2.'den ×2, 5.'ten ×3, 9.'dan ×4. Oyunda 3,5 sn içinde yeniden vur."
+lesson_timeout_title,Окно серии,Streak window,Seri süresi
+lesson_timeout,"Выбей две пары. Затем на 3,5 с запустится окно комбо: посмотри на убывающую полоску.",Remove two pairs. The 3.5 s combo clock will then run: watch its bar shrink.,"İki çifti kır. Ardından 3,5 sn kombo saati çalışacak: çubuğun azalmasını izle."
+lesson_timeout_wait,Теперь просто подожди. Движется только окно комбо; время партии остановлено.,Now wait. Only the combo clock runs; the round clock stays paused.,Şimdi bekle. Yalnızca kombo saati işler; tur saati durur.
+lesson_timeout_result,Окно истекло: серия сброшена до ×1. Пауза в меню останавливает часы; размышление во время игры — нет.,Window expired: back to ×1. The pause menu freezes clocks; thinking during play does not.,Süre doldu: ×1'e dönüldü. Duraklatma menüsü saatleri durdurur; oyun sırasında düşünmek durdurmaz.
+lesson_special_title,Точное и идеальное,Precise and perfect,Hassas ve kusursuz
+lesson_special,Выбивай новые группы. Три удара по 3+ камня дают точное комбо; четвёртый — идеальное. Пары между ними разрешены.,Remove each new group. Three 3+ strikes earn Precise; the fourth earns Perfect. Pairs in between are allowed.,"Yeni grupları kır. Üç 3+ vuruş Hassas, dördüncüsü Kusursuz verir. Arada çiftlere vurabilirsin."
+lesson_pair_support,"Пара сохранила прогресс и продлила специальное окно на 0,5 с.",The pair kept progress and extended the special window by 0.5 s.,"Çift ilerlemeyi korudu ve özel süreyi 0,5 sn uzattı."
+lesson_precise_award,Точное комбо: +10 очков и +3 с в Classic. Ещё один удар по 3+ — идеальное.,Precise: +10 points and +3 s in Classic. One more 3+ strike earns Perfect.,Hassas: Klasik'te +10 puan ve +3 sn. Bir 3+ vuruş daha Kusursuz verir.
+lesson_special_result,"Идеальное: +20 очков, +5 с в Classic. Начался новый цикл. Удар по 3+ даёт окно 5 с. Сохраняй и общую серию.","Perfect: +20 points, +5 s in Classic. A new cycle starts. A 3+ strike gives a 5 s window. Keep the main streak too.","Kusursuz: Klasik'te +20 puan, +5 sn. Yeni döngü başlar. 3+ vuruş 5 sn süre verir. Ana seriyi de koru."
+lesson_double_title,Двойной удар,Double hit,Çifte vuruş
+lesson_double,"Выбей пару, затем нажми ту же пустую клетку ещё раз: за ней откроется другая пара.","Remove a pair, then strike the same empty slot again: another pair will be revealed.","Bir çifti kır, sonra aynı boş hücreye tekrar vur: başka bir çift açılacak."
+lesson_double_result,Двойной удар: {base} + {double} = {p}. За второе удаление подряд из той же клетки +50% обычных очков. Затем новая пара.,Double hit: {base} + {double} = {p}. Second removal in a row from one slot: +50% ordinary points. Then a new pair.,Çifte vuruş: {base} + {double} = {p}. Aynı hücreden art arda ikinci kaldırma: +%50 normal puan. Sonra yeni çift.
+lesson_color_title,Цветная цепочка,Colour chain,Renk zinciri
+lesson_color,"Выбей три пары одного цвета из разных клеток. Начиная со второй, посмотри на бонус цветной цепочки.",Remove three pairs of the same colour from different slots. Watch the colour-chain bonus from the second pair.,Aynı renkte üç çifti farklı hücrelerden kır. İkinci çiftten itibaren renk zinciri bonusunu izle.
+lesson_color_result,"Цепочка: +{color}, всего +{p}. Минимум 2 камня цвета за удар. Первый бонус — за два удара, следующие — за текущий.","Chain: +{color}, total +{p}. Remove at least 2 gems of the colour per strike. The first bonus pays both strikes, then the current one.","Zincir: +{color}, toplam +{p}. Her vuruşta o renkten en az 2 taş kaldır. İlk bonus iki vuruşu, sonrakiler mevcut vuruşu öder."
+lesson_shine_title,Сверкающий камень,Sparkling gem,Işıldayan taş
+lesson_shine,Classic: выбей пару со сверкающим камнем. Сверкание обозначает дополнительную награду.,Classic: remove the pair with a sparkling gem. Its sparkle marks an extra reward.,Klasik: ışıldayan taşı içeren çifti kır. Parıltı ek ödülü gösterir.
+lesson_shine_result,"Пара со сверканием: +{p} очков, +{s} с. Сверкание добавляет +5 очков и +2 с в Classic. В Bright Run — только очки.","Sparkling pair: +{p} points, +{s} s. Sparkle adds +5 points and +2 s in Classic; only points in Bright Run.","Işıldayan çift: +{p} puan, +{s} sn. Parıltı Klasik'te +5 puan ve +2 sn, Parlak koşuda yalnızca puan verir."
+lesson_classic_title,Партия Classic,Classic round,Klasik tur
+lesson_classic,"Classic начинается со 120 с. Выбей тройку: она даст время, но оставшийся одиночный камень уже не образует пару.","Classic starts with 120 s. Remove the triple: it adds time, but the leftover single gem has no pair.","Klasik 120 sn ile başlar. Üçlüyü kır: süre eklenir, ancak kalan tek taşın eşi yoktur."
+lesson_classic_result,"+{p} очков и +1 с за тройку. Ходов нет — партия Classic закончилась. Пара даёт 2 очка, тройка 4, четыре камня 6; за четыре — +2 с.","+{p} points and +1 s for the triple. No moves ends Classic. A pair scores 2, a triple 4, four gems 6; four also add 2 s.","Üçlü için +{p} puan ve +1 sn. Hamle bitince Klasik sona erer. Çift 2, üçlü 4, dört taş 6 puandır; dört taş +2 sn de verir."
+lesson_joker_title,Джокер · Bright Run,Joker · Bright Run,Joker · Parlak koşu
+lesson_joker,"Нажми между камнем и джокером: он заменит цвет. В Bright Run комбо те же, но удары дают только очки.","Tap between a gem and a joker: it joins the colour. Bright Run shares the combos, but strikes give only points.","Taşla jokerin arasına dokun; joker rengi alır. Parlak koşuda kombolar aynı, vuruşlar yalnızca puan verir."
+lesson_joker_result,"Джокер помог выбить пару: +{p}, без секунд. Он присоединяется к самому частому цвету креста; в цветной цепочке считается этим цветом.","The joker made a pair: +{p}, no seconds. It joins the most frequent cross colour and counts as that colour in a chain.","Joker çift oluşturdu: +{p}, süre eklenmedi. Haçtaki en sık renge katılır; renk zincirinde o renk sayılır."
+lesson_box_title,Ящики,Boxes,Kutular
+lesson_box,Выбей пару в ящиках дважды. Первый удар только ломает оболочку; второй убирает камни.,Strike the boxed pair twice. The first hit cracks the boxes; the second removes the gems.,Kutulu çifte iki kez vur. İlk vuruş kutuları çatlatır; ikincisi taşları kaldırır.
+lesson_box_cracked,"Очки начислены, но камни остались. Разбитая оболочка уже не защищает их.","Points earned, but gems stayed. The cracked shell no longer protects them.",Puan kazanıldı ama taşlar kaldı. Çatlayan kabuk artık korumaz.
+lesson_box_result,"Убрано {n}: +{p}. За трещину тоже были очки. Бонусы удаления появляются, когда камни исчезают.",Removed {n}: +{p}. Cracking also earned points. Removal bonuses appear when the gems disappear.,{n} taş kaldırıldı: +{p}. Çatlatmak da puan verdi. Kaldırma bonusları taşlar kaybolunca gelir.
+lesson_link_title,Связанные камни,Linked gems,Bağlı taşlar
+lesson_link,"Выбей пару со значком связи. Связанный камень в углу тоже исчезнет, хотя он вне креста.","Remove the pair with a link mark. Its partner in the corner disappears too, even outside the cross.",Bağ işaretli çifti kır. Köşedeki eşi haç dışında olsa da kaybolur.
+lesson_link_result,"Убрано {n} камня, +{p} очков. Связь тянет партнёра за собой; за него есть ещё +2 очка сверх обычного расчёта удара.","Removed {n} gems, +{p} points. The link pulls its partner and adds 2 points per linked removal over the strike score.","{n} taş kaldırıldı, +{p} puan. Bağ eşini de çeker; bağlı kaldırma başına vuruş puanına ek 2 puan verir."
+lesson_chameleon_title,Хамелеон,Chameleon,Bukalemun
+lesson_chameleon,Выбей три тренировочные пары сверху. Следи за хамелеоном внизу: каждые три успешных удара он меняет цвет.,Remove three practice pairs above. Watch the chameleon below: it changes colour every three successful strikes.,Üstte üç alıştırma çiftini kır. Alttaki bukalemunu izle: her üç başarılı vuruşta renk değiştirir.
+lesson_chameleon_shift,Цвет изменился — внизу появилась новая пара.,Its colour changed: a new pair appeared below.,Rengi değişti: altta yeni bir çift oluştu.
+lesson_chameleon_take,Теперь самостоятельно выбей новую пару с хамелеоном внизу.,Now remove the new chameleon pair below.,Şimdi alttaki yeni bukalemun çiftini kır.
+lesson_chameleon_result,Новая пара выбита: +{p}. Проверяй поле после смены цвета. Лёд и бомбы сейчас отключены в Bright Run.,New pair removed: +{p}. Recheck the board after colour shifts. Ice and bombs are currently disabled in Bright Run.,Yeni çift kırıldı: +{p}. Renk değişince tahtayı yeniden incele. Parlak koşuda buz ve bombalar şu anda kapalı.
+lesson_run_title,Новое поле,Next board,Yeni tahta
+lesson_run,"Выбей пару. Останется одиночный камень без ходов. В Bright Run это начало нового поля, а не конец партии.",Remove the pair. A single gem with no moves remains. In Bright Run that starts a new board.,"Çifti kır. Hamlesiz tek taş kalır. Parlak koşuda bu, tur sonu değil yeni tahtanın başlangıcıdır."
+lesson_run_result,"Новое поле: +{s} с. Комбо остаются; двойной удар начинается заново. В Run время дают поля, удары — только очки.","Next board: +{s} s. Combos stay; double hit starts anew. In Run, boards add time; strikes only points.","Yeni tahta: +{s} sn. Kombolar kalır; çifte vuruş yeniden başlar. Koşuda tahtalar süre, vuruşlar yalnızca puan verir."
+lesson_clear_title,Полная очистка,Full clear,Tam temizleme
+lesson_clear,"Очисти четыре маленьких поля. Посмотри, как меняется награда за каждое следующее поле.",Clear four small boards. Watch the reward change with each completed board.,Dört küçük tahtayı temizle. Her tamamlanan tahtada ödülün nasıl değiştiğini izle.
+lesson_board_receipt,"Поле {w}: +{s} с, +{p} очков за полную очистку.","Board {w}: +{s} s, +{p} points for a full clear.","Tahta {w}: tam temizleme için +{s} sn, +{p} puan."
+lesson_clear_result,"За поля: 40, 30, 20, затем по 10 с. Полная очистка: ещё 20 с и 100 очков за первое поле, на 50 больше за каждое следующее.","Boards give 40, 30, 20, then 10 s each. Full clear adds 20 s and 100 points for the first board, 50 more for each next one.","Tahtalar 40, 30, 20, sonra 10 sn verir. Tam temizleme ek 20 sn ve ilk tahta için 100 puan, her sonraki için 50 fazla verir."
+lesson_clock_title,Когда время закончилось,When time runs out,Süre bitince
+lesson_clock,"Выбей пару. Затем пройдут последние 1,5 с партии — посмотри, как заканчивается время.",Remove the pair. Then watch the final 1.5 s of the round run out.,"Çifti kır. Ardından turun son 1,5 sn'sinin bitmesini izle."
+lesson_clock_wait,Время заканчивается. В обоих режимах ноль секунд завершает партию.,Time is running out. Zero seconds ends a round in both modes.,Süre bitiyor. İki modda da sıfır saniye turu bitirir.
+lesson_clock_result,"Готово! Продолжение: +15 с за рекламу один раз. Подсказка: первая бесплатна, затем жетон или реклама.","Done! One ad continuation: +15 s. First hint free, then a token or ad.","Tamam! Reklamla bir kez +15 sn. İlk ipucu ücretsiz, sonra jeton veya reklam."
+pay_double_hit,Двойной удар: второе удаление подряд из той же клетки даёт +50% обычных очков; затем цикл начинается заново.,Double hit: the second removal in a row from the same slot adds 50% of ordinary points; then the cycle starts again.,Çifte vuruş: aynı hücreden art arda ikinci kaldırma normal puanın %50’sini ekler; sonra döngü yeniden başlar.
+pay_color_chain,"Цветная цепочка: минимум 2 камня одного цвета за удар. Первый бонус оплачивает доли двух ударов, следующие — только новые доли. Джокер учитывается как выбранный цвет.",Colour chain: remove at least 2 gems of one colour per strike. The first bonus pays the colour shares of both strikes; later bonuses pay only new shares. A joker counts as its matched colour.,"Renk zinciri: vuruş başına aynı renkten en az 2 taş kaldır. İlk bonus iki vuruşun renk paylarını, sonraki bonuslar yalnızca yeni payları öder. Joker eşleştiği renk sayılır."

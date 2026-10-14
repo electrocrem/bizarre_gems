@@ -118,6 +118,18 @@ func run_suite(main) -> Dictionary:
 		b._process(.1)
 	check(b._sparks.is_empty() and b._shards.is_empty() and b._waves.is_empty() and b._beams.is_empty(), "transient effects fully expire")
 	check(visual.digest(main.logic) == board_hash and main.rng.state == rng_state, "stress and expiry preserve game state")
+	# Regression: tiny chameleon/ice faces at large origins also need the existing local-unit triangulation guard.
+	b.visual_profile = "classic_run"
+	b.size = Vector2(1200,700)
+	b.refresh()
+	for i in b._deal_delay.size(): b._deal_delay[i] = 0.0
+	for phase in [.01,.02,.03,.04,.06,.08]:
+		b._deal_t = phase
+		b._shake_off = Vector2(3,-2)
+		b.queue_redraw()
+		await main.get_tree().process_frame
+		check(visual.digest(main.logic) == board_hash,"tiny ornament preserves board "+str(phase))
+	b._deal_t = 99
 	for path in hashes:
 		check(hashes[path] == (FileAccess.get_sha256(path) if FileAccess.file_exists(path) else ""), "stored progress and records unchanged: " + path)
 	main.go_menu()

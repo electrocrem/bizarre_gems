@@ -52,6 +52,21 @@ Challenge seeding, pause/transpose, transitions and deferred rewarded callbacks.
 The phase 1 x2 expectation changed from +2 tier seconds to the approved +1;
 legacy modes retain the default 3-second window and legacy special/reward rules.
 
+Stage 7 practice now opts into the approved Classic/Run rules for each of the
+20 pinned lessons. `run_tutorial_suite.gd` runs every lesson through production
+strikes, obstacle ticks and transitions, then checks menu routes, CSV translations,
+placeholder parity, language changes and every instruction/error/receipt/result
+layout in RU/EN/TR across five viewport sizes. It uses the SDK fixture and the
+same isolated profiles; practice may only change tutorial completion/skip flags.
+Add `-Render` for actual exercise and screen captures. `-UserArgs '--menus-only'`
+restricts a follow-up run to menu/localisation checks after a menu-only edit.
+
+`-Render -ReferenceMenu -Scripts 'res://tests/test_menu_reference.gd'` compares
+the scene-owned mode previews against drawing code read directly from pinned
+refinement. `-ReferenceVisuals` and `-ReferenceHud` retain the prior renderer/HUD
+comparisons. Reference modules and captures stay in the disposable verification
+project, and no original worktree or live player profile is run.
+
 Only the required Run combo contract is integrated in stage 2: transition clocks
 freeze, a new board resets the pending Double Hit slot, eligible time-continue
 keeps the same keeper, and callbacks from replaced games are rejected. The full

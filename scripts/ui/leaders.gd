@@ -21,7 +21,9 @@ func _ready() -> void:
 
 
 func refresh() -> void:
+	if board not in ["score","score_bright"]: board = "score"
 	for i in BOARDS.size():
+		%Tabs.get_child(i).visible = BOARDS[i] in ["score","score_bright"]
 		(%Tabs.get_child(i) as Button).theme_type_variation = &"PrimaryButton" if BOARDS[i] == board else &""
 	UiKit.clear(%List)
 	%Login.visible = false

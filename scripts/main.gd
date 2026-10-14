@@ -7,6 +7,10 @@ extends Control
 
 enum State { MENU, PLAYING, PAUSED, OVER }
 
+const TutorialLessons = preload("res://scripts/tutorial_lessons.gd")
+const TutorialController = preload("res://scripts/tutorial_controller.gd")
+const MENU_MODES := ["classic", "bright"]
+
 const START_TIME := 120.0
 const CONTINUE_TIME := 15.0
 const HINT_AFTER := 15.0
@@ -77,7 +81,28 @@ var strikes_done := 0     ## successful strikes this game (chameleons shift ever
 var paid_crystals := 0    ## crystals already paid for this game's score (a continued game pays the rest)
 var last_earned := 0      ## crystals paid by the last result screen, for the x2 reward
 var best_strike := {}     ## the game's highest-scoring strike, replayed on the result screen
-var tut_step := 0
+@onready var tutorial = TutorialController.new(self)
+var tut_step: int:
+	get: return tutorial.tut_step
+	set(value): tutorial.tut_step = value
+var tut_hits: int:
+	get: return tutorial.tut_hits
+	set(value): tutorial.tut_hits = value
+var tut_waiting: bool:
+	get: return tutorial.tut_waiting
+	set(value): tutorial.tut_waiting = value
+var tut_clock_running: bool:
+	get: return tutorial.tut_clock_running
+	set(value): tutorial.tut_clock_running = value
+var tut_feedback_key: String:
+	get: return tutorial.tut_feedback_key
+	set(value): tutorial.tut_feedback_key = value
+var tut_feedback_args: Dictionary:
+	get: return tutorial.tut_feedback_args
+	set(value): tutorial.tut_feedback_args = value
+var tut_last_result: Dictionary:
+	get: return tutorial.tut_last_result
+	set(value): tutorial.tut_last_result = value
 var shown_score := 0.0
 var play_time := 0.0
 var time_left := START_TIME
@@ -107,7 +132,11 @@ var _hud_safe_poll := 0.0
 @onready var dim: ColorRect = %Dim
 @onready var center: CenterContainer = %Center
 @onready var toast: Label = %Toast
-@onready var tut_label: Label = %TutorialLabel
+@onready var practice = %Tutorial
+@onready var tut_label: Label = %Tutorial.get_node("Card/Instruction")
+@onready var tut_card: VBoxContainer = %Tutorial.get_node("Card")
+@onready var tut_panel: PanelContainer = %Tutorial
+@onready var tut_next: Button = %Tutorial.get_node("Card/Actions/Next")
 @onready var tut_hand: TextureRect = %TutorialHand
 @onready var rotate_overlay: ColorRect = %RotateOverlay
 # screens (scenes/ui/*.tscn)
@@ -182,11 +211,17 @@ func _ready() -> void:
 
 ## Wire every screen's signals to what the game does about them.
 func _connect_screens() -> void:
+	practice.next_pressed.connect(_tutorial_next)
+	practice.retry_pressed.connect(_tutorial_retry)
+	practice.skip_pressed.connect(func(): tutorial.leave(true))
+	practice.exit_pressed.connect(go_menu)
+
 	# every Screen placed in main.tscn (full-screen ones next to Center, dialogs inside it) is found here
 	for n in get_children() + center.get_children():
 		if not n is Screen:
 			continue
 		var sc: Screen = n
+		sc.theme = UiKit.menu_theme()
 		screens[StringName(sc.name.to_snake_case())] = sc
 		sc.navigate.connect(_navigate)
 		sc.toast.connect(_toast)
@@ -210,6 +245,7 @@ func _connect_screens() -> void:
 	home.daily_pressed.connect(func(): start_game("bright", true))
 	home.challenge_pressed.connect(func(): start_game(str(pending_challenge.mode), false, pending_challenge))
 	modes.mode_chosen.connect(func(id: String):
+		if id not in MENU_MODES: return
 		if id == "levels" or id == "puzzle":
 			_open_map("puzzle" if id == "puzzle" else "levels")
 		else:
@@ -243,6 +279,7 @@ func _connect_screens() -> void:
 
 ## A screen asked for another one (Screen.navigate).
 func _navigate(to: StringName) -> void:
+	if to in [&"map", &"puzzle_map", &"levels", &"zen", &"puzzle"]: return
 	if to == &"collection" and not Progress.COSMETICS_ENABLED:
 		return
 	match to:
@@ -270,6 +307,8 @@ func _debug_start() -> void:
 	var q := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('start') || ''"))
 	var direct := {"tasks": &"tasks", "coll": &"collection", "gift": &"gift", "ach": &"achievements", "stats": &"stats",
 		"more": &"more", "modes": &"modes"}
+	if q in ["map","pmap","zen","puzzle","lres"] or q.begins_with("level"):
+		return # Browser URLs cannot expose dormant modes.
 	if direct.has(q):
 		_navigate(direct[q])
 	elif q == "map":
@@ -335,9 +374,12 @@ func _on_language_changed() -> void:
 	hud.configure(mode.id,_is_native_android())
 	hud.set_combo(keeper.combo)
 	var s := _current_screen()
-	if s and s != result and s != level_result:
+	if s == rules:
+		rules.set_page(rules.page)
+	elif s and s != result and s != level_result:
 		s.refresh()
 	_update_hud()
+	if mode.kind == "tutorial": tutorial.render()
 	_fit_panels.call_deferred()
 
 
@@ -353,6 +395,9 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	board.modulate.a = 1.0
 	tut_label.visible = false
 	tut_hand.visible = false
+	practice.visible = false
+	if tutorial: tutorial.tut_clock_running = false
+	board.tutorial_focus = Vector2i(-1,-1)
 	dealing = false
 	daily = is_daily
 	daily_run_date = _today() if daily else ""
@@ -491,22 +536,20 @@ func _use_mode(id: String) -> void:
 		_on_viewport_resized.call_deferred()
 
 
-## Rule selection stays independent of the rendering skin. Tutorial is ported in stage 7.
+## Rule selection stays independent of the rendering skin, including practice lessons.
 func _configure_keeper() -> void:
-	var classic: bool = mode.id == "classic" and not daily
+	var classic: bool = (mode.id == "classic" and not daily) or (mode.kind == "tutorial" and not TutorialLessons.run_rules(_tutorial_id()))
 	keeper.configure_time_rewards(classic)
-	keeper.configure_combo_rules(classic, mode.kind == "run")
-	keeper.time_bonuses = mode.kind == "classic"
+	keeper.configure_combo_rules(classic, _run_time_rules())
+	keeper.time_bonuses = mode.kind == "classic" or (mode.kind == "tutorial" and not _run_time_rules())
 
 
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
 ## pinned UTC date seed (plus wave number). Transpose only AFTER canonical generation.
 func _deal_board() -> void:
 	if mode.kind == "tutorial":
-		var tut := PackedInt32Array()
-		for ch in "1.1.2" + "....." + "3.3.2" + "....." + "4..4.":
-			tut.append(-1 if ch == "." else int(ch) - 1)
-		logic.load_cells(5, 5, tut)
+		TutorialLessons.load_board(logic, _tutorial_id(), tut_hits)
+		board_kinds = 6
 		return
 	if mode.skin == "bright":
 		# bright: the board for this level, dealt until it opens with the level's number of moves;
@@ -613,16 +656,16 @@ func _share_challenge() -> void:
 
 ## A board ran out of moves: deal the next one with a time bonus, the game goes on.
 func _next_wave(at: Vector2i, palette_already_changed := false) -> void:
-	if dealing or state != State.PLAYING or not mode.waves:
+	if dealing or state != State.PLAYING or not (mode.waves or (mode.kind == "tutorial" and _run_time_rules())):
 		return
-	if mode.kind == "run":
+	if _run_time_rules():
 		if keeper.update(play_time):
 			_combo_break()
 		keeper.reset_double_hit()  # Only the pending position belongs to the old board.
 	var full_clear := logic.gems_left() == 0
 	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
 	var board_time := 0.0
-	if mode.kind == "run":
+	if _run_time_rules():
 		board_time = RUN_BOARD_TIME[clampi(wave - 1, 0, RUN_BOARD_TIME.size() - 1)]
 		bonus_t = board_time + (RUN_FULL_CLEAR_TIME if full_clear else 0.0)
 	if mode.kind == "zen":
@@ -636,10 +679,10 @@ func _next_wave(at: Vector2i, palette_already_changed := false) -> void:
 	if full_clear:
 		board.play_clear_wave()
 		Sfx.play("clear")
-	elif mode.kind == "zen" or mode.kind == "run":
+	elif mode.kind == "zen" or _run_time_rules():
 		_report_progress("clear_boards")
 	var bonus_p := CLEAR_POINTS if full_clear else 0
-	if full_clear and mode.kind == "run":
+	if full_clear and _run_time_rules():
 		bonus_p = 100 + 50 * (wave - 1)  # clearing a whole run board is the big score
 	time_left += bonus_t
 	if bonus_p > 0:
@@ -652,7 +695,7 @@ func _next_wave(at: Vector2i, palette_already_changed := false) -> void:
 	if mode.skin == "bright":
 		title = L.t("level_up", {"n": wave}) if mode.kind == "zen" else title
 	var sub := ""
-	if mode.kind == "run":
+	if _run_time_rules():
 		sub = L.t("run_board_time", {"s": int(board_time)})
 		if full_clear:
 			sub += "\n" + L.t("run_full_clear_reward", {"s": int(RUN_FULL_CLEAR_TIME), "p": bonus_p})
@@ -675,7 +718,8 @@ func _next_wave(at: Vector2i, palette_already_changed := false) -> void:
 		board.refresh()
 		board.deal_in()
 		dealing = false
-		board.interactive = state == State.PLAYING)
+		board.interactive = state == State.PLAYING
+		if mode.kind == "tutorial": tutorial.wave_done(full_clear,bonus_t,bonus_p))
 
 
 ## The look after the current one: the six base looks in turn; a special look (seasonal or
@@ -828,57 +872,32 @@ func _end_puzzle() -> void:
 	Sfx.play("level" if solved else "over")
 
 
-## Guided strikes of the tutorial board, then one free strike.
-const TUT_MOVES := [Vector2i(1, 0), Vector2i(1, 2), Vector2i(4, 1)]
+## Practice delegates sequencing to a separate controller; compatibility accessors contain no duplicate state.
+func _tutorial_id() -> String: return tutorial.lesson_id()
+func _tutorial_target() -> Vector2i: return tutorial.target()
+func _tutorial_step(i: int) -> void: tutorial.step(i)
+func _tutorial_next() -> void: tutorial.next()
+func _tutorial_retry() -> void: tutorial.retry()
+func _tutorial_help() -> void: tutorial.help()
+func _tutorial_feedback(key: String, args := {}) -> void: tutorial.feedback(key,args)
+func _tutorial_done(key := "", args := {}) -> void: tutorial.done(key,args)
+func _run_time_rules() -> bool:
+	return mode.kind == "run" or (mode.kind == "tutorial" and TutorialLessons.run_rules(_tutorial_id()))
+func _classic_time_rules() -> bool:
+	return mode.kind in ["classic","levels"] or (mode.kind == "tutorial" and not _run_time_rules())
 
-
-func _tutorial_target() -> Vector2i:
-	return TUT_MOVES[tut_step] if tut_step < TUT_MOVES.size() else Vector2i(-1, -1)
-
-
-func _tutorial_step(i: int) -> void:
-	tut_step = i
-	var keys := ["tut1", "tut2", "tut3", "tut4"]
-	tut_label.text = L.t(keys[mini(i, 3)])
-	tut_label.visible = true
-	var target := _tutorial_target()
-	tut_hand.visible = target.x >= 0
-	if target.x >= 0:
-		board.show_hint(target)
-		_place_hand.call_deferred(target)
-
-
-## The hand follows its slot every frame (see _process), so it stays put while the board lays out.
 func _place_hand(target: Vector2i) -> void:
 	tut_hand.set_meta("target", target)
-
 
 func _update_hand() -> void:
 	if not tut_hand.visible or not tut_hand.has_meta("target"):
 		return
 	var target: Vector2i = tut_hand.get_meta("target")
 	var pos := board.global_position + board.slot_center(target) - global_position
-	tut_hand.position = pos + Vector2(-8, 12 + 6 * sin(Time.get_ticks_msec() / 1000.0 * 7.0))
-
-
-func _tutorial_after_strike() -> void:
-	if logic.gems_left() == 0:
-		tut_label.text = L.t("tut_done")
-		tut_hand.visible = false
-		Progress.finish_tutorial()
-		Sfx.play("level")
-		var tw := create_tween()
-		tw.tween_interval(1.6)
-		var generation := _game_generation
-		tw.tween_callback(func():
-			if generation != _game_generation:
-				return
-			tut_label.visible = false
-			state = State.MENU
-			show_screen(modes))
-	elif tut_step < 3:
-		_tutorial_step(tut_step + 1)
-
+	var side := minf(board.cell * 0.34, 48.0)
+	tut_hand.size = Vector2.ONE * side
+	# The reused icon's fingertip is at its top centre; leave the target visible.
+	tut_hand.position = pos + Vector2(-side * 0.5, board.cell * (0.03 + 0.02 * sin(Time.get_ticks_msec() / 1000.0 * 7.0)))
 
 func _today() -> String:
 	return Time.get_date_string_from_system(true)
@@ -892,7 +911,7 @@ func _resume_play() -> void:
 	state = State.PLAYING
 	idle = 0.0
 	last_tick = -1
-	board.interactive = true
+	board.interactive = not dealing and not (mode.kind == "tutorial" and (tut_waiting or tut_clock_running))
 	show_screen(null)
 	board.grab_focus()
 	Yandex.gameplay(true)
@@ -947,6 +966,9 @@ func go_menu() -> void:
 	board.modulate.a = 1.0
 	tut_label.visible = false
 	tut_hand.visible = false
+	practice.visible = false
+	if tutorial: tutorial.tut_clock_running = false
+	board.tutorial_focus = Vector2i(-1,-1)
 	dealing = false
 	if state == State.PLAYING:
 		Yandex.gameplay(false)
@@ -963,11 +985,7 @@ func end_game(reason: String) -> void:
 		return
 	_cancel_ad()
 	if mode.kind == "tutorial":
-		# Practice failure freezes the lesson; stage 7 supplies its Retry/Next shell.
-		state = State.OVER
-		end_reason = reason
-		board.interactive = false
-		Yandex.gameplay(false)
+		tutorial.done("lesson_" + _tutorial_id() + "_result", {"p":score,"s":time_left})
 		return
 	if mode.kind == "run":
 		_report_progress("run_score", score)
@@ -1008,6 +1026,10 @@ func end_game(reason: String) -> void:
 		var target := int(challenge.score)
 		line = (L.t("ch_won", {"n": target}) if score > target else L.t("ch_lost", {"n": target, "d": target - score + 1})) + "\n" + line
 	result.show_result({
+		"localization": {"title":"stuck" if reason == "stuck" else ("no_strikes" if reason == "strikes" else "times_up"),
+			"new_best":("new_daily_best" if daily else "new_best") if is_best and score > 0 else "",
+			"cleared":cleared,"wave":wave,"combo":keeper.best_combo,"precise":keeper.precise_count,
+			"daily":daily,"daily_best":Save.daily_best_for(daily_run_date) if daily else 0,"target":int(challenge.score) if not challenge.is_empty() else -1},
 		"title": L.t("stuck" if reason == "stuck" else ("no_strikes" if reason == "strikes" else "times_up")),
 		"score": score,
 		"new_best": L.t("new_daily_best" if daily else "new_best") if is_best and score > 0 else "",
@@ -1023,26 +1045,37 @@ func end_game(reason: String) -> void:
 
 
 func _on_slot(p: Vector2i) -> void:
-	if state != State.PLAYING or dealing or not logic.in_bounds(p) or not logic.is_empty(p):
+	if state != State.PLAYING or dealing or (mode.kind == "tutorial" and (tut_waiting or tut_clock_running)) or not logic.in_bounds(p):
+		return
+	if not logic.is_empty(p):
+		if mode.kind == "tutorial": tutorial.feedback("lesson_occupied")
 		return
 	board.ripple(p)
 	var gone := logic.matches_from(p)
-	if mode.kind == "tutorial" and tut_step < 3 and p != _tutorial_target():
-		_toast(L.t("tut_wrong"))
-		return
+	if mode.kind == "tutorial":
+		var target := _tutorial_target()
+		if target.x >= 0 and p != target:
+			tutorial.feedback("lesson_wrong")
+			return
+		if gone.is_empty() and _tutorial_id() != "miss":
+			tutorial.feedback("lesson_no_match")
+			return
+		play_time += 0.25 # Pinned controlled practice time still exercises the real combo deadlines.
+	var practice_score_before := score
+	var practice_time_before := time_left
 	if mode.kind == "zen":
 		strikes -= 1 if not gone.is_empty() else 2  # a miss costs two steps
 	elif mode.kind == "puzzle":
 		strikes -= 1
 	if gone.is_empty():
-		if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
+		if _classic_time_rules() or _run_time_rules():
 			time_left = maxf(0.0, time_left - 1.0)
 		board.play_miss(p)
 		Sfx.play("miss")
 		Haptics.buzz("miss")
 		if keeper.miss():
 			_combo_break()
-		if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
+		if _classic_time_rules() or _run_time_rules():
 			hud.flash_delta("−1", true)
 		_tick_obstacles(false)
 		if time_left <= 0.0:
@@ -1052,13 +1085,16 @@ func _on_slot(p: Vector2i) -> void:
 				_end_puzzle()
 			else:
 				end_game("strikes")
+		if mode.kind == "tutorial":
+			tutorial.tut_last_result = {"points":0,"time":time_left-practice_time_before,"miss":true}
+			tutorial.done()
 		_update_hud()
 		return
 	var kinds: Array[int] = []
 	for g in gone:
 		kinds.append(logic.kind_at(g))
 	var nshine := logic.shining_count(gone)
-	var joker_color := logic.joker_match_kind(p) if mode.kind == "run" else BoardLogic.EMPTY
+	var joker_color := logic.joker_match_kind(p) if _run_time_rules() else BoardLogic.EMPTY
 	var vanish := logic.vanishing(gone)
 	var before := logic.cells.duplicate()
 	var defused := 0
@@ -1109,7 +1145,7 @@ func _on_slot(p: Vector2i) -> void:
 		keeper.score += extra.size() * 2
 		score = keeper.score
 		board.praise(L.t("chain"), p, Color("#9fe3ff"))
-	if mode.kind == "classic" or mode.kind == "levels":
+	if _classic_time_rules():
 		time_left += res.time  # the bright run earns time only by clearing a whole board
 	idle = 0.0
 	var event: String = res.event
@@ -1124,7 +1160,7 @@ func _on_slot(p: Vector2i) -> void:
 	_report_progress("gems", vanish.size())
 	if res.tier_up and res.mult == 4:
 		_report_progress("combo4")
-	if res.time > 0 and (mode.kind == "classic" or mode.kind == "levels"):
+	if res.time > 0 and _classic_time_rules():
 		hud.flash_delta("+%d" % int(res.time), false)
 	if res.tier_up:
 		if mode.skin == "bright":
@@ -1141,7 +1177,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_wave(p, 2.0, true)
 		board.play_burst(p, 40)
 		board.flash(UiKit.BRASS_LIGHT, 0.22)
-		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PRECISE_TIME, UiKit.BRASS_LIGHT, "", 2)
+		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, 0.0 if _run_time_rules() else ScoreKeeper.PRECISE_TIME, UiKit.BRASS_LIGHT, "", 2)
 		if mode.skin == "bright":
 			board.play_confetti(50)
 		if mode.id != "bright" or daily:
@@ -1155,7 +1191,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_burst(p, 90)
 		board.flash(Color.WHITE, 0.4)
 		board.shake(0.3)
-		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"), "", 3)
+		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, 0.0 if _run_time_rules() else ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"), "", 3)
 		_report_progress("perfects")
 		if mode.skin == "bright":
 			board.play_confetti(90)
@@ -1176,7 +1212,9 @@ func _on_slot(p: Vector2i) -> void:
 		board.praise(L.t("goal_done"), p, Color("#5cc87a"), 1.2)
 		Sfx.play("bonus")
 	if mode.kind == "tutorial":
-		_tutorial_after_strike()
+		var receipt := res.duplicate(true)
+		receipt.merge({"awarded_points":score-practice_score_before,"awarded_time":time_left-practice_time_before,"removed":vanish.size()}, true)
+		tutorial.after_strike(receipt,p)
 		_update_hud()
 		return
 	if mode.kind == "puzzle":
@@ -1233,11 +1271,14 @@ func _process(delta: float) -> void:
 	_update_hand()
 	if state != State.PLAYING:
 		return
+	if mode.kind == "tutorial":
+		tutorial.process(delta)
+		return
 	if mode.kind == "run" and dealing:
 		return  # The transition's mandatory input lock must not consume combo windows.
 	# Stop Run's combo clock at actual time exhaustion.
 	var game_delta := minf(delta, maxf(time_left, 0.0)) if mode.kind == "run" else delta
-	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
+	if _classic_time_rules() or _run_time_rules():
 		time_left -= game_delta * _time_speed()
 	if mode.kind == "run":
 		play_time += game_delta
@@ -1297,7 +1338,7 @@ func _use_hint() -> void:
 	if state != State.PLAYING or dealing or _ad_pending:
 		return
 	if mode.kind == "tutorial":
-		_show_hint()  # Practice never spends tokens or asks for a reward.
+		tutorial.help()  # Practice never spends tokens or asks for a reward.
 		return
 	if hints > 0:
 		hints -= 1
@@ -1639,6 +1680,7 @@ func _current_screen() -> Screen:
 ## Show one screen (null: none, the game is played) and hide the others. Dialogs fade and grow
 ## in over the dimmed game; full-screen menus hide the game layer.
 func show_screen(p: Screen) -> void:
+	if p == map: p = modes # Dormant maps remain available to internal tests, never user navigation.
 	if p == collection and not Progress.COSMETICS_ENABLED:
 		p = home  # Includes direct/debug routes to the dormant scene.
 	var was_dim := dim.visible
@@ -1649,13 +1691,16 @@ func show_screen(p: Screen) -> void:
 	if menu_surface:
 		board.reset_run_surface()
 		ambient.reset_velvet_palette()
-	ambient.set_skin("classic" if menu_surface else (mode.skin if state == State.MENU else ("classic" if visual_profile == "classic_run" else visual_profile)))
+	ambient.set_skin("classic" if state == State.MENU or menu_surface else ("classic" if visual_profile == "classic_run" else visual_profile))
 	var on_menu := p == home or p == modes or p == map
 	# the game layer stays out of sight behind the menus and anything opened from them
 	game_layer.visible = not on_menu and state != State.MENU
 	for s in screens.values():
 		s.visible = s == p
-	dim.visible = p != null
+	dim.visible = p != null and not menu_surface
+	practice.visible = mode.kind == "tutorial" and state == State.PLAYING and p == null
+	if mode.kind == "tutorial":
+		tut_hand.visible = practice.visible and board.tutorial_focus.x >= 0
 	hud.set_buttons(state == State.PLAYING, state == State.PLAYING or state == State.PAUSED)
 	if not p:
 		return
@@ -1680,7 +1725,9 @@ func show_screen(p: Screen) -> void:
 	var first := p.focus_button()
 	if not first:
 		first = _first_button(p)
-	if first:
+	if p == rules:
+		rules.focus_page.call_deferred()
+	elif first:
 		first.grab_focus.call_deferred()
 
 
@@ -1708,12 +1755,13 @@ func _update_hud() -> void:
 			text = L.t("moves_left", {"n": maxi(strikes, 0)})
 			fraction = float(strikes) / strikes_max
 		"tutorial":
-			text = ""
-			fraction = 1.0
+			text = str(secs)
+			fraction = time_left / START_TIME
 		"levels":
 			fraction = time_left / _level_time(level_n)
 	hud.set_time(text, fraction, state == State.PLAYING and secs <= 15)
 	hud.set_number(hud.best_label, maxi(Save.best_for(mode.id), score))
+	if mode.kind == "tutorial": hud.best_label.text = "—"
 	hud.update_progress(keeper,play_time,state in [State.PLAYING,State.PAUSED],board,wave)
 	hud.set_buttons(state == State.PLAYING, state == State.PLAYING or state == State.PAUSED)
 	var bright: Hud = huds.bright
@@ -1723,8 +1771,11 @@ func _update_hud() -> void:
 	if goal_kind >= 0:
 		bright.level_label.text += "  ·  " + L.t("goal_left", {"n": logic.count_kind(goal_kind)})
 	# the hint button shows an ad badge once the free hint and the spare ones are used up
-	bright.btn_hint.icon = UiKit.icon("hint" if hints > 0 or Progress.hint_tokens > 0 else "video")
-	bright.btn_hint.text = str(Progress.hint_tokens) if hints <= 0 and Progress.hint_tokens > 0 else ""
+	bright.btn_hint.icon = UiKit.icon("hint" if mode.kind == "tutorial" or hints > 0 or Progress.hint_tokens > 0 else "video")
+	bright.btn_hint.text = str(Progress.hint_tokens) if mode.kind != "tutorial" and hints <= 0 and Progress.hint_tokens > 0 else ""
+	if mode.kind == "tutorial":
+		bright.btn_hint.disabled = tut_waiting or tut_clock_running or dealing
+		bright.btn_hint.tooltip_text = L.t("lesson_help")
 
 
 func _toast(text: String) -> void:
@@ -1804,6 +1855,7 @@ func _board_area() -> Vector2:
 ## during a game it is only transposed (when that shape fits better) or rescaled.
 func _relayout_board() -> void:
 	_layout_game()
+	if mode.kind == "tutorial": return # Fixed lesson coordinates never transpose.
 	if mode.kind == "run" and (_run_starting or _run_dims != Vector2i.ZERO):
 		board.refresh()  # Resize rendering only; logical coordinates persist for the entire Run.
 		return
@@ -1848,8 +1900,7 @@ func _on_viewport_resized() -> void:
 	center.offset_top = safe.position.y
 	center.offset_right = -safe.size.x
 	center.offset_bottom = -safe.size.y
-	tut_label.offset_top = 90.0 + safe.position.y
-	tut_label.offset_bottom = tut_label.offset_top + tut_label.size.y
+	tut_label.add_theme_font_size_override("font_size",17 if s.x < 400 else (18 if compact else 20))
 	toast.offset_bottom = -40.0 - safe.size.y
 	toast.offset_top = toast.offset_bottom - toast.size.y
 	var w := clampf(s.x - (24 if compact else 40), 260, 620)
@@ -1882,7 +1933,8 @@ func _avail_height() -> float:
 func _panel_fit(p: Screen) -> float:
 	if p.full_screen:
 		return 1.0  # full-screen layouts arrange themselves
-	return clampf(_avail_height() / maxf(p.size.y, 1.0), 0.5, 1.0)
+	var width := get_viewport_rect().size.x-safe.position.x-safe.size.x-24
+	return clampf(minf(_avail_height()/maxf(p.size.y,1),width/maxf(p.size.x,1)),0.5,1)
 
 
 ## Shrink the scrolling middle of tall dialogs, then scale whatever is still too tall.
@@ -1982,7 +2034,11 @@ func _is_native_android() -> bool:
 func _layout_game() -> void:
 	if not is_node_ready() or not hud:
 		return
-	game_layer.get_node("Column").arrange(board,hud,mode.id,_is_native_android(),get_viewport_rect().size,safe)
+	var column = game_layer.get_node("Column")
+	if mode.kind == "tutorial":
+		column.arrange_practice(board,hud,practice)
+	else:
+		column.arrange(board,hud,mode.id,_is_native_android(),get_viewport_rect().size,safe)
 
 
 func _fit_banner_text() -> void:

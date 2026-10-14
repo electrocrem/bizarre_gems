@@ -11,6 +11,6 @@ func setup(rank: int, player: String, score: int, me: bool) -> void:
 		%PlayerName.theme_type_variation = &"Bold"
 	%PlayerName.text = player
 	%Score.text = str(score)
-	var color := UiKit.BRASS_LIGHT if me else UiKit.CREAM
+	var color := UiKit.MENU_BRASS if me else UiKit.MENU_TEXT
 	%PlayerName.add_theme_color_override("font_color", color)
 	%Score.add_theme_color_override("font_color", color)

@@ -26,6 +26,10 @@ func _ready() -> void:
 	%Button.pressed.connect(func(): pressed.emit())
 	_update_caption()
 
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_TRANSLATION_CHANGED:
+		_update_caption()
+
 
 func _update_caption() -> void:
 	if is_node_ready():

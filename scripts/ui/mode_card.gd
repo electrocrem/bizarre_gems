@@ -16,7 +16,8 @@ signal chosen(mode_id: String)
 
 
 func _ready() -> void:
-	%Preview.texture = preview
+	%Preview.visual_profile = "classic" if mode_id == "classic" else "classic_run"
+	%Preview.number_font = UiKit.NUMBER_FONT
 	%ModeName.text = "mode_" + mode_id
 	%Desc.text = "mode_%s_desc" % mode_id
 	$VBox/Play.icon = play_icon
@@ -25,8 +26,8 @@ func _ready() -> void:
 
 
 func _style() -> void:
-	add_theme_stylebox_override("panel", UiKit.box(UiKit.PANEL, accent, 3, 20, Vector4(16, 16, 16, 18)))
-	%ModeName.add_theme_color_override("font_color", accent.lightened(0.2))
+	add_theme_stylebox_override("panel", UiKit.box(Color(UiKit.MENU_PANEL,.94),Color(UiKit.MENU_BRASS,.65),1,14,Vector4(18,18,18,20)))
+	%ModeName.add_theme_color_override("font_color", UiKit.MENU_TEXT)
 
 
 func set_best(text: String) -> void:

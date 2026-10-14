@@ -51,10 +51,10 @@ func configure(id: String, android: bool) -> void:
 	combo_mult = run_badge.label if id == "bright" else $Stats/Combo/Streak/Panel/VBox/Mult
 	combo_count = $Stats/Combo/Streak/Panel/VBox/Count
 	combo_bar = run_badge.bar if id == "bright" else $Stats/Combo/Streak/Panel/VBox/Bar
-	chain_slot.visible = id in ["classic","bright"]
+	chain_slot.visible = id in ["classic","bright","tutorial"]
 	if level_label: $Stats/Field.visible = id != "tutorial"
 	for slot in [$Stats/Time,$Stats/Score,$Stats/Best]:
-		slot.get_node("Block/Caption").text = L.t(slot.name.to_lower())
+		slot.get_node("Block/Caption").text = L.t("lesson_practice" if id == "tutorial" and slot == $Stats/Best else slot.name.to_lower())
 		slot.get_node("Block/Bar").modulate.a = 1 if slot == $Stats/Time else 0
 	$Stats/Chain/Block/Caption.text = L.t("color_streak_chain")
 	if level_label:
@@ -63,6 +63,22 @@ func configure(id: String, android: bool) -> void:
 
 func layout(_view: Vector2, _compact: bool) -> void:
 	pass # GameComposition fits the actual field and safe area.
+
+func layout_practice(rect: Rect2) -> void:
+	_typography(false)
+	_place($Stats,rect)
+	var top := [$Stats/Time,$Stats/Score,$Stats/Best]
+	var actions_width := minf(240,rect.size.x*.4)
+	var width := (rect.size.x-actions_width-24)/3
+	for i in top.size(): _place(top[i],Rect2(i*(width+8),0,width,52))
+	_buttons(Rect2(rect.position+Vector2(rect.size.x-actions_width,0),Vector2(actions_width,52)))
+	var y := 56.0 if rect.size.y > 64 else 0.0
+	if y == 0:
+		width = (rect.size.x-actions_width-40)/5
+		for i in top.size(): _place(top[i],Rect2(i*(width+8),0,width,64))
+	_place($Stats/Combo,Rect2(0 if y > 0 else 3*(width+8),y,rect.size.x*.46 if y > 0 else width,52))
+	_place($Stats/Chain,Rect2(rect.size.x*.52 if y > 0 else 4*(width+8),y,rect.size.x*.35 if y > 0 else width,52))
+	_fit_combo()
 
 func header_height(width: float) -> float:
 	return 128 if mode_id == "bright" and width < 680 else 64

@@ -47,7 +47,7 @@ static func joker(c: CanvasItem, p: Vector2, s: float, offset := Vector2.ZERO) -
 	_polygon(c,star,INK,offset)
 	outline(c,star,Color.WHITE,maxf(1,s*.018))
 
-static func overlays(c: CanvasItem, p: Vector2, s: float, boxed: bool, linked: bool, iced: bool, bomb: int, cham: bool, font: Font) -> void:
+static func overlays(c: CanvasItem, p: Vector2, s: float, boxed: bool, linked: bool, iced: bool, bomb: int, cham: bool, font: Font, offset := Vector2.ZERO) -> void:
 	var line := maxf(1.1,s*.027)
 	if boxed:
 		var rect := Rect2(p-Vector2.ONE*s*.43,Vector2.ONE*s*.86)
@@ -60,7 +60,7 @@ static func overlays(c: CanvasItem, p: Vector2, s: float, boxed: bool, linked: b
 				c.draw_circle(q,s*.025,LIGHT)
 	if iced:
 		var edge := octagon(p,s*.46)
-		c.draw_colored_polygon(edge,Color(.62,.85,.91,.13))
+		_polygon(c,edge,Color(.62,.85,.91,.13),offset)
 		outline(c,edge,FROST,line)
 		for i in [0,2,4,6]:
 			var tip := edge[i]
@@ -74,8 +74,8 @@ static func overlays(c: CanvasItem, p: Vector2, s: float, boxed: bool, linked: b
 			c.draw_arc(p,s*.43,a,a+PI*.64,14,col,line*1.25,true)
 			var tip := p+Vector2.from_angle(a+PI*.64)*s*.43
 			var tangent := Vector2.from_angle(a+PI*.64+PI/2)
-			c.draw_colored_polygon(PackedVector2Array([tip,tip-tangent*s*.12+Vector2.from_angle(a+PI*.64)*s*.055,
-				tip-tangent*s*.12-Vector2.from_angle(a+PI*.64)*s*.055]),col)
+			_polygon(c,PackedVector2Array([tip,tip-tangent*s*.12+Vector2.from_angle(a+PI*.64)*s*.055,
+				tip-tangent*s*.12-Vector2.from_angle(a+PI*.64)*s*.055]),col,offset)
 	if linked:
 		var q := p+Vector2(-.27,.29)*s
 		c.draw_circle(q,s*.19,INK)

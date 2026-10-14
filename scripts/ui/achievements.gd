@@ -13,7 +13,7 @@ func refresh() -> void:
 		var row := ROW.instantiate()
 		%List.add_child(row)
 		row.setup(L.t("ach_" + str(a.id), {"n": a.goal}), Progress.achievement_progress(i), int(a.goal), int(a.reward), got,
-			UiKit.BRASS if done else Color(1, 1, 1, 0.25))
+			UiKit.MENU_BRASS if done else Color(1, 1, 1, 0.25))
 		var idx := i
 		row.claim_pressed.connect(func():
 			Progress.claim_achievement(idx)

@@ -35,47 +35,55 @@ corner_radius_bottom_left = 11
 [node name="Rules" type="PanelContainer"]
 script = ExtResource("1")
 
-[node name="VBox" type="VBoxContainer" parent="."]
+[node name="Scroll" type="ScrollContainer" parent="."]
+focus_mode = 2
+layout_mode = 2
+unique_name_in_owner = true
+horizontal_scroll_mode = 0
+follow_focus = true
+
+[node name="VBox" type="VBoxContainer" parent="Scroll"]
+size_flags_horizontal = 3
 layout_mode = 2
 theme_override_constants/separation = 14
 
-[node name="Title" type="Label" parent="VBox"]
+[node name="Title" type="Label" parent="Scroll/VBox"]
 layout_mode = 2
 theme_type_variation = &"Title"
 theme_override_font_sizes/font_size = 36
 text = "how_title"
 horizontal_alignment = 1
 
-[node name="Pages" type="VBoxContainer" parent="VBox"]
+[node name="Pages" type="VBoxContainer" parent="Scroll/VBox"]
 layout_mode = 2
 unique_name_in_owner = true
 custom_minimum_size = Vector2(0, 330)
 mouse_filter = 0
 
-[node name="Page0" type="VBoxContainer" parent="VBox/Pages"]
+[node name="Page0" type="VBoxContainer" parent="Scroll/VBox/Pages"]
 layout_mode = 2
 theme_override_constants/separation = 12
 size_flags_vertical = 3
 
-[node name="Head" type="HBoxContainer" parent="VBox/Pages/Page0"]
+[node name="Head" type="HBoxContainer" parent="Scroll/VBox/Pages/Page0"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Icon" type="TextureRect" parent="VBox/Pages/Page0/Head"]
+[node name="Icon" type="TextureRect" parent="Scroll/VBox/Pages/Page0/Head"]
 layout_mode = 2
 custom_minimum_size = Vector2(30, 30)
 size_flags_vertical = 4
 texture = ExtResource("2")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
-[node name="Heading" type="Label" parent="VBox/Pages/Page0/Head"]
+[node name="Heading" type="Label" parent="Scroll/VBox/Pages/Page0/Head"]
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "rp_0"
 
-[node name="rule1" type="Label" parent="VBox/Pages/Page0"]
+[node name="rule1" type="Label" parent="Scroll/VBox/Pages/Page0"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -83,7 +91,7 @@ text = "rule1"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="rule2" type="Label" parent="VBox/Pages/Page0"]
+[node name="rule2" type="Label" parent="Scroll/VBox/Pages/Page0"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -91,31 +99,31 @@ text = "rule2"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="Page1" type="VBoxContainer" parent="VBox/Pages"]
+[node name="Page1" type="VBoxContainer" parent="Scroll/VBox/Pages"]
 layout_mode = 2
 theme_override_constants/separation = 12
 size_flags_vertical = 3
 visible = false
 
-[node name="Head" type="HBoxContainer" parent="VBox/Pages/Page1"]
+[node name="Head" type="HBoxContainer" parent="Scroll/VBox/Pages/Page1"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Icon" type="TextureRect" parent="VBox/Pages/Page1/Head"]
+[node name="Icon" type="TextureRect" parent="Scroll/VBox/Pages/Page1/Head"]
 layout_mode = 2
 custom_minimum_size = Vector2(30, 30)
 size_flags_vertical = 4
 texture = ExtResource("3")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
-[node name="Heading" type="Label" parent="VBox/Pages/Page1/Head"]
+[node name="Heading" type="Label" parent="Scroll/VBox/Pages/Page1/Head"]
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "rp_1"
 
-[node name="rule3" type="Label" parent="VBox/Pages/Page1"]
+[node name="rule3" type="Label" parent="Scroll/VBox/Pages/Page1"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -123,7 +131,7 @@ text = "rule3"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="rule4" type="Label" parent="VBox/Pages/Page1"]
+[node name="rule4" type="Label" parent="Scroll/VBox/Pages/Page1"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -131,75 +139,89 @@ text = "rule4"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="Pay" type="VBoxContainer" parent="VBox/Pages/Page1"]
+[node name="Pay" type="VBoxContainer" parent="Scroll/VBox/Pages/Page1"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="pay2" type="Label" parent="VBox/Pages/Page1/Pay"]
+[node name="pay2" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
 layout_mode = 2
 theme_type_variation = &"NumberGold"
-theme_override_colors/font_color = Color(1, 0.9137, 0.6392, 1)
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
 theme_override_font_sizes/font_size = 16
 text = "pay2"
 autowrap_mode = 3
 
-[node name="pay3" type="Label" parent="VBox/Pages/Page1/Pay"]
+[node name="pay3" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
 layout_mode = 2
 theme_type_variation = &"NumberGold"
-theme_override_colors/font_color = Color(1, 0.9137, 0.6392, 1)
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
 theme_override_font_sizes/font_size = 16
 text = "pay3"
 autowrap_mode = 3
 
-[node name="pay4" type="Label" parent="VBox/Pages/Page1/Pay"]
+[node name="pay4" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
 layout_mode = 2
 theme_type_variation = &"NumberGold"
-theme_override_colors/font_color = Color(1, 0.9137, 0.6392, 1)
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
 theme_override_font_sizes/font_size = 16
 text = "pay4"
 autowrap_mode = 3
 
-[node name="pay_combo" type="Label" parent="VBox/Pages/Page1/Pay"]
+[node name="pay_combo" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
 layout_mode = 2
 theme_type_variation = &"NumberGold"
-theme_override_colors/font_color = Color(1, 0.9137, 0.6392, 1)
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
 theme_override_font_sizes/font_size = 16
 text = "pay_combo"
 autowrap_mode = 3
 
-[node name="pay_precise" type="Label" parent="VBox/Pages/Page1/Pay"]
+[node name="pay_precise" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
 layout_mode = 2
 theme_type_variation = &"NumberGold"
-theme_override_colors/font_color = Color(1, 0.9137, 0.6392, 1)
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
 theme_override_font_sizes/font_size = 16
 text = "pay_precise"
 autowrap_mode = 3
 
-[node name="Page2" type="VBoxContainer" parent="VBox/Pages"]
+[node name="DoubleHit" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
+layout_mode = 2
+theme_type_variation = &"NumberGold"
+theme_override_font_sizes/font_size = 16
+text = "pay_double_hit"
+autowrap_mode = 3
+
+[node name="ColorChain" type="Label" parent="Scroll/VBox/Pages/Page1/Pay"]
+layout_mode = 2
+theme_type_variation = &"NumberGold"
+theme_override_font_sizes/font_size = 16
+text = "pay_color_chain"
+autowrap_mode = 3
+
+[node name="Page2" type="VBoxContainer" parent="Scroll/VBox/Pages"]
 layout_mode = 2
 theme_override_constants/separation = 12
 size_flags_vertical = 3
 visible = false
 
-[node name="Head" type="HBoxContainer" parent="VBox/Pages/Page2"]
+[node name="Head" type="HBoxContainer" parent="Scroll/VBox/Pages/Page2"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Icon" type="TextureRect" parent="VBox/Pages/Page2/Head"]
+[node name="Icon" type="TextureRect" parent="Scroll/VBox/Pages/Page2/Head"]
 layout_mode = 2
 custom_minimum_size = Vector2(30, 30)
 size_flags_vertical = 4
 texture = ExtResource("4")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
-[node name="Heading" type="Label" parent="VBox/Pages/Page2/Head"]
+[node name="Heading" type="Label" parent="Scroll/VBox/Pages/Page2/Head"]
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "rp_2"
 
-[node name="rule_bright" type="Label" parent="VBox/Pages/Page2"]
+[node name="rule_bright" type="Label" parent="Scroll/VBox/Pages/Page2"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -207,40 +229,40 @@ text = "rule_bright"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="Page3" type="VBoxContainer" parent="VBox/Pages"]
+[node name="Page3" type="VBoxContainer" parent="Scroll/VBox/Pages"]
 layout_mode = 2
 theme_override_constants/separation = 12
 size_flags_vertical = 3
 visible = false
 
-[node name="Head" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Head" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Icon" type="TextureRect" parent="VBox/Pages/Page3/Head"]
+[node name="Icon" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Head"]
 layout_mode = 2
 custom_minimum_size = Vector2(30, 30)
 size_flags_vertical = 4
 texture = ExtResource("5")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
-[node name="Heading" type="Label" parent="VBox/Pages/Page3/Head"]
+[node name="Heading" type="Label" parent="Scroll/VBox/Pages/Page3/Head"]
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "rp_3"
 
-[node name="Joker" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Joker" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Icon" type="Control" parent="VBox/Pages/Page3/Joker"]
+[node name="Icon" type="Control" parent="Scroll/VBox/Pages/Page3/Joker"]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 40)
 size_flags_vertical = 4
 
-[node name="Tile" type="TextureRect" parent="VBox/Pages/Page3/Joker/Icon"]
+[node name="Tile" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Joker/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -248,7 +270,7 @@ anchor_bottom = 1.0
 texture = ExtResource("6")
 expand_mode = 1
 
-[node name="Text" type="Label" parent="VBox/Pages/Page3/Joker"]
+[node name="Text" type="Label" parent="Scroll/VBox/Pages/Page3/Joker"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 16
@@ -257,16 +279,16 @@ autowrap_mode = 3
 size_flags_horizontal = 3
 size_flags_vertical = 4
 
-[node name="Box" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Box" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Icon" type="Control" parent="VBox/Pages/Page3/Box"]
+[node name="Icon" type="Control" parent="Scroll/VBox/Pages/Page3/Box"]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 40)
 size_flags_vertical = 4
 
-[node name="Tile" type="TextureRect" parent="VBox/Pages/Page3/Box/Icon"]
+[node name="Tile" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Box/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -274,7 +296,7 @@ anchor_bottom = 1.0
 texture = ExtResource("7")
 expand_mode = 1
 
-[node name="Over" type="TextureRect" parent="VBox/Pages/Page3/Box/Icon"]
+[node name="Over" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Box/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -282,7 +304,7 @@ anchor_bottom = 1.0
 texture = ExtResource("8")
 expand_mode = 1
 
-[node name="Text" type="Label" parent="VBox/Pages/Page3/Box"]
+[node name="Text" type="Label" parent="Scroll/VBox/Pages/Page3/Box"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 16
@@ -291,16 +313,16 @@ autowrap_mode = 3
 size_flags_horizontal = 3
 size_flags_vertical = 4
 
-[node name="Chain" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Chain" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Icon" type="Control" parent="VBox/Pages/Page3/Chain"]
+[node name="Icon" type="Control" parent="Scroll/VBox/Pages/Page3/Chain"]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 40)
 size_flags_vertical = 4
 
-[node name="Tile" type="TextureRect" parent="VBox/Pages/Page3/Chain/Icon"]
+[node name="Tile" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Chain/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -308,7 +330,7 @@ anchor_bottom = 1.0
 texture = ExtResource("7")
 expand_mode = 1
 
-[node name="Badge" type="Panel" parent="VBox/Pages/Page3/Chain/Icon"]
+[node name="Badge" type="Panel" parent="Scroll/VBox/Pages/Page3/Chain/Icon"]
 layout_mode = 0
 offset_left = 20.0
 offset_top = -4.0
@@ -316,7 +338,7 @@ offset_right = 42.0
 offset_bottom = 18.0
 theme_override_styles/panel = SubResource("StyleBoxFlat_1")
 
-[node name="Link" type="TextureRect" parent="VBox/Pages/Page3/Chain/Icon/Badge"]
+[node name="Link" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Chain/Icon/Badge"]
 layout_mode = 0
 offset_left = 3.0
 offset_top = 3.0
@@ -325,7 +347,7 @@ offset_bottom = 19.0
 texture = ExtResource("9")
 expand_mode = 1
 
-[node name="Text" type="Label" parent="VBox/Pages/Page3/Chain"]
+[node name="Text" type="Label" parent="Scroll/VBox/Pages/Page3/Chain"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 16
@@ -334,16 +356,17 @@ autowrap_mode = 3
 size_flags_horizontal = 3
 size_flags_vertical = 4
 
-[node name="Ice" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Ice" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Icon" type="Control" parent="VBox/Pages/Page3/Ice"]
+[node name="Icon" type="Control" parent="Scroll/VBox/Pages/Page3/Ice"]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 40)
 size_flags_vertical = 4
 
-[node name="Tile" type="TextureRect" parent="VBox/Pages/Page3/Ice/Icon"]
+[node name="Tile" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Ice/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -351,7 +374,7 @@ anchor_bottom = 1.0
 texture = ExtResource("7")
 expand_mode = 1
 
-[node name="Over" type="TextureRect" parent="VBox/Pages/Page3/Ice/Icon"]
+[node name="Over" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Ice/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -359,7 +382,7 @@ anchor_bottom = 1.0
 texture = ExtResource("10")
 expand_mode = 1
 
-[node name="Text" type="Label" parent="VBox/Pages/Page3/Ice"]
+[node name="Text" type="Label" parent="Scroll/VBox/Pages/Page3/Ice"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 16
@@ -368,16 +391,17 @@ autowrap_mode = 3
 size_flags_horizontal = 3
 size_flags_vertical = 4
 
-[node name="Bomb" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Bomb" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
+visible = false
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Icon" type="Control" parent="VBox/Pages/Page3/Bomb"]
+[node name="Icon" type="Control" parent="Scroll/VBox/Pages/Page3/Bomb"]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 40)
 size_flags_vertical = 4
 
-[node name="Tile" type="TextureRect" parent="VBox/Pages/Page3/Bomb/Icon"]
+[node name="Tile" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Bomb/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -385,7 +409,7 @@ anchor_bottom = 1.0
 texture = ExtResource("7")
 expand_mode = 1
 
-[node name="Bomb" type="TextureRect" parent="VBox/Pages/Page3/Bomb/Icon"]
+[node name="Bomb" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Bomb/Icon"]
 layout_mode = 0
 offset_left = 20.0
 offset_top = -4.0
@@ -394,7 +418,7 @@ offset_bottom = 20.0
 texture = ExtResource("11")
 expand_mode = 1
 
-[node name="Text" type="Label" parent="VBox/Pages/Page3/Bomb"]
+[node name="Text" type="Label" parent="Scroll/VBox/Pages/Page3/Bomb"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 16
@@ -403,16 +427,16 @@ autowrap_mode = 3
 size_flags_horizontal = 3
 size_flags_vertical = 4
 
-[node name="Chameleon" type="HBoxContainer" parent="VBox/Pages/Page3"]
+[node name="Chameleon" type="HBoxContainer" parent="Scroll/VBox/Pages/Page3"]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Icon" type="Control" parent="VBox/Pages/Page3/Chameleon"]
+[node name="Icon" type="Control" parent="Scroll/VBox/Pages/Page3/Chameleon"]
 layout_mode = 2
 custom_minimum_size = Vector2(40, 40)
 size_flags_vertical = 4
 
-[node name="Tile" type="TextureRect" parent="VBox/Pages/Page3/Chameleon/Icon"]
+[node name="Tile" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Chameleon/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -420,7 +444,7 @@ anchor_bottom = 1.0
 texture = ExtResource("7")
 expand_mode = 1
 
-[node name="Over" type="TextureRect" parent="VBox/Pages/Page3/Chameleon/Icon"]
+[node name="Over" type="TextureRect" parent="Scroll/VBox/Pages/Page3/Chameleon/Icon"]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -428,7 +452,7 @@ anchor_bottom = 1.0
 texture = ExtResource("12")
 expand_mode = 1
 
-[node name="Text" type="Label" parent="VBox/Pages/Page3/Chameleon"]
+[node name="Text" type="Label" parent="Scroll/VBox/Pages/Page3/Chameleon"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 16
@@ -437,31 +461,31 @@ autowrap_mode = 3
 size_flags_horizontal = 3
 size_flags_vertical = 4
 
-[node name="Page4" type="VBoxContainer" parent="VBox/Pages"]
+[node name="Page4" type="VBoxContainer" parent="Scroll/VBox/Pages"]
 layout_mode = 2
 theme_override_constants/separation = 12
 size_flags_vertical = 3
 visible = false
 
-[node name="Head" type="HBoxContainer" parent="VBox/Pages/Page4"]
+[node name="Head" type="HBoxContainer" parent="Scroll/VBox/Pages/Page4"]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="Icon" type="TextureRect" parent="VBox/Pages/Page4/Head"]
+[node name="Icon" type="TextureRect" parent="Scroll/VBox/Pages/Page4/Head"]
 layout_mode = 2
 custom_minimum_size = Vector2(30, 30)
 size_flags_vertical = 4
 texture = ExtResource("13")
 expand_mode = 1
 stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
+modulate = Color(0.77647, 0.63921, 0.36078, 1)
 
-[node name="Heading" type="Label" parent="VBox/Pages/Page4/Head"]
+[node name="Heading" type="Label" parent="Scroll/VBox/Pages/Page4/Head"]
 layout_mode = 2
 theme_type_variation = &"Heading"
 text = "rp_4"
 
-[node name="rule5" type="Label" parent="VBox/Pages/Page4"]
+[node name="rule5" type="Label" parent="Scroll/VBox/Pages/Page4"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -469,7 +493,7 @@ text = "rule5"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="rule_daily" type="Label" parent="VBox/Pages/Page4"]
+[node name="rule_daily" type="Label" parent="Scroll/VBox/Pages/Page4"]
 layout_mode = 2
 theme_type_variation = &"Body"
 theme_override_font_sizes/font_size = 18
@@ -477,24 +501,24 @@ text = "rule_daily"
 autowrap_mode = 3
 size_flags_horizontal = 3
 
-[node name="Pay" type="VBoxContainer" parent="VBox/Pages/Page4"]
+[node name="Pay" type="VBoxContainer" parent="Scroll/VBox/Pages/Page4"]
 layout_mode = 2
 theme_override_constants/separation = 4
 
-[node name="pay_shine" type="Label" parent="VBox/Pages/Page4/Pay"]
+[node name="pay_shine" type="Label" parent="Scroll/VBox/Pages/Page4/Pay"]
 layout_mode = 2
 theme_type_variation = &"NumberGold"
-theme_override_colors/font_color = Color(1, 0.9137, 0.6392, 1)
+theme_override_colors/font_color = Color(0.95686, 0.92941, 0.85490, 1)
 theme_override_font_sizes/font_size = 16
 text = "pay_shine"
 autowrap_mode = 3
 
-[node name="Nav" type="HBoxContainer" parent="VBox"]
+[node name="Nav" type="HBoxContainer" parent="Scroll/VBox"]
 layout_mode = 2
 theme_override_constants/separation = 16
 alignment = 1
 
-[node name="Prev" type="Button" parent="VBox/Nav"]
+[node name="Prev" type="Button" parent="Scroll/VBox/Nav"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"IconButton"
@@ -502,33 +526,33 @@ icon = ExtResource("14")
 custom_minimum_size = Vector2(52, 52)
 icon_alignment = 1
 
-[node name="Dots" type="HBoxContainer" parent="VBox/Nav"]
+[node name="Dots" type="HBoxContainer" parent="Scroll/VBox/Nav"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_override_constants/separation = 8
 size_flags_vertical = 4
 
-[node name="Dot0" type="Panel" parent="VBox/Nav/Dots"]
+[node name="Dot0" type="Panel" parent="Scroll/VBox/Nav/Dots"]
 layout_mode = 2
 custom_minimum_size = Vector2(10, 10)
 
-[node name="Dot1" type="Panel" parent="VBox/Nav/Dots"]
+[node name="Dot1" type="Panel" parent="Scroll/VBox/Nav/Dots"]
 layout_mode = 2
 custom_minimum_size = Vector2(10, 10)
 
-[node name="Dot2" type="Panel" parent="VBox/Nav/Dots"]
+[node name="Dot2" type="Panel" parent="Scroll/VBox/Nav/Dots"]
 layout_mode = 2
 custom_minimum_size = Vector2(10, 10)
 
-[node name="Dot3" type="Panel" parent="VBox/Nav/Dots"]
+[node name="Dot3" type="Panel" parent="Scroll/VBox/Nav/Dots"]
 layout_mode = 2
 custom_minimum_size = Vector2(10, 10)
 
-[node name="Dot4" type="Panel" parent="VBox/Nav/Dots"]
+[node name="Dot4" type="Panel" parent="Scroll/VBox/Nav/Dots"]
 layout_mode = 2
 custom_minimum_size = Vector2(10, 10)
 
-[node name="Next" type="Button" parent="VBox/Nav"]
+[node name="Next" type="Button" parent="Scroll/VBox/Nav"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"IconButton"
@@ -536,26 +560,26 @@ icon = ExtResource("15")
 custom_minimum_size = Vector2(52, 52)
 icon_alignment = 1
 
-[node name="Buttons" type="HFlowContainer" parent="VBox"]
+[node name="Buttons" type="HFlowContainer" parent="Scroll/VBox"]
 layout_mode = 2
 alignment = 1
 theme_override_constants/h_separation = 10
 theme_override_constants/v_separation = 10
 
-[node name="Tutorial" type="Button" parent="VBox/Buttons"]
+[node name="Tutorial" type="Button" parent="Scroll/VBox/Buttons"]
 layout_mode = 2
 unique_name_in_owner = true
 text = "tutorial"
 icon = ExtResource("2")
 
-[node name="Close" type="Button" parent="VBox/Buttons"]
+[node name="Close" type="Button" parent="Scroll/VBox/Buttons"]
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"PrimaryButton"
 text = "close"
 
-[connection signal="gui_input" from="VBox/Pages" to="." method="_on_pages_gui_input"]
-[connection signal="pressed" from="VBox/Nav/Prev" to="." method="_on_prev_pressed"]
-[connection signal="pressed" from="VBox/Nav/Next" to="." method="_on_next_pressed"]
-[connection signal="pressed" from="VBox/Buttons/Tutorial" to="." method="_on_tutorial_pressed"]
-[connection signal="pressed" from="VBox/Buttons/Close" to="." method="_on_close_pressed"]
+[connection signal="gui_input" from="Scroll/VBox/Pages" to="." method="_on_pages_gui_input"]
+[connection signal="pressed" from="Scroll/VBox/Nav/Prev" to="." method="_on_prev_pressed"]
+[connection signal="pressed" from="Scroll/VBox/Nav/Next" to="." method="_on_next_pressed"]
+[connection signal="pressed" from="Scroll/VBox/Buttons/Tutorial" to="." method="_on_tutorial_pressed"]
+[connection signal="pressed" from="Scroll/VBox/Buttons/Close" to="." method="_on_close_pressed"]

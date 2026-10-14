@@ -47,30 +47,19 @@ func _process(delta: float) -> void:
 
 func layout(view: Vector2, _compact: bool) -> void:
 	var short := view.y < 600
-	%Title.add_theme_font_size_override("font_size", 40 if short else (46 if view.x < 600 else 64))
+	var content_width := maxf(1,size.x-get_theme_constant("margin_left")-get_theme_constant("margin_right")-12)
+	%VBox.custom_minimum_size.x = minf(content_width,960)
+	%Daily.custom_minimum_size.x = minf(400,content_width)
+	%Challenge.custom_minimum_size.x = %Daily.custom_minimum_size.x
+	%Title.add_theme_font_size_override("font_size", 36 if short else (40 if view.x < 600 else 58))
 	%Gems.visible = view.y >= 560
-	%VBox.add_theme_constant_override("separation", 8 if short else 18)
-	%Play.custom_minimum_size = Vector2(260, 62 if short else 78)
+	%VBox.add_theme_constant_override("separation", 8 if short else 16)
+	%Play.custom_minimum_size = Vector2(260, 60 if short else 68)
 
 
-## When the round buttons wrap (a narrow window, long captions) the screen can still overflow:
-## then tighter spacing, then no gems, then scale the rest down around the screen's centre.
+## Content scrolls at its readable size; even the last service is reachable on small screens.
 func fit(_avail: float) -> void:
-	var v: VBoxContainer = %VBox
-	v.scale = Vector2.ONE
-	var top_m := get_theme_constant("margin_top")
-	var avail := size.y - top_m - get_theme_constant("margin_bottom")
-	if v.get_combined_minimum_size().y > avail:
-		v.add_theme_constant_override("separation", 8)
-	if v.get_combined_minimum_size().y > avail:
-		%Gems.visible = false
-	var h := v.get_combined_minimum_size().y
-	if h > avail:
-		var k := maxf(avail / h, 0.5)
-		# pivot chosen so the scaled content ends up centred on the screen, not at the overflowing box's middle
-		var top := top_m + (avail - h * k) / 2.0
-		v.pivot_offset = Vector2(v.size.x / 2.0, (top - v.position.y) / (1.0 - k))
-		v.scale = Vector2.ONE * k
+	%VBox.scale = Vector2.ONE
 
 
 func _on_play_pressed() -> void:
