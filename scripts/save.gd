@@ -49,6 +49,9 @@ func sync_cloud() -> void:
 		if int(d.get("best_bright", 0)) > best_bright:
 			best_bright = int(d.get("best_bright", 0))
 			newer = true
+		if int(d.get("best_zen", 0)) > best_zen:
+			best_zen = int(d.get("best_zen", 0))
+			newer = true
 		Progress.merge(d.get("progress", {}))
 		if newer:
 			_write_local()
@@ -58,10 +61,13 @@ func sync_cloud() -> void:
 
 ## Best score of today's daily board. Returns true on a new daily record.
 func submit_daily(score: int, date: String) -> bool:
-	if daily_date != date:
+	var date_changed := daily_date != date
+	if date_changed:
 		daily_date = date
 		daily_best = 0
 	if score <= daily_best:
+		if date_changed:
+			store()  # Persist a new day's zero result too.
 		return false
 	daily_best = score
 	store()
@@ -92,6 +98,8 @@ func cloud_data() -> Dictionary:
 
 
 func submit(score: int, mode := "classic") -> bool:
+	if mode not in ["classic", "bright", "zen"]:
+		return false  # Practice/hidden level results cannot fall through to Classic.
 	if score <= best_for(mode):
 		return false
 	if mode == "levels":

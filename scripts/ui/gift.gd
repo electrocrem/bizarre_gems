@@ -13,7 +13,7 @@ func refresh() -> void:
 		%Days.add_child(day)
 		day.setup(d, Progress.gift_amount(d), d == next_day)
 	$VBox/Buttons/Take.visible = ready
-	%Line.text = L.t("gift_day7") if ready else L.t("gift_tomorrow")
+	%Line.text = L.t("gift_day7" if Progress.COSMETICS_ENABLED else "gift_daily_crystals") if ready else L.t("gift_tomorrow")
 
 
 func focus_button() -> Button:
@@ -25,7 +25,7 @@ func _on_take_pressed() -> void:
 	if r.is_empty():
 		return
 	Sfx.play("level")
-	toast.emit(L.t("gift_got", {"n": r.crystals}) + ("  ·  " + L.t("gift_look") if int(r.look) >= 0 else ""))
+	toast.emit(L.t("gift_got", {"n": r.crystals}) + ("  ·  " + L.t("gift_look") if Progress.COSMETICS_ENABLED and int(r.look) >= 0 else ""))
 	refresh()
 
 

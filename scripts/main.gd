@@ -85,6 +85,8 @@ var _auto_t := 0.0
 var _stuck_t := 0.0
 ## Invalidates pending deals, completion animations and ads when their game is left/replaced.
 var _game_generation := 0
+var _ad_request := 0
+var _ad_pending := false
 
 # ---- nodes of scenes/main.tscn ----
 @onready var ambient: Ambient = $Ambient
@@ -189,7 +191,7 @@ func _connect_screens() -> void:
 		h.hint_pressed.connect(_use_hint)
 
 	home.play_pressed.connect(func():
-		if Progress.tutorial:
+		if not Progress.needs_tutorial():
 			show_screen(modes)
 		else:
 			start_game("tutorial"))
@@ -229,6 +231,8 @@ func _connect_screens() -> void:
 
 ## A screen asked for another one (Screen.navigate).
 func _navigate(to: StringName) -> void:
+	if to == &"collection" and not Progress.COSMETICS_ENABLED:
+		return
 	match to:
 		&"back":
 			_on_back()
@@ -327,6 +331,7 @@ func _on_language_changed() -> void:
 
 func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	_game_generation += 1
+	_cancel_ad()
 	var generation := _game_generation
 	_run_starting = false
 	_run_dims = Vector2i.ZERO
@@ -375,7 +380,7 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 		board.modulate.a = 1.0
 	_deal_board()
 	level_total = logic.gems_left()
-	_set_theme(Progress.look, true)
+	_set_theme(Progress.active_look(), true)
 	score = 0
 	shown_score = 0.0
 	keeper.reset()
@@ -606,12 +611,12 @@ func _next_wave(at: Vector2i) -> void:
 		strikes += add
 		strikes_max = maxi(strikes_max, strikes)
 		hud.flash_delta("+%d" % add, false, "steps")
-		Progress.report("zen_boards")
+		_report_progress("zen_boards")
 	if full_clear:
 		board.play_clear_wave()
 		Sfx.play("clear")
 	elif mode.kind == "zen" or mode.kind == "run":
-		Progress.report("clear_boards")
+		_report_progress("clear_boards")
 	var bonus_p := CLEAR_POINTS if full_clear else 0
 	if full_clear and mode.kind == "run":
 		bonus_p = 100 + 50 * (wave - 1)  # clearing a whole run board is the big score
@@ -666,7 +671,7 @@ func _set_theme(i: int, instant := false) -> void:
 	if mode.kind == "levels":
 		t = UiKit.CHAPTER_THEMES[BoardLogic.chapter_of(level_n) % UiKit.CHAPTER_THEMES.size()]  # each chapter keeps its own sky
 	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
-	board.palette = Progress.look  # tiles always show the pack chosen in the collection; only the backdrop cycles
+	board.palette = Progress.active_look()  # Disabled cosmetics leave the saved choice intact.
 	if not instant:
 		board.flash(Color.WHITE, 0.35)
 		board.glow(1.0)
@@ -711,6 +716,7 @@ func start_level(n: int) -> void:
 func _end_level() -> void:
 	if state == State.OVER:
 		return
+	_cancel_ad()
 	state = State.OVER
 	board.interactive = false
 	Yandex.gameplay(false)
@@ -726,8 +732,8 @@ func _end_level() -> void:
 		Progress.crystals += gained * Progress.STAR_CRYSTALS * 2  # bosses pay triple
 		last_earned *= 3
 		Progress.flush()
-	Progress.report("games_levels")
-	Progress.report("play_secs", int(play_time))
+	_report_progress("games_levels")
+	_report_progress("play_secs", int(play_time))
 	Progress.add_local_score("stars", Progress.total_stars())
 	if Yandex.is_authorized():
 		Yandex.submit_score(Progress.total_stars(), "stars")
@@ -753,6 +759,7 @@ func start_puzzle(n: int) -> void:
 func _end_puzzle() -> void:
 	if state == State.OVER:
 		return
+	_cancel_ad()
 	state = State.OVER
 	board.interactive = false
 	var solved := logic.gems_left() == 0
@@ -762,7 +769,7 @@ func _end_puzzle() -> void:
 			last_earned = 10
 			Progress.add_crystals(10)
 		Progress.solved_puzzle(puzzle_n)
-	Progress.report("games_puzzle")
+	_report_progress("games_puzzle")
 	level_result.show_result({
 		"title": L.t("puzzle_n", {"n": puzzle_n}),
 		"outcome": L.t("puzzle_solved" if solved else "puzzle_failed"),
@@ -881,6 +888,8 @@ func pause_game() -> void:
 
 
 func go_menu() -> void:
+	_cancel_ad()
+	Progress.flush()
 	keeper.reset_bonus_combos()
 	_game_generation += 1
 	_run_starting = false
@@ -898,11 +907,21 @@ func go_menu() -> void:
 
 
 func end_game(reason: String) -> void:
+	if state == State.OVER or state == State.MENU:
+		return  # A result is accounted once, including after repeated end requests.
 	if mode.kind == "levels":
 		_end_level()
 		return
+	_cancel_ad()
+	if mode.kind == "tutorial":
+		# Practice failure freezes the lesson; stage 7 supplies its Retry/Next shell.
+		state = State.OVER
+		end_reason = reason
+		board.interactive = false
+		Yandex.gameplay(false)
+		return
 	if mode.kind == "run":
-		Progress.report("run_score", score)
+		_report_progress("run_score", score)
 	# Result screens freeze play_time; a first Run time-continue retains eligible clocks.
 	if mode.kind == "run" and reason == "time" and not used_continue:
 		if keeper.update(play_time):
@@ -928,9 +947,9 @@ func end_game(reason: String) -> void:
 	var daily_paid := Progress.pay_daily(daily_run_date) if daily else 0
 	Progress.add_crystals(maxi(earned, 0))
 	last_earned = maxi(earned, 0) + daily_paid
-	Progress.report("games_" + mode.id)
-	Progress.report("max_combo", keeper.best_combo)
-	Progress.report("play_secs", int(play_time))
+	_report_progress("games_" + mode.id)
+	_report_progress("max_combo", keeper.best_combo)
+	_report_progress("play_secs", int(play_time))
 	Progress.flush()
 	var line := L.t("cleared", {"n": cleared, "w": wave}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
 	if daily:
@@ -1052,9 +1071,9 @@ func _on_slot(p: Vector2i) -> void:
 		Sfx.play("knock%d" % mini(n, 4), pow(2.0, semi / 12.0))
 	else:
 		Sfx.play("knock%d" % mini(n, 4), 1.0 + mini(res.combo, 12) * 0.025)
-	Progress.report("gems", vanish.size())
+	_report_progress("gems", vanish.size())
 	if res.tier_up and res.mult == 4:
-		Progress.report("combo4")
+		_report_progress("combo4")
 	if res.time > 0 and (mode.kind == "classic" or mode.kind == "levels"):
 		hud.flash_delta("+%d" % int(res.time), false)
 	if res.tier_up:
@@ -1086,7 +1105,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.flash(Color.WHITE, 0.4)
 		board.shake(0.3)
 		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
-		Progress.report("perfects")
+		_report_progress("perfects")
 		if mode.skin == "bright":
 			board.play_confetti(90)
 		_set_theme(_next_look())
@@ -1123,7 +1142,7 @@ func _on_slot(p: Vector2i) -> void:
 	if mode.kind == "levels" and logic.gems_left() == 0:
 		board.play_clear_wave()
 		Sfx.play("clear")
-		Progress.report("clear_boards")
+		_report_progress("clear_boards")
 		dealing = true
 		var tw := create_tween()
 		tw.tween_interval(1.3)
@@ -1214,7 +1233,10 @@ func _auto_move() -> void:
 ## Show the next strike of the board's solution (or, off the solution path, the strike that
 ## takes the most gems). One free per game or level; more for a rewarded ad on Yandex.
 func _use_hint() -> void:
-	if state != State.PLAYING or dealing:
+	if state != State.PLAYING or dealing or _ad_pending:
+		return
+	if mode.kind == "tutorial":
+		_show_hint()  # Practice never spends tokens or asks for a reward.
 		return
 	if hints > 0:
 		hints -= 1
@@ -1226,7 +1248,10 @@ func _use_hint() -> void:
 		_update_hud()
 		return
 	var generation := _game_generation
+	var request := _begin_ad()
 	Yandex.show_rewarded(func(ok: bool):
+		if not _consume_ad(request, generation):
+			return
 		if generation != _game_generation or state not in [State.PLAYING, State.PAUSED] or _run_starting or dealing:
 			return
 		if ok:
@@ -1289,17 +1314,54 @@ func _note_best_strike(p: Vector2i, gone: Array[Vector2i], kinds: Array[int], re
 	best_strike = {"points": res.points, "n": gone.size(), "mult": res.mult, "parts": parts}
 
 
-## Rewarded video: the crystals of the last result once more.
+## One pending SDK request per game; each response can be consumed only once.
+func _set_ad_pending(pending: bool) -> void:
+	_ad_pending = pending
+	result.set_ad_pending(pending)
+	level_result.set_ad_pending(pending)
+
+
+func _cancel_ad() -> void:
+	_ad_request += 1
+	_set_ad_pending(false)
+
+
+func _begin_ad() -> int:
+	_ad_request += 1
+	_set_ad_pending(true)
+	return _ad_request
+
+
+func _consume_ad(request: int, generation: int) -> bool:
+	if generation != _game_generation or request != _ad_request or not _ad_pending:
+		return false
+	_set_ad_pending(false)
+	return true
+
+
+## Practice uses real rules without writing ordinary counters/achievements.
+func _report_progress(id: String, amount := 1) -> void:
+	if mode.kind != "tutorial":
+		Progress.report(id, amount)
+
+
+## Rewarded video: the crystals of this result once more.
 func _on_double() -> void:
+	if _ad_pending or state != State.OVER or mode.kind == "tutorial" or last_earned <= 0:
+		return
 	var generation := _game_generation
+	var request := _begin_ad()
+	var earned := last_earned
 	Yandex.show_rewarded(func(ok: bool):
+		if not _consume_ad(request, generation):
+			return
 		if generation != _game_generation or state != State.OVER or last_earned <= 0:
 			return
 		if not ok:
 			_toast(L.t("ad_failed"))
 			return
-		Progress.add_crystals(last_earned)
-		_toast(L.t("doubled", {"n": last_earned}))
+		Progress.add_crystals(earned)
+		_toast(L.t("doubled", {"n": earned}))
 		Sfx.play("star")
 		last_earned = 0
 		result.hide_double()
@@ -1308,8 +1370,13 @@ func _on_double() -> void:
 
 ## Rewarded video on a lost level: 15 more seconds, or a reshuffle when no move is left.
 func _on_level_continue() -> void:
+	if _ad_pending or state != State.OVER or mode.kind != "levels" or used_continue or logic.gems_left() == 0:
+		return
 	var generation := _game_generation
+	var request := _begin_ad()
 	Yandex.show_rewarded(func(ok: bool):
+		if not _consume_ad(request, generation):
+			return
 		if generation != _game_generation or state != State.OVER or used_continue:
 			return
 		if not ok:
@@ -1327,8 +1394,14 @@ func _on_level_continue() -> void:
 
 
 func _on_continue() -> void:
+	if _ad_pending or state != State.OVER or end_reason != "time" or used_continue \
+			or mode.kind not in ["classic", "run"]:
+		return
 	var generation := _game_generation
+	var request := _begin_ad()
 	Yandex.show_rewarded(func(ok: bool):
+		if not _consume_ad(request, generation):
+			return
 		if generation != _game_generation or state != State.OVER \
 				or end_reason != "time" or used_continue:
 			return
@@ -1343,14 +1416,20 @@ func _on_continue() -> void:
 
 
 func _on_shuffle() -> void:
+	if _ad_pending or state != State.OVER or end_reason != "stuck" or used_shuffle or logic.gems_left() <= 1:
+		return
 	var generation := _game_generation
+	var request := _begin_ad()
 	Yandex.show_rewarded(func(ok: bool):
+		if not _consume_ad(request, generation):
+			return
 		if generation != _game_generation or state != State.OVER or end_reason != "stuck" or used_shuffle:
 			return
 		if not ok:
 			_toast(L.t("ad_failed"))
 			return
 		used_shuffle = true
+		result.hide_shuffle()
 		logic.shuffle_remaining(rng)
 		board.clear_fx()
 		board.deal_in()
@@ -1361,8 +1440,13 @@ func _on_shuffle() -> void:
 
 
 func _on_again() -> void:
+	if _ad_pending or state != State.OVER or mode.kind == "tutorial":
+		return
 	var generation := _game_generation
+	var request := _begin_ad()
 	Yandex.show_fullscreen(func(_shown: bool):
+		if not _consume_ad(request, generation):
+			return
 		if generation == _game_generation and state == State.OVER:
 			start_game(mode.id, daily, challenge))
 
@@ -1494,6 +1578,8 @@ func _current_screen() -> Screen:
 ## Show one screen (null: none, the game is played) and hide the others. Dialogs fade and grow
 ## in over the dimmed game; full-screen menus hide the game layer.
 func show_screen(p: Screen) -> void:
+	if p == collection and not Progress.COSMETICS_ENABLED:
+		p = home  # Includes direct/debug routes to the dormant scene.
 	var was_dim := dim.visible
 	if p == home or p == modes:
 		_set_orientation(false)

@@ -25,6 +25,11 @@ func _frames(n := 3) -> void:
 func _run() -> void:
 	await _frames(5)
 	for name in main.screens:
+		if name == &"collection":
+			main._navigate(name)
+			await _frames()
+			_check(not main.collection.visible, "disabled collection rejects navigation")
+			continue
 		if name in [&"home", &"modes", &"map", &"pause", &"confirm", &"result", &"level_result"]:
 			continue  # full-screen menus and the in-game dialogs are opened below
 		main._navigate(name)

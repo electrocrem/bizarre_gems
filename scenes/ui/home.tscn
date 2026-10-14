@@ -179,6 +179,7 @@ icon = ExtResource("12")
 caption = "tasks"
 
 [node name="Collection" parent="VBox/RoundButtons" instance=ExtResource("11")]
+visible = false
 layout_mode = 2
 unique_name_in_owner = true
 icon = ExtResource("9")

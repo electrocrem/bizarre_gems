@@ -12,6 +12,7 @@ var _t := 0.0
 
 
 func refresh() -> void:
+	%Collection.visible = Progress.COSMETICS_ENABLED
 	%Best.text = L.t("best") + ": " + str(Save.best_for(str(Save.mode)))
 	%Crystals.text = str(Progress.crystals)
 	var due := Progress.unclaimed()
@@ -98,6 +99,8 @@ func _on_tasks_pressed() -> void:
 
 
 func _on_collection_pressed() -> void:
+	if not Progress.COSMETICS_ENABLED:
+		return
 	click()
 	navigate.emit(&"collection")
 

@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Godot,
     [string[]]$Scripts = @('res://tests/test_logic.gd', 'res://tests/smoke_ui.gd'),
     [string[]]$UserArgs = @(),
+    [ValidateSet('none', 'cosmetics-enabled', 'double-reward')][string]$Mutation = 'none',
     [ValidateRange(1, 1800)][int]$TimeoutSeconds = 180
 )
 $ErrorActionPreference = 'Stop'
@@ -110,6 +111,20 @@ foreach ($relative in $paths | Sort-Object -Unique) {
     Copy-Item -LiteralPath $source -Destination $target -Force
 }
 $config = [IO.File]::ReadAllText((Join-Path $projectRoot 'project.godot')).Replace("`r`n", "`n")
+if ($Mutation -ne 'none') {
+    # Deliberate negative checks change ONLY the disposable project, never the worktree.
+    $mutationCase = switch ($Mutation) {
+        'cosmetics-enabled' { @('scripts/progress.gd', 'const COSMETICS_ENABLED := false', 'const COSMETICS_ENABLED := true') }
+        'double-reward' { @('scripts/main.gd', 'Progress.add_crystals(earned)', 'Progress.add_crystals(earned * 2)') }
+    }
+    $mutationPath = Join-Path $fixture $mutationCase[0]
+    $mutationText = [IO.File]::ReadAllText($mutationPath)
+    if ([regex]::Matches($mutationText, [regex]::Escape($mutationCase[1])).Count -ne 1) {
+        throw "Mutation target is not unique: $Mutation"
+    }
+    Write-Utf8 $mutationPath ($mutationText.Replace($mutationCase[1], $mutationCase[2]))
+    Write-Output "Controlled mutation in disposable copy: $Mutation (a failing suite is expected)"
+}
 # Strip local editor/runtime integration ONLY in the disposable copy.
 $config = [regex]::Replace($config, '(?m)^_mcp_game_helper=.*\n?', '')
 $config = [regex]::Replace($config, '(?ms)^\[editor_plugins\]\n.*?(?=^\[|\z)', '')
@@ -138,6 +153,7 @@ foreach ($script in $Scripts) {
         'res://tests/run_combo_suite.gd' { 'COMBO_SUITE_DONE' }
         'res://tests/test_bright_run.gd' { 'BRIGHT_RUN ' }
         'res://tests/run_flow_suite.gd' { 'RUN_FLOW_DONE' }
+        'res://tests/run_progress_suite.gd' { 'PROGRESS_SUITE_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)

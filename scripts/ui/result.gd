@@ -24,7 +24,12 @@ func show_result(r: Dictionary) -> void:
 	%Continue.visible = r.can_continue
 	%Shuffle.visible = r.can_shuffle
 	%Share.visible = r.can_share
-	%Again.disabled = false
+	set_ad_pending(false)
+
+
+func set_ad_pending(pending: bool) -> void:
+	for button in [%Double, %Continue, %Shuffle, %Again]:
+		button.disabled = pending
 
 
 ## The game's best strike, looped; `tile` maps a gem kind to its texture.
@@ -37,6 +42,10 @@ func show_best_strike(strike: Dictionary, tile: Callable) -> void:
 
 func hide_double() -> void:
 	%Double.visible = false
+
+
+func hide_shuffle() -> void:
+	%Shuffle.visible = false
 
 
 func _on_again_pressed() -> void:

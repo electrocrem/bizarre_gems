@@ -23,9 +23,15 @@ func show_result(r: Dictionary) -> void:
 	%Double.text = L.t("double_ad", {"n": reward})
 	%Continue.visible = r.continue_text != ""
 	%Continue.text = r.continue_text
+	set_ad_pending(false)
 	for st in %Stars.get_children():
 		st.modulate = DIM_STAR
 		st.scale = Vector2.ONE
+
+
+func set_ad_pending(pending: bool) -> void:
+	for button in [%Double, %Continue]:
+		button.disabled = pending
 
 
 ## Light up `got` stars one by one (call once the dialog is on screen).

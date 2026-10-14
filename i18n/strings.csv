@@ -119,6 +119,7 @@ gift_title,Ежедневный подарок,Daily gift,Günlük hediye
 take,Забрать,Take,Al
 day_n,День {n},Day {n},Gün {n}
 gift_day7,Заходи каждый день — на 7-й день откроется вид «Золото»,Come back daily — day 7 unlocks the Gold look,Her gün gel — 7. gün Altın görünümü açılır
+gift_daily_crystals,Заходи каждый день и получай кристаллы,Come back daily to collect crystals,Kristal toplamak için her gün gel
 gift_tomorrow,Следующий подарок — завтра,The next gift comes tomorrow,Sonraki hediye yarın
 gift_got,+{n} кристаллов,+{n} crystals,+{n} kristal
 gift_look,открыт вид «Золото»!,Gold look unlocked!,Altın görünümü açıldı!

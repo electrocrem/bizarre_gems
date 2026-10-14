@@ -5,6 +5,9 @@ extends Node
 signal changed
 
 const PATH := "user://progress.cfg"
+## Presentation/access policy; keep saved ownership and selection while disabled.
+const COSMETICS_ENABLED := false
+const BASE_LOOK := 0
 const STAR_CRYSTALS := 5          ## crystals per newly earned star
 ## Price per tile look: crystals, SEASON (free while its season is on) or GIFT (7-day streak).
 const SEASON := -1
@@ -56,6 +59,7 @@ var gift_date := ""     ## last day the daily gift was opened
 var streak := 0         ## days in a row the gift was opened
 var puzzles := 0        ## puzzles solved (the next one is puzzles + 1)
 var tutorial := false   ## the first-run tutorial was completed
+var tutorial_skipped := false  ## Dismiss guidance without claiming completion.
 ## Local leaderboards (Android and anywhere without Yandex): board -> [{score, date}], best 10.
 var local_scores := {}
 var hint_tokens := 0        ## spare hints (from the old season pass), used after the free one
@@ -82,6 +86,7 @@ func _ready() -> void:
 		streak = int(cfg.get_value("meta", "streak", 0))
 		puzzles = int(cfg.get_value("meta", "puzzles", 0))
 		tutorial = bool(cfg.get_value("meta", "tutorial", false))
+		tutorial_skipped = bool(cfg.get_value("meta", "tutorial_skipped", false))
 		local_scores = cfg.get_value("meta", "local_scores", {})
 		hint_tokens = int(cfg.get_value("pass", "hints", 0))
 		daily_reward_date = str(cfg.get_value("meta", "daily_reward_date", ""))
@@ -104,6 +109,7 @@ func _save() -> void:
 	cfg.set_value("meta", "streak", streak)
 	cfg.set_value("meta", "puzzles", puzzles)
 	cfg.set_value("meta", "tutorial", tutorial)
+	cfg.set_value("meta", "tutorial_skipped", tutorial_skipped)
 	cfg.set_value("meta", "local_scores", local_scores)
 	cfg.set_value("pass", "hints", hint_tokens)
 	cfg.set_value("meta", "daily_reward_date", daily_reward_date)
@@ -116,7 +122,7 @@ func _save() -> void:
 ## Everything worth keeping across devices, for the player's Yandex cloud data.
 func to_dict() -> Dictionary:
 	return {"stars": stars, "crystals": crystals, "owned": owned, "look": look, "life": life, "achieved": achieved,
-		"gift_date": gift_date, "streak": streak, "puzzles": puzzles, "tutorial": tutorial, "hint_tokens": hint_tokens,
+		"gift_date": gift_date, "streak": streak, "puzzles": puzzles, "tutorial": tutorial, "tutorial_skipped": tutorial_skipped, "hint_tokens": hint_tokens,
 		"daily_reward_date": daily_reward_date, "chapter_claims": chapter_claims}
 
 
@@ -142,6 +148,7 @@ func merge(d: Dictionary) -> void:
 		streak = int(d.get("streak", streak))
 	puzzles = maxi(puzzles, int(d.get("puzzles", 0)))
 	tutorial = tutorial or bool(d.get("tutorial", false))
+	tutorial_skipped = tutorial_skipped or bool(d.get("tutorial_skipped", false))
 	hint_tokens = maxi(hint_tokens, int(d.get("hint_tokens", 0)))
 	if str(d.get("daily_reward_date", "")) > daily_reward_date:
 		daily_reward_date = str(d.get("daily_reward_date", ""))
@@ -256,6 +263,8 @@ func achievement_done(i: int) -> bool:
 
 
 func claim_achievement(i: int) -> int:
+	if i < 0 or i >= ACHIEVEMENTS.size():
+		return 0
 	var a: Dictionary = ACHIEVEMENTS[i]
 	if not achievement_done(i) or a.id in achieved:
 		return 0
@@ -316,6 +325,8 @@ static func season_look() -> int:
 
 
 func claim_season() -> bool:
+	if not COSMETICS_ENABLED:
+		return false
 	var s2 := season_look()
 	if s2 < 0 or owns(s2):
 		return false
@@ -351,7 +362,18 @@ func local_top(board: String) -> Array:
 
 func finish_tutorial() -> void:
 	tutorial = true
+	tutorial_skipped = false
 	_save()
+
+
+func skip_tutorial() -> void:
+	tutorial_skipped = true
+	_save()
+
+
+## No lesson-version gate: old completion also bypasses future first-run guidance.
+func needs_tutorial() -> bool:
+	return not (tutorial or tutorial_skipped)
 
 
 func task_done(i: int) -> bool:
@@ -377,11 +399,18 @@ func unclaimed() -> int:
 
 # ---------------- tile looks ----------------
 
+## Resolve presentation without overwriting the saved selection.
+func active_look() -> int:
+	return look if COSMETICS_ENABLED else BASE_LOOK
+
+
 func owns(i: int) -> bool:
 	return i in owned
 
 
 func buy(i: int) -> bool:
+	if not COSMETICS_ENABLED or i < 0 or i >= LOOK_PRICES.size():
+		return false
 	if owns(i) or int(LOOK_PRICES[i]) < 0 or crystals < int(LOOK_PRICES[i]):
 		return false
 	crystals -= int(LOOK_PRICES[i])
@@ -392,6 +421,8 @@ func buy(i: int) -> bool:
 
 
 func select(i: int) -> void:
+	if not COSMETICS_ENABLED:
+		return
 	if owns(i):
 		look = i
 		_save()

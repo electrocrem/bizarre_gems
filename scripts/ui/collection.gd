@@ -5,6 +5,8 @@ const CARD := preload("res://scenes/ui/parts/look_card.tscn")
 
 
 func refresh() -> void:
+	if not Progress.COSMETICS_ENABLED:
+		return
 	%Crystals.text = str(Progress.crystals)
 	UiKit.clear(%Grid)
 	for i in Progress.LOOK_PRICES.size():
@@ -27,6 +29,8 @@ func refresh() -> void:
 
 
 func _on_card(i: int) -> void:
+	if not Progress.COSMETICS_ENABLED:
+		return
 	if Progress.owns(i):
 		Progress.select(i)
 		click()
