@@ -1,6 +1,7 @@
 // Local stand-in for the Yandex Games SDK, served as /sdk.js by tools/serve.py.
 // Lets you click through ads, rewards and the leaderboard without uploading.
 (function () {
+  window.__mockSdk = true;
   const log = (...a) => console.log('[mock-sdk]', ...a);
   const overlay = (label, ms) => new Promise(res => {
     const d = document.createElement('div');

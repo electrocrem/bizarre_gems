@@ -25,11 +25,11 @@ advertising here does not validate browser SDK integration.
 For an adapted regression suite:
 
 ```powershell
-./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/run_runtime_suite.gd' -UserArgs '--suite=test_bright_run'
+./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/run_combo_suite.gd','res://tests/test_bright_run.gd','res://tests/run_flow_suite.gd'
 ```
 
-That adapter and the refinement suites must first be ported to the new contracts.
-The stage 1 strike-accounting suite already has a dedicated scene-based adapter:
+These adapters exercise the integrated production scene contracts. The strike-accounting
+suite has its own scene adapter:
 
 ```powershell
 ./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/test_logic.gd','res://tests/run_strike_accounting.gd','res://tests/smoke_ui.gd'
@@ -150,6 +150,62 @@ process. Explicit Classic A/B/special experiments retain refinement's historical
 comparison; ordinary Classic and all Run rules stay unchanged. Never use live MCP game_eval
 or real profiles for automatic simulations. The write lock survives menu/mode changes until
 process exit; reports are local to that disposable user:// profile and never committed.
+
+## Isolated Windows/Web/Android exports
+
+```powershell
+./tools/test_exports.ps1 -Godot 'path/to/Godot_console.exe' -Templates "$env:APPDATA/Godot/export_templates/4.7.2.stable" -AndroidSdk "$env:LOCALAPPDATA/Android/Sdk" -JavaSdk 'path/to/JDK17'
+$env:NODE_PATH='path/to/node_modules' # Playwright, with an installed Chrome executable
+node tools/test_web.cjs build/verification/<id>/exports
+node tests/test_web_wrapper.cjs
+```
+
+The export runner calls `test_isolated.ps1` for its clean copy/profile/import checks.
+All exporter and Windows runtime processes use Dummy; exported verification autoloads
+check the actual driver and profile/origin ownership. Windows checks the real exported
+main scene, all 20 lessons, the full music suite, then persistent data in another process.
+Android uses a private debug key/settings, `com.electrocrem.bizarregems.verification`, and
+a verification title. It is built only, never installed/launched. Templates/SDK are read-only.
+No release signing, production package ID or global editor settings are modified.
+
+Web uses the existing Yandex shell, a loopback-only server/mock SDK, a fresh browser
+context and `--audio-driver Dummy` engine arguments. Chrome is additionally muted.
+The first Godot autoload checks actual Dummy before any Sfx autoload. The harness checks
+all 20 lessons, real canvas mouse/touch events, resize, HUD after tutorial, fullscreen,
+clipboard fallback through an in-memory browser fixture (OS clipboard untouched),
+debug safe area and IndexedDB persistence through page reload.
+Screenshots are Windows Chrome/WebGL at desktop and portrait viewports, **not Android**.
+The browser process belongs to the harness and is force-closed on completion/timeout.
+`test_web_wrapper.cjs` separately tests production wrapper callbacks with in-memory fixtures.
+Reports, screenshots, profiles, keys and builds stay ignored under build/verification.
+
+The non-threaded Web Dummy driver reports mix_rate=0 and cannot check browser PCM/sample
+playback. Web verification uses Stream playback only in its disposable config to avoid
+unsupported Sample operations. Its 26 audio checks cover OGG metadata, mapping, one player,
+settings and pause/resume; CPU/live PCM and audible loops are **not** claimed for Web.
+The unchanged 61-check native suite verifies decoding, EOF looping and captured PCM.
+The [Godot audio documentation](https://docs.godotengine.org/en/stable/tutorials/audio/audio_streams.html)
+describes the separate Sample/Stream backends. Manual artifacts preserve production settings.
+
+For a focused Web-only rebuild after a verification-script change, `-WebOnlyFrom
+build/verification/<id>` reuses a runner-owned project with matching HEAD and ownership
+manifest; it does not rerun already-passing Windows/Android checks.
+
+Manual artifacts are in `windows-manual`, `web-manual`, and `android`. They have no test
+autoloads and are never launched automatically. User-only Windows launcher:
+
+```powershell
+./tools/launch_manual.ps1 -Artifacts build/verification/<id>/exports # silent Dummy, private persistent profile
+# USER-RUN AUDIBLE CHECK ONLY, not an automated test:
+./tools/launch_manual.ps1 -Artifacts build/verification/<id>/exports -AudioDriver WASAPI
+```
+
+The latter explicitly enables physical audio. It does not change global volume/settings.
+Manual Web uses `tools/serve.py <port> build/verification/<id>/exports/web-manual` and a
+fresh browser profile; it can produce sound after user interaction, so an agent must not
+open it automatically. Physical APK installation requires explicit user approval first.
+See [manual acceptance steps](../MANUAL_QA.md); platform tests/mocks do not establish real
+Android or Yandex SDK acceptance.
 
 Godot's directory settings are documented in
 [ProjectSettings](https://docs.godotengine.org/en/stable/classes/class_projectsettings.html#class-projectsettings-property-application-config-custom-user-dir-name).
