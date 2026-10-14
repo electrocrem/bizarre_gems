@@ -1,6 +1,6 @@
 extends RefCounted
 ## Stage 2 fixtures against the actual upstream main scene, with isolated autoloads.
-## Refinement HUD/layout/experiment checks are ported in stages 6/8, Run economy in stage 3.
+## Refinement HUD/layout/experiment checks are ported in stages 6/8; Run economy: test_run_flow.gd.
 
 const A := Vector2i(3, 3)
 const B := Vector2i(4, 3)
@@ -17,7 +17,7 @@ func settle(main, frames := 8) -> void:
 		await main.get_tree().process_frame
 
 func start(main, id := "classic", daily := false, challenge := {}) -> void:
-	main.start_game(id, daily, challenge)
+	await main.start_game(id, daily, challenge)
 	await settle(main)
 	check(main.state == main.State.PLAYING, "mode starts: " + id + " daily=" + str(daily))
 

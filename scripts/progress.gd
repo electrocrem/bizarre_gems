@@ -407,15 +407,18 @@ func use_hint_token() -> bool:
 
 # ---------------- daily challenge ----------------
 
-func daily_reward_ready() -> bool:
-	return daily_reward_date != Time.get_date_string_from_system(true)
+func daily_reward_ready(date := "") -> bool:
+	var day := Time.get_date_string_from_system(true) if date.is_empty() else date
+	# A continued older Daily must not rewind the once-per-day payment marker.
+	return daily_reward_date < day
 
 
 ## Pay the daily challenge crystals once a day. Returns the crystals paid (0 if already).
-func pay_daily() -> int:
-	if not daily_reward_ready():
+func pay_daily(date := "") -> int:
+	var day := Time.get_date_string_from_system(true) if date.is_empty() else date
+	if not daily_reward_ready(day):
 		return 0
-	daily_reward_date = Time.get_date_string_from_system(true)
+	daily_reward_date = day
 	crystals += DAILY_CRYSTALS
 	report("dailies")
 	_save()

@@ -13,6 +13,9 @@ const HINT_AFTER := 15.0
 const WAVE_TIME := 5.0      ## bonus seconds when a fresh board is dealt
 const CLEAR_POINTS := 25    ## bonus for knocking out every gem on a board
 const CLEAR_TIME := 5.0
+const RUN_BOARD_TIME := [40.0, 30.0, 20.0, 10.0]
+const RUN_FULL_CLEAR_TIME := 20.0
+const RUN_HAZARDS_ENABLED := false
 const CHAM_EVERY := 3
 const BOMB_TIME := 5.0    ## a bomb going off costs this many seconds (steps mode: 3 steps)
 const BOMB_STEPS := 3
@@ -39,6 +42,10 @@ var rng := RandomNumberGenerator.new()
 var mode: Dictionary = BoardLogic.CLASSIC
 var state := State.MENU
 var daily := false
+var daily_run_date := ""  ## UTC date pinned before even the first asynchronous deal.
+var _run_dims := Vector2i.ZERO
+var _daily_transposed := false
+var _run_starting := false
 ## Challenge links: classic and bright-run boards come from game_seed (one board per wave), and
 ## "Challenge a friend" shares mode, seed, board shape and score. A game started from such a link
 ## plays that exact board with the score as its target.
@@ -76,7 +83,7 @@ var last_tick := -1
 var autoplay := false  # debug builds only: plays itself, for testing effects and screenshots
 var _auto_t := 0.0
 var _stuck_t := 0.0
-## Invalidates pending deals and Run continuations when their game is left/replaced.
+## Invalidates pending deals, completion animations and ads when their game is left/replaced.
 var _game_generation := 0
 
 # ---- nodes of scenes/main.tscn ----
@@ -256,9 +263,9 @@ func _debug_start() -> void:
 	elif q.begins_with("level"):
 		start_level(maxi(1, int(q.substr(5))))
 	elif q in ["zen", "bright", "classic", "tutorial"]:
-		start_game(q)
+		await start_game(q)
 	elif q == "daily":
-		start_game("bright", true)
+		await start_game("bright", true)
 	elif q == "puzzle":
 		start_puzzle(1)
 	elif q.begins_with("rules"):
@@ -269,15 +276,15 @@ func _debug_start() -> void:
 	elif q == "settings":
 		_open_settings(home)
 	elif q == "pause":
-		start_game("bright")
+		await start_game("bright")
 		pause_game()
 	elif q == "over":
-		start_game("bright")
+		await start_game("bright")
 		end_game("time")
 	elif q == "challenge" and not pending_challenge.is_empty():
-		start_game(str(pending_challenge.mode), false, pending_challenge)
+		await start_game(str(pending_challenge.mode), false, pending_challenge)
 	elif q == "cover":  # classic result with the best-strike replay (the tallest result panel)
-		start_game("classic")
+		await start_game("classic")
 		score = 6
 		best_strike = {"points": 6, "n": 4, "mult": 1, "parts": [[Vector2i(0, -2), 0], [Vector2i(0, 3), 0], [Vector2i(-1, 0), 1], [Vector2i(4, 0), 1]]}
 		end_game("time")
@@ -285,7 +292,7 @@ func _debug_start() -> void:
 		start_level(1)
 		_end_level()
 	elif q == "leave":
-		start_game("bright")
+		await start_game("bright")
 		pause_game()
 		show_screen(confirm)
 	var t := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('t') || ''"))
@@ -320,9 +327,17 @@ func _on_language_changed() -> void:
 
 func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	_game_generation += 1
+	var generation := _game_generation
+	_run_starting = false
+	_run_dims = Vector2i.ZERO
+	_daily_transposed = false
+	board.modulate.a = 1.0
+	tut_label.visible = false
+	tut_hand.visible = false
 	dealing = false
 	daily = is_daily
-	challenge = ch
+	daily_run_date = _today() if daily else ""
+	challenge = ch.duplicate(true)
 	game_seed = int(ch.seed) if not ch.is_empty() else int(rng.randi())
 	_use_mode(mode_id if mode_id != "" else str(Save.mode))
 	if Save.mode != mode.id and mode.id in ["classic", "bright", "zen", "levels", "puzzle"]:
@@ -332,6 +347,32 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	if mode.kind == "levels":
 		level_n = pending_level
 	_set_orientation(mode.id == "classic")
+	if mode.kind == "run":
+		_run_starting = true
+		if state == State.PLAYING:
+			Yandex.gameplay(false)
+		state = State.PAUSED
+		board.interactive = false
+		board.modulate.a = 0.0  # Participate in layout without showing the previous game's field.
+		score = 0
+		shown_score = 0.0
+		time_left = START_TIME
+		play_time = 0.0
+		keeper.reset()
+		_update_hud()
+		show_screen(null)
+		await _wait_run_layout(generation)
+		if generation != _game_generation:
+			return
+		var area := board.size - Vector2.ONE * board.frame_pad * 2.0
+		if daily:
+			var canonical := BoardLogic.best_dims(Vector2(360, 640), 200)
+			_daily_transposed = minf(area.x / canonical.y, area.y / canonical.x) > minf(area.x / canonical.x, area.y / canonical.y)
+			_run_dims = Vector2i(canonical.y, canonical.x) if _daily_transposed else canonical
+		else:
+			_run_dims = challenge.dims if not challenge.is_empty() else BoardLogic.best_dims(area, 200)
+		_run_starting = false
+		board.modulate.a = 1.0
 	_deal_board()
 	level_total = logic.gems_left()
 	_set_theme(Progress.look, true)
@@ -369,6 +410,28 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 		_banner(L.t("boss"), 0, 0.0, Color("#ff9ed2"), L.t("rule_" + str(BoardLogic.bright_level(level_n).rule)))
 	elif mode.kind == "tutorial":
 		_tutorial_step(0)
+
+
+## Latch the real container geometry, after layout and Android portrait rotation settle.
+## Leaving/restarting a game cancels this pending first deal.
+func _wait_run_layout(generation: int) -> void:
+	var previous := Vector4.ZERO
+	var stable := 0
+	while generation == _game_generation:
+		await get_tree().process_frame
+		if generation != _game_generation:
+			return
+		var viewport_size := get_viewport_rect().size
+		var area := board.size - Vector2.ONE * board.frame_pad * 2.0
+		var current := Vector4(viewport_size.x, viewport_size.y, area.x, area.y)
+		var portrait_ready := not OS.has_feature("android") or viewport_size.y >= viewport_size.x
+		if board.is_visible_in_tree() and area.x >= 50.0 and area.y >= 50.0 and portrait_ready:
+			stable = stable + 1 if current.is_equal_approx(previous) else 0
+			if stable >= 2:
+				return
+		else:
+			stable = 0
+		previous = current
 
 
 ## Switch rules and look: "classic" is the original game, "bright" the toy-style mode.
@@ -411,7 +474,7 @@ func _configure_keeper() -> void:
 
 
 ## Lay out a board for the current mode. The daily board uses the mode's fixed shape and a
-## date seed (plus the wave number), so everyone on the same kind of device gets the same one.
+## pinned UTC date seed (plus wave number). Transpose only AFTER canonical generation.
 func _deal_board() -> void:
 	if mode.kind == "tutorial":
 		var tut := PackedInt32Array()
@@ -427,10 +490,13 @@ func _deal_board() -> void:
 		if mode.kind == "puzzle":
 			lv = BoardLogic.puzzle_config(puzzle_n)
 		if mode.kind == "run":
-			# the run plays like classic: one big board for the whole clock, a touch of jokers and boxes
+			# Sequential fields share the party's geometry and use the approved Run generator.
 			lv = {"slots": 200, "kinds": 6, "per_kind": 28, "min_moves": 4, "max_moves": 999, "tries": 30,
 				"jokers": 0.1, "boxes": 5, "chains": 3, "boss": false, "goal_kind": -1, "ice": 3, "bombs": 2,
 				"bomb_moves": 12, "chameleons": 2}
+			if not RUN_HAZARDS_ENABLED:
+				lv.ice = 0
+				lv.bombs = 0
 		elif mode.kind == "zen":
 			lv.ice = mini(wave, 4) if wave >= 2 else 0
 			lv.chameleons = mini(wave - 2, 3) if wave >= 3 else 0
@@ -445,13 +511,13 @@ func _deal_board() -> void:
 			elif mode.kind == "puzzle":
 				r.seed = hash("bizarre-puzzle-%d" % puzzle_n)
 			else:
-				r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
+				r.seed = hash("bizarre-gems-%s-%s-%d" % [daily_run_date, mode.id, wave])
 			area = Vector2(360, 640)
 		var d := BoardLogic.best_dims(area, lv.slots)
 		if mode.kind == "run" and not daily:
 			r = _game_rng()
-			if not challenge.is_empty():
-				d = challenge.dims
+			if _run_dims != Vector2i.ZERO:
+				d = _run_dims
 			board_dims = d
 		logic.setup_tuned(d.x, d.y, r, mode.shining, lv.kinds, lv.per_kind, lv.min_moves, lv.max_moves, lv.tries, true,
 			lv.jokers, lv.boxes)
@@ -463,12 +529,14 @@ func _deal_board() -> void:
 			logic.add_bombs(r, int(lv.bombs), int(lv.get("bomb_moves", 10)))
 		if int(lv.get("chameleons", 0)) > 0:
 			logic.add_chameleons(r, int(lv.chameleons))
+		if mode.kind == "run" and daily and _daily_transposed:
+			logic.transpose()
 		board_kinds = int(lv.kinds)
 		goal_kind = int(lv.get("goal_kind", -1)) if mode.kind == "levels" else -1
 		return
 	if daily:
 		var r := RandomNumberGenerator.new()
-		r.seed = hash("bizarre-gems-%s-%s-%d" % [_today(), mode.id, wave])
+		r.seed = hash("bizarre-gems-%s-%s-%d" % [daily_run_date, mode.id, wave])
 		logic.setup(mode.cols, mode.rows, r, mode.shining, mode.kinds, mode.per_kind)
 		if mode.id == "classic" and _is_touch_device() and not OS.has_feature("android"):
 			logic.transpose()  # the same daily board, upright in mobile browsers
@@ -498,10 +566,14 @@ static func parse_challenge(p: String) -> Dictionary:
 	for i in range(2, 6):
 		if not a[i].is_valid_int():
 			return {}
-	var dims := Vector2i(int(a[3]), int(a[4]))
-	if dims.x < 3 or dims.y < 3 or dims.x * dims.y > 1000:
+	var cols := int(a[3])
+	var rows := int(a[4])
+	var gems := 270 if a[1] == "classic" else 168
+	if cols < 3 or rows < 3 or cols > 1000 or rows > 1000 \
+			or cols * rows <= gems or cols * rows > 1000 \
+			or int(a[2]) < 0 or int(a[2]) > 4294967295 or int(a[5]) < 0:
 		return {}
-	return {"mode": a[1], "seed": int(a[2]), "dims": dims, "score": maxi(0, int(a[5]))}
+	return {"mode": a[1], "seed": int(a[2]), "dims": Vector2i(cols, rows), "score": int(a[5])}
 
 
 func _share_challenge() -> void:
@@ -523,8 +595,10 @@ func _next_wave(at: Vector2i) -> void:
 		keeper.reset_double_hit()  # Only the pending position belongs to the old board.
 	var full_clear := logic.gems_left() == 0
 	var bonus_t := WAVE_TIME + (CLEAR_TIME if full_clear else 0.0)
+	var board_time := 0.0
 	if mode.kind == "run":
-		bonus_t = 10.0  # every new run board, stuck or cleared, adds 10 s; a full clear also scores
+		board_time = RUN_BOARD_TIME[clampi(wave - 1, 0, RUN_BOARD_TIME.size() - 1)]
+		bonus_t = board_time + (RUN_FULL_CLEAR_TIME if full_clear else 0.0)
 	if mode.kind == "zen":
 		bonus_t = 0.0
 		var nl := BoardLogic.bright_level(wave + 1)
@@ -552,6 +626,10 @@ func _next_wave(at: Vector2i) -> void:
 	if mode.skin == "bright":
 		title = L.t("level_up", {"n": wave}) if mode.kind == "zen" else title
 	var sub := ""
+	if mode.kind == "run":
+		sub = L.t("run_board_time", {"s": int(board_time)})
+		if full_clear:
+			sub += "\n" + L.t("run_full_clear_reward", {"s": int(RUN_FULL_CLEAR_TIME), "p": bonus_p})
 	_banner(title, bonus_p, bonus_t, UiKit.BRASS_LIGHT, sub)
 	if bonus_t > 0.0:
 		hud.flash_delta("+%d" % int(bonus_t), false)
@@ -736,7 +814,10 @@ func _tutorial_after_strike() -> void:
 		Sfx.play("level")
 		var tw := create_tween()
 		tw.tween_interval(1.6)
+		var generation := _game_generation
 		tw.tween_callback(func():
+			if generation != _game_generation:
+				return
 			tut_label.visible = false
 			state = State.MENU
 			show_screen(modes))
@@ -749,6 +830,8 @@ func _today() -> String:
 
 
 func _resume_play() -> void:
+	if _run_starting:
+		return
 	if mode.skin == "bright":
 		_set_orientation(false)  # bright modes are played upright on phones
 	state = State.PLAYING
@@ -800,6 +883,12 @@ func pause_game() -> void:
 func go_menu() -> void:
 	keeper.reset_bonus_combos()
 	_game_generation += 1
+	_run_starting = false
+	_run_dims = Vector2i.ZERO
+	_daily_transposed = false
+	board.modulate.a = 1.0
+	tut_label.visible = false
+	tut_hand.visible = false
 	dealing = false
 	if state == State.PLAYING:
 		Yandex.gameplay(false)
@@ -826,7 +915,7 @@ func end_game(reason: String) -> void:
 	Yandex.gameplay(false)
 	var is_best := false
 	if daily:
-		is_best = Save.submit_daily(score, _today())
+		is_best = Save.submit_daily(score, daily_run_date)
 	else:
 		is_best = Save.submit(score, mode.id)
 		Progress.add_local_score(mode.board, score)
@@ -836,7 +925,7 @@ func end_game(reason: String) -> void:
 	Haptics.buzz("over")
 	var earned := Progress.crystals_for_score(score) - paid_crystals
 	paid_crystals += earned
-	var daily_paid := Progress.pay_daily() if daily else 0
+	var daily_paid := Progress.pay_daily(daily_run_date) if daily else 0
 	Progress.add_crystals(maxi(earned, 0))
 	last_earned = maxi(earned, 0) + daily_paid
 	Progress.report("games_" + mode.id)
@@ -845,7 +934,7 @@ func end_game(reason: String) -> void:
 	Progress.flush()
 	var line := L.t("cleared", {"n": cleared, "w": wave}) + "\n" + L.t("stats", {"combo": keeper.best_combo, "precise": keeper.precise_count})
 	if daily:
-		line = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(_today())}) + "\n" + line
+		line = L.t("daily") + " · " + L.t("daily_best", {"n": Save.daily_best_for(daily_run_date)}) + "\n" + line
 	if not challenge.is_empty():
 		var target := int(challenge.score)
 		line = (L.t("ch_won", {"n": target}) if score > target else L.t("ch_lost", {"n": target, "d": target - score + 1})) + "\n" + line
@@ -983,7 +1072,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_wave(p, 2.0, true)
 		board.play_burst(p, 40)
 		board.flash(UiKit.BRASS_LIGHT, 0.22)
-		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, ScoreKeeper.PRECISE_TIME, UiKit.BRASS_LIGHT)
+		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PRECISE_TIME, UiKit.BRASS_LIGHT)
 		if mode.skin == "bright":
 			board.play_confetti(50)
 		_set_theme(_next_look())
@@ -996,7 +1085,7 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_burst(p, 90)
 		board.flash(Color.WHITE, 0.4)
 		board.shake(0.3)
-		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
+		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
 		Progress.report("perfects")
 		if mode.skin == "bright":
 			board.play_confetti(90)
@@ -1022,7 +1111,11 @@ func _on_slot(p: Vector2i) -> void:
 			dealing = true
 			var tw0 := create_tween()
 			tw0.tween_interval(1.2)
-			tw0.tween_callback(func(): dealing = false; _end_puzzle())
+			var generation := _game_generation
+			tw0.tween_callback(func():
+				if generation == _game_generation:
+					dealing = false
+					_end_puzzle())
 		elif strikes <= 0 or not logic.has_any_move():
 			_end_puzzle()
 		_update_hud()
@@ -1034,7 +1127,11 @@ func _on_slot(p: Vector2i) -> void:
 		dealing = true
 		var tw := create_tween()
 		tw.tween_interval(1.3)
-		tw.tween_callback(func(): dealing = false; _end_level())
+		var generation := _game_generation
+		tw.tween_callback(func():
+			if generation == _game_generation:
+				dealing = false
+				_end_level())
 		return
 	if not logic.has_any_move():
 		if mode.kind == "levels":
@@ -1058,7 +1155,7 @@ func _process(delta: float) -> void:
 		return
 	if mode.kind == "run" and dealing:
 		return  # The transition's mandatory input lock must not consume combo windows.
-	# Stop Run's combo clock at actual time exhaustion; deal economy/generation is stage 3.
+	# Stop Run's combo clock at actual time exhaustion.
 	var game_delta := minf(delta, maxf(time_left, 0.0)) if mode.kind == "run" else delta
 	if mode.kind == "classic" or mode.kind == "run" or mode.kind == "levels":
 		time_left -= game_delta * _time_speed()
@@ -1128,7 +1225,10 @@ func _use_hint() -> void:
 		_show_hint()
 		_update_hud()
 		return
+	var generation := _game_generation
 	Yandex.show_rewarded(func(ok: bool):
+		if generation != _game_generation or state not in [State.PLAYING, State.PAUSED] or _run_starting or dealing:
+			return
 		if ok:
 			_show_hint()
 		else:
@@ -1191,7 +1291,10 @@ func _note_best_strike(p: Vector2i, gone: Array[Vector2i], kinds: Array[int], re
 
 ## Rewarded video: the crystals of the last result once more.
 func _on_double() -> void:
+	var generation := _game_generation
 	Yandex.show_rewarded(func(ok: bool):
+		if generation != _game_generation or state != State.OVER or last_earned <= 0:
+			return
 		if not ok:
 			_toast(L.t("ad_failed"))
 			return
@@ -1205,7 +1308,10 @@ func _on_double() -> void:
 
 ## Rewarded video on a lost level: 15 more seconds, or a reshuffle when no move is left.
 func _on_level_continue() -> void:
+	var generation := _game_generation
 	Yandex.show_rewarded(func(ok: bool):
+		if generation != _game_generation or state != State.OVER or used_continue:
+			return
 		if not ok:
 			_toast(L.t("ad_failed"))
 			return
@@ -1222,10 +1328,9 @@ func _on_level_continue() -> void:
 
 func _on_continue() -> void:
 	var generation := _game_generation
-	var run_continuation: bool = mode.kind == "run"
 	Yandex.show_rewarded(func(ok: bool):
-		if run_continuation and (generation != _game_generation or state != State.OVER \
-				or end_reason != "time" or used_continue):
+		if generation != _game_generation or state != State.OVER \
+				or end_reason != "time" or used_continue:
 			return
 		if not ok:
 			_toast(L.t("ad_failed"))
@@ -1238,7 +1343,10 @@ func _on_continue() -> void:
 
 
 func _on_shuffle() -> void:
+	var generation := _game_generation
 	Yandex.show_rewarded(func(ok: bool):
+		if generation != _game_generation or state != State.OVER or end_reason != "stuck" or used_shuffle:
+			return
 		if not ok:
 			_toast(L.t("ad_failed"))
 			return
@@ -1253,7 +1361,10 @@ func _on_shuffle() -> void:
 
 
 func _on_again() -> void:
-	Yandex.show_fullscreen(func(_shown: bool): start_game(mode.id, daily, challenge))
+	var generation := _game_generation
+	Yandex.show_fullscreen(func(_shown: bool):
+		if generation == _game_generation and state == State.OVER:
+			start_game(mode.id, daily, challenge))
 
 
 func _on_platform_pause() -> void:
@@ -1505,6 +1616,8 @@ func _banner(title: String, pts: int, secs: float, color: Color, sub := "") -> v
 
 ## Board shape for the free space under the HUD: tall phones get tall boards, wide screens wide ones.
 func _dims() -> Vector2i:
+	if mode.kind == "run" and _run_dims != Vector2i.ZERO:
+		return _run_dims
 	if mode.id == "classic" and (not _is_touch_device() or OS.has_feature("android")):
 		return Vector2i(mode.cols, mode.rows)  # the original wide board (desktop, Android turned sideways)
 	var slots: int = mode.slots
@@ -1525,6 +1638,9 @@ func _board_area() -> Vector2:
 ## Fit the board to its area. Before a game starts the board is re-dealt in the best shape;
 ## during a game it is only transposed (when that shape fits better) or rescaled.
 func _relayout_board() -> void:
+	if mode.kind == "run" and (_run_starting or _run_dims != Vector2i.ZERO):
+		board.refresh()  # Resize rendering only; logical coordinates persist for the entire Run.
+		return
 	var d := _dims()
 	if Vector2i(logic.cols, logic.rows) != d:
 		if state == State.MENU:

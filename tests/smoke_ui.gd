@@ -38,7 +38,7 @@ func _run() -> void:
 	main._open_map("puzzle")
 	await _frames()
 	for id in ["classic", "bright", "zen", "tutorial"]:
-		main.start_game(id)
+		await main.start_game(id)
 		await _frames()
 		_check(main.state == main.State.PLAYING, id + " starts")
 		for i in 8:

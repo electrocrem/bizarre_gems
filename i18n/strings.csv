@@ -48,6 +48,8 @@ pay_shine,"Сверкающий камень: +5 очков, +2 с","Sparkling g
 rotate,Поверните телефон вертикально,Turn your phone upright,Telefonunu dikey çevir
 new_board,Новое поле!,New board!,Yeni tahta!
 clear_board,Чистое поле!,Board cleared!,Tahta temizlendi!
+run_board_time,Новое поле: +{s} с,Next board: +{s} s,Yeni tahta: +{s} sn
+run_full_clear_reward,Полная очистка: +{s} с · +{p} очков,Full clear: +{s} s · +{p} points,Tam temizleme: +{s} sn · +{p} puan
 praise_great,Отлично!,Great!,Harika!
 praise_super,Супер!,Super!,Süper!
 praise_wow,Невероятно!,Incredible!,İnanılmaz!
