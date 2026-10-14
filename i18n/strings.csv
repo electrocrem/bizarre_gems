@@ -221,3 +221,7 @@ stats,Лучшая серия: {combo} · Точных комбо: {precise},Bes
 rule4,"Бей без промахов и пауз дольше 3 секунд — растёт комбо и множитель очков. Три удара подряд по 3–4 камня дают точное комбо, четыре и больше — идеальное.","Strike without misses or pauses over 3 seconds to build a combo and a points multiplier. Three strikes in a row of 3–4 gems make a precise combo, four or more a perfect one.","Iskalamadan ve 3 saniyeden uzun durmadan vur, kombo ve puan çarpanı artsın. Üst üste üç kez 3–4 taş kırmak hassas kombo, dört ve fazlası kusursuz kombo verir."
 pay_combo,"Комбо: ×2 со 2-го удара, ×3 с 5-го, ×4 с 9-го","Combo: ×2 from strike 2, ×3 from 5, ×4 from 9","Kombo: 2. vuruştan ×2, 5.'den ×3, 9.'dan ×4"
 pay_precise,"Точное: +10 очков, +3 с · идеальное: +20, +5 с","Precise: +10 points, +3 s · perfect: +20, +5 s","Hassas: +10 puan, +3 sn · kusursuz: +20, +5 sn"
+color_chain_start,ЦЕПЬ!,COLOR CHAIN!,RENK ZİNCİRİ!
+color_chain_length,ЦЕПЬ {n},CHAIN {n},ZİNCİR {n}
+double_hit,ДВОЙНОЙ УДАР!,DOUBLE HIT!,ÇİFTE VURUŞ!
+hit_total,ИТОГО +{n},TOTAL +{n},TOPLAM +{n}

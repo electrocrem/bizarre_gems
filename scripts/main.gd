@@ -23,6 +23,13 @@ const DEFUSE_POINTS := 10
 const PENTA := [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24]  ## combo knocks climb this scale
 
 ## Palettes the screen cycles through on big combos and new boards (background top/bottom).
+const SPECIAL_BANNER_SECONDS := 0.75
+const RUN_PALETTE_SECONDS := 0.0  # Each triggering event changes the atmosphere immediately.
+const RUN_SURFACE_LUMA := 0.05*0.2126 + 0.13*0.7152 + 0.14*0.0722
+## Original green plus five dyes, with the same dark fabric luminance.
+const RUN_FABRICS := [Color(0.05,0.13,0.14), Color("#563367"), Color("#612c3b"),
+	Color("#273f79"), Color("#096080"), Color("#765329")]
+const RUN_LIGHTS := [Color(0.18,0.71,0.66), Color(0.48,0.31,0.84), Color(0.82,0.67,0.33)]
 const THEMES := [
 	{"top": Color("#3d63e0"), "bottom": Color("#1b2c8c")},  # original glossy tiles
 	{"top": Color("#4a6fd8"), "bottom": Color("#22337f")},  # candy
@@ -40,6 +47,7 @@ var logic := BoardLogic.new()
 var keeper := ScoreKeeper.new()
 var rng := RandomNumberGenerator.new()
 var mode: Dictionary = BoardLogic.CLASSIC
+var visual_profile := "classic"
 var state := State.MENU
 var daily := false
 var daily_run_date := ""  ## UTC date pinned before even the first asynchronous deal.
@@ -139,6 +147,8 @@ var _drag_moved := 0.0
 func _ready() -> void:
 	rng.randomize()
 	board.number_font = UiKit.NUMBER_FONT
+	board.feedback_font = preload("res://ui/fonts/bold.tres")
+	board.feedback_exclusion = _feedback_exclusion
 	board.logic = logic
 	_connect_screens()
 	_apply_ui_scale()
@@ -441,6 +451,8 @@ func _wait_run_layout(generation: int) -> void:
 
 ## Switch rules and look: "classic" is the original game, "bright" the toy-style mode.
 func _use_mode(id: String) -> void:
+	_reset_visual_feedback()
+	board.reset_run_surface()
 	match id:
 		"bright":
 			mode = BoardLogic.BRIGHT
@@ -455,10 +467,14 @@ func _use_mode(id: String) -> void:
 		_:
 			mode = BoardLogic.CLASSIC
 	_configure_keeper()
+	visual_profile = "classic_run" if mode.id in ["bright", "tutorial"] and not Progress.COSMETICS_ENABLED else mode.skin
 	board.skin = mode.skin
+	board.visual_profile = visual_profile
+	board.classic_feedback = mode.id in ["classic", "bright", "tutorial"]
 	board.zoom_enabled = mode.skin == "classic" and _is_touch_device()
 	board.reset_zoom()
-	ambient.set_skin(mode.skin)
+	ambient.set_skin("classic" if visual_profile == "classic_run" else visual_profile)
+	ambient.reset_velvet_palette()
 	Sfx.set_skin(mode.skin)
 	Sfx.update_music()
 	for k in huds:
@@ -591,7 +607,7 @@ func _share_challenge() -> void:
 
 
 ## A board ran out of moves: deal the next one with a time bonus, the game goes on.
-func _next_wave(at: Vector2i) -> void:
+func _next_wave(at: Vector2i, palette_already_changed := false) -> void:
 	if dealing or state != State.PLAYING or not mode.waves:
 		return
 	if mode.kind == "run":
@@ -641,7 +657,8 @@ func _next_wave(at: Vector2i) -> void:
 	Sfx.play("precise")
 	board.play_burst(at, 50)
 	board.play_confetti(70)
-	_set_theme(_next_look())
+	if not palette_already_changed:
+		_set_theme(_next_look())
 	var tw := create_tween()
 	tw.tween_interval(1.2 if full_clear else 0.7)
 	var generation := _game_generation
@@ -659,6 +676,10 @@ func _next_wave(at: Vector2i) -> void:
 ## The look after the current one: the six base looks in turn; a special look (seasonal or
 ## gold) is only ever the starting one.
 func _next_look() -> int:
+	if mode.id == "bright" and not daily:
+		return (theme_i + 1) % 6 if theme_i < 6 else 0
+	if not Progress.COSMETICS_ENABLED:
+		return Progress.BASE_LOOK
 	return (theme_i + 1) % 6 if theme_i < 6 else 0
 
 
@@ -666,13 +687,35 @@ func _next_look() -> int:
 func _set_theme(i: int, instant := false) -> void:
 	if mode.skin != "bright":
 		return  # the classic look keeps its colours
-	theme_i = posmod(i, THEMES.size())
+	var run_palette: bool = mode.id == "bright" and not daily
+	theme_i = posmod(i, THEMES.size()) if run_palette or Progress.COSMETICS_ENABLED else Progress.BASE_LOOK
 	var t: Dictionary = THEMES[theme_i]
 	if mode.kind == "levels":
 		t = UiKit.CHAPTER_THEMES[BoardLogic.chapter_of(level_n) % UiKit.CHAPTER_THEMES.size()]  # each chapter keeps its own sky
-	ambient.fade_palette(t.top, t.bottom, 0.01 if instant else 0.9)
-	board.palette = Progress.active_look()  # Disabled cosmetics leave the saved choice intact.
-	if not instant:
+	board.palette = Progress.active_look()  # Presentation policy never changes mode.skin or the saved choice.
+	if run_palette:
+		var index := theme_i % RUN_FABRICS.size()
+		var fabric: Color = RUN_FABRICS[index]
+		var luminance := fabric.r*0.2126 + fabric.g*0.7152 + fabric.b*0.0722
+		var surface := Color(fabric.r,fabric.g,fabric.b,0.55)
+		if index != 0:
+			surface = Color(fabric.r*RUN_SURFACE_LUMA/luminance,fabric.g*RUN_SURFACE_LUMA/luminance,fabric.b*RUN_SURFACE_LUMA/luminance,0.55)
+		var from_surface: Color = board._frame.bg_color
+		var lights := {"pool_a":RUN_LIGHTS[0],"pool_b":RUN_LIGHTS[1],"pool_c":RUN_LIGHTS[2],
+			"tint_top":Color(0,0,0,0),"tint_bottom":Color(0,0,0,0)}
+		if index != 0:
+			lights.pool_a = fabric.lightened(0.15)
+			lights.pool_b = fabric.lightened(0.08)
+			lights.pool_c = fabric.lightened(0.22)
+		ambient.fade_palette(t.top,t.bottom,0.0 if instant else RUN_PALETTE_SECONDS,true,
+			{"fabric":fabric,"strength":0.0 if index == 0 else 1.0,"lights":lights},
+			func(blend: float): board.set_run_surface(from_surface.lerp(surface,blend)))
+		if not instant:
+			ambient.palette_burst(fabric.lightened(0.65))
+			board.shake(0.10)
+	else:
+		ambient.fade_palette(t.top,t.bottom,0.01 if instant else 0.9)
+	if not instant and not run_palette:
 		board.flash(Color.WHITE, 0.35)
 		board.glow(1.0)
 
@@ -890,6 +933,7 @@ func pause_game() -> void:
 func go_menu() -> void:
 	_cancel_ad()
 	Progress.flush()
+	_reset_visual_feedback()
 	keeper.reset_bonus_combos()
 	_game_generation += 1
 	_run_starting = false
@@ -928,6 +972,7 @@ func end_game(reason: String) -> void:
 			_combo_break()
 	else:
 		keeper.reset_bonus_combos()
+		_reset_visual_feedback()
 	state = State.OVER
 	end_reason = reason
 	board.interactive = false
@@ -1091,10 +1136,11 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_wave(p, 2.0, true)
 		board.play_burst(p, 40)
 		board.flash(UiKit.BRASS_LIGHT, 0.22)
-		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PRECISE_TIME, UiKit.BRASS_LIGHT)
+		_banner(L.t("precise"), ScoreKeeper.PRECISE_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PRECISE_TIME, UiKit.BRASS_LIGHT, "", 2)
 		if mode.skin == "bright":
 			board.play_confetti(50)
-		_set_theme(_next_look())
+		if mode.id != "bright" or daily:
+			_set_theme(_next_look())
 	elif event == "perfect":
 		if mode.skin == "bright":
 			Sfx.play("perfect")
@@ -1104,11 +1150,16 @@ func _on_slot(p: Vector2i) -> void:
 		board.play_burst(p, 90)
 		board.flash(Color.WHITE, 0.4)
 		board.shake(0.3)
-		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"))
+		_banner(L.t("perfect"), ScoreKeeper.PERFECT_POINTS, 0.0 if mode.kind == "run" else ScoreKeeper.PERFECT_TIME, Color("#ff9ed2"), "", 3)
 		_report_progress("perfects")
 		if mode.skin == "bright":
 			board.play_confetti(90)
-		_set_theme(_next_look())
+		if mode.id != "bright" or daily:
+			_set_theme(_next_look())
+	var palette_event: bool = mode.id == "bright" and not daily and (event != "" or res.combo in [30, 50])
+	if palette_event:
+		_set_theme(_next_look())  # One atmosphere change per strike, including a special + threshold.
+	_show_bonus_feedback(res, p)
 	hud.set_combo(keeper.combo, res.tier_up)
 	if autoplay and (event != "" or res.tier_up):
 		print("[autoplay] combo=%d mult=%d event=%s" % [res.combo, res.mult, event])
@@ -1156,7 +1207,7 @@ func _on_slot(p: Vector2i) -> void:
 		if mode.kind == "levels":
 			_end_level()
 		elif mode.waves:
-			_next_wave(p)
+			_next_wave(p, palette_event)
 		else:
 			end_game("stuck")
 	elif mode.kind == "zen" and strikes <= 0:
@@ -1584,6 +1635,11 @@ func show_screen(p: Screen) -> void:
 	if p == home or p == modes:
 		_set_orientation(false)
 		p.refresh()
+	var menu_surface := p == home or p == modes
+	if menu_surface:
+		board.reset_run_surface()
+		ambient.reset_velvet_palette()
+	ambient.set_skin("classic" if menu_surface else (mode.skin if state == State.MENU else ("classic" if visual_profile == "classic_run" else visual_profile)))
 	var on_menu := p == home or p == modes or p == map
 	# the game layer stays out of sight behind the menus and anything opened from them
 	game_layer.visible = not on_menu and state != State.MENU
@@ -1674,33 +1730,44 @@ func _combo_break() -> void:
 
 
 ## A big title over the board ("Precise combo!") with the points and seconds it gave.
-func _banner(title: String, pts: int, secs: float, color: Color, sub := "") -> void:
-	var b_title: Label = %BannerTitle
-	var b_sub: Label = %BannerSub
-	b_title.text = title
-	b_title.add_theme_color_override("font_color", color)
+func _banner(title: String, pts: int, secs: float, color: Color, sub := "", priority := 0) -> void:
+	if mode.id in ["classic", "bright"] and banner.has_meta("banner_tween"):
+		if banner.modulate.a > 0.03 and int(banner.get_meta("priority", 0)) > priority:
+			if secs > 0.0 and sub != "":
+				# A last-hit special remains primary; the actual board rewards share its notice.
+				%BannerSub.text += "\n" + sub
+				_fit_banner_text()
+			return # Perfect remains the main event; secondary rewards still show locally.
+		var previous: Tween = banner.get_meta("banner_tween")
+		if previous and previous.is_valid():
+			previous.kill()
+	banner.set_meta("priority", priority)
+	%BannerTitle.text = title
+	%BannerTitle.add_theme_color_override("font_color", color)
 	if sub != "":
-		b_sub.text = sub
+		%BannerSub.text = sub
 	elif secs <= 0.0 or not keeper.time_bonuses:
-		b_sub.text = L.t("points_only", {"p": pts}) if pts > 0 else ""
+		%BannerSub.text = L.t("points_only", {"p": pts}) if pts > 0 else ""
 	else:
-		b_sub.text = L.t("bonus_line", {"p": pts, "s": int(secs)})
-	var vs := get_viewport_rect().size
-	b_title.add_theme_font_size_override("font_size", int(clampf(vs.x / 13.0, 34.0, 64.0)))
+		%BannerSub.text = L.t("bonus_line", {"p": pts, "s": int(secs)})
+	_fit_banner_text()
 	banner.pivot_offset = banner.size / 2
 	banner.scale = Vector2.ONE * 0.4
 	banner.modulate.a = 1.0
 	var tw := create_tween()
+	banner.set_meta("banner_tween", tw)
 	tw.tween_property(banner, "scale", Vector2.ONE * 1.08, 0.18).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
 	tw.tween_property(banner, "scale", Vector2.ONE, 0.12)
-	tw.tween_interval(0.9)
-	tw.parallel().tween_property(banner, "position:y", banner.position.y - 30, 1.3)
-	tw.tween_property(banner, "modulate:a", 0.0, 0.35)
+	var short_special: bool = mode.id in ["classic", "bright", "tutorial"] and priority in [2, 3]
+	tw.tween_interval(SPECIAL_BANNER_SECONDS - 0.55 if short_special else 0.9)
+	if mode.id != "classic" and not short_special:
+		tw.parallel().tween_property(banner, "position:y", banner.position.y - 30, 1.3)
+	tw.tween_property(banner, "modulate:a", 0.0, 0.25 if short_special else 0.35)
 
 
 # ================= layout =================
 
-## Board shape for the free space under the HUD: tall phones get tall boards, wide screens wide ones.
+## Board shape for the free space under the HUD.
 func _dims() -> Vector2i:
 	if mode.kind == "run" and _run_dims != Vector2i.ZERO:
 		return _run_dims
@@ -1883,3 +1950,44 @@ func _safe_insets() -> Rect2:
 
 func _is_touch_device() -> bool:
 	return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+
+
+func _fit_banner_text() -> void:
+	var vs := get_viewport_rect().size
+	%BannerTitle.add_theme_font_size_override("font_size", int(clampf(vs.x / 13.0, 34.0, 64.0)))
+	if mode.id in ["classic", "bright", "tutorial"]:
+		var width := maxf(100.0, minf(board.size.x, vs.x) / 1.08 - 36.0)
+		var title_size: int = %BannerTitle.get_theme_font_size("font_size")
+		var measured := (%BannerTitle as Label).get_theme_font("font").get_string_size(%BannerTitle.text, HORIZONTAL_ALIGNMENT_LEFT, -1, title_size).x
+		%BannerTitle.add_theme_font_size_override("font_size", maxi(16, floori(title_size * minf(1.0, width / maxf(measured, 1.0)))))
+		var sub_width := 0.0
+		for line in %BannerSub.text.split("\n"):
+			sub_width = maxf(sub_width, UiKit.NUMBER_FONT.get_string_size(line, HORIZONTAL_ALIGNMENT_LEFT, -1, 30).x)
+		%BannerSub.add_theme_font_size_override("font_size", maxi(14, floori(30.0 * minf(1.0, width / maxf(sub_width, 1.0)))))
+		banner.get_parent().queue_sort()
+	else:
+		%BannerSub.add_theme_font_size_override("font_size", 30)
+
+func _feedback_exclusion() -> Rect2:
+	if not banner or banner.modulate.a <= 0.03:
+		return Rect2()
+	var transform := board.get_global_transform().affine_inverse() * banner.get_global_transform()
+	return (transform * Rect2(Vector2.ZERO, banner.size)).grow(12.0)
+
+
+func _show_bonus_feedback(res: Dictionary, at: Vector2i) -> void:
+	if not keeper.classic_bonus_combos:
+		return
+	# All values come from the completed hit. Presentation never calculates rewards.
+	board.play_bonus_feedback(at, res, keeper.color_streak_kind, keeper.color_streak_hits,
+		L.t("color_chain_start"), L.t("color_chain_length", {"n": keeper.color_streak_hits}), L.t("double_hit"),
+		L.t("hit_total", {"n": res.points}))
+
+## Presentation reset only; game/continue contracts own ScoreKeeper state.
+func _reset_visual_feedback() -> void:
+	board.clear_combo_feedback()
+	if banner.has_meta("banner_tween"):
+		var previous: Tween = banner.get_meta("banner_tween")
+		if previous and previous.is_valid():
+			previous.kill()
+	banner.modulate.a = 0.0

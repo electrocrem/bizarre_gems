@@ -2,6 +2,8 @@ param(
     [Parameter(Mandatory = $true)][string]$Godot,
     [string[]]$Scripts = @('res://tests/test_logic.gd', 'res://tests/smoke_ui.gd'),
     [string[]]$UserArgs = @(),
+    [switch]$Render,
+    [switch]$ReferenceVisuals,
     [ValidateSet('none', 'cosmetics-enabled', 'double-reward')][string]$Mutation = 'none',
     [ValidateRange(1, 1800)][int]$TimeoutSeconds = 180
 )
@@ -25,7 +27,7 @@ function Write-Utf8([string]$Path, [string]$Content) {
     [IO.File]::WriteAllText($Path, $Content, $utf8)
 }
 
-function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Completion = '') {
+function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Completion = '', [bool]$Rendered = $false) {
     $caseRoot = Join-Path $runRoot $Name
     $roaming = Join-Path $caseRoot 'roaming'
     $userDir = Join-Path $roaming 'profile'
@@ -38,7 +40,9 @@ function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Comp
     $start.CreateNoWindow = $true
     $start.RedirectStandardOutput = $true
     $start.RedirectStandardError = $true
-    foreach ($arg in @('--headless', '--path', $fixture, '--log-file', (Join-Path $caseRoot 'engine.log')) + $Arguments) {
+    # Only explicitly requested suites render; probe/import/storage/startup stay headless.
+    [string[]]$driverArgs = if ($Rendered) { @('--rendering-method', 'gl_compatibility') } else { @('--headless') }
+    foreach ($arg in $driverArgs + @('--path', $fixture, '--log-file', (Join-Path $caseRoot 'engine.log')) + $Arguments) {
         $start.ArgumentList.Add($arg)
     }
     foreach ($key in @('APPDATA', 'LOCALAPPDATA', 'TEMP', 'TMP')) {
@@ -50,6 +54,7 @@ function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Comp
     $start.Environment['BIZARRE_TEST_USER_DIR'] = $userDir.Replace('\', '/')
     $start.Environment['BIZARRE_TEST_TOKEN'] = $token
     $start.Environment['RUNTIME_TEST_OUTPUT'] = Join-Path $caseRoot 'runtime.json'
+    $start.Environment['VISUAL_CAPTURE_DIR'] = $caseRoot
     $process = [Diagnostics.Process]::new()
     $process.StartInfo = $start
     try {
@@ -111,6 +116,16 @@ foreach ($relative in $paths | Sort-Object -Unique) {
     Copy-Item -LiteralPath $source -Destination $target -Force
 }
 $config = [IO.File]::ReadAllText((Join-Path $projectRoot 'project.godot')).Replace("`r`n", "`n")
+if ($ReferenceVisuals) {
+    # Read pinned renderers directly from Git; never run or modify the source worktree.
+    foreach ($name in @('board_view', 'ambient', 'special_gem_art')) {
+        $referenceText = (& git -C $projectRoot show "bcee01634740130b6f2bf8f1193adc49e3f68e1f:scripts/$name.gd") -join "`n"
+        if ($LASTEXITCODE -ne 0) { throw "Missing pinned visual source: $name" }
+        $referenceText = [regex]::Replace($referenceText, '(?m)^class_name .*\n?', '')
+        $referenceText = $referenceText.Replace('res://scripts/special_gem_art.gd', 'res://tests/reference_visuals/special_gem_art.gd')
+        Write-Utf8 (Join-Path $fixture "tests/reference_visuals/$name.gd") ($referenceText + "`n")
+    }
+}
 if ($Mutation -ne 'none') {
     # Deliberate negative checks change ONLY the disposable project, never the worktree.
     $mutationCase = switch ($Mutation) {
@@ -154,11 +169,13 @@ foreach ($script in $Scripts) {
         'res://tests/test_bright_run.gd' { 'BRIGHT_RUN ' }
         'res://tests/run_flow_suite.gd' { 'RUN_FLOW_DONE' }
         'res://tests/run_progress_suite.gd' { 'PROGRESS_SUITE_DONE' }
+        'res://tests/run_visual_suite.gd' { 'VISUAL_SUITE_DONE' }
+        'res://tests/test_visual_reference.gd' { 'VISUAL_REFERENCE_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)
     if ($UserArgs.Count) { $argsForTest += @('--') + $UserArgs }
-    Invoke-IsolatedGodot ("suite-$index") $argsForTest $completion
+    Invoke-IsolatedGodot ("suite-$index") $argsForTest $completion $Render.IsPresent
     $index++
 }
 Invoke-IsolatedGodot 'startup' @('--script', 'res://tests/smoke_startup.gd') 'STARTUP_SMOKE_DONE'
