@@ -117,6 +117,40 @@ would hide a missing production relayout. Geometry comparisons tolerate normal
 floating-point rounding. Rendered captures use Dummy too; browser fullscreen and
 physical Android remain manual platform checks.
 
+Stage 8 media/resources/diagnostics:
+
+```powershell
+./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Assets -Python 'path/to/python.exe' -Scripts 'res://tests/test_resources.gd','res://tests/run_media_suite.gd','res://tests/run_diagnostics_suite.gd' -TimeoutSeconds 600
+./tools/test_isolated.ps1 -Godot 'path/to/Godot_console.exe' -Scripts 'res://tests/test_diagnostics_cli.gd' -UserArgs '--combo-ab=A','--combo-seed=42'
+```
+
+`-Assets` checks pinned SHA256, resource references/UIDs and the real generator in another
+disposable copy. It tests default/repeat no-op, missing More/Share/SFX recovery and explicit
+regeneration twice; authored OGG/icons must remain identical. Python needs Pillow/numpy;
+the SVG renderer is rsvg-convert or Node.js with sharp (use that process's PATH/NODE_PATH
+when sharp is provided externally). Neither renderer starts an audio process. Generated
+resources and reports remain under ignored build/verification; no working-tree generation.
+For an import-only follow-up, `-GeneratedAssetsFrom <verification/id/generated-assets>`
+reuses that runner-owned output with current code/config and checks matching producer hashes.
+It avoids repeating already-passing generator cases. Generated translations and Godot caches
+are excluded from clean copies; both imports and the regenerated-resource runtime check use Dummy.
+
+`run_media_suite.gd` ports pinned decoder/mixer/player checks, including real loops across
+EOF under Dummy, same-theme pause/resume/restart/menu and a single background player.
+It changes preferences only in the disposable process. Audible seams, subjective levels
+and Android/Web playback remain manual stage 9 checks.
+
+`run_diagnostics_suite.gd` retains pinned A/B boundaries/results/write locks and runs real
+Classic/Run strikes for Precise/Perfect/Double Hit/Color Chain and recorded score/time
+receipts. The trace simulator uses BoardLogic and ScoreKeeper, including destroyed colors
+and actual mode reward configuration; it is a model comparison, not a human-play estimate.
+Additional CLI cases: `--combo-ab=B`, `--special-combo=legacy`, `--special-combo=timed`,
+`--combo-mode=bright`, optionally `--combo-seed=<integer>`. Run each in a fresh isolated
+process. Explicit Classic A/B/special experiments retain refinement's historical reward
+comparison; ordinary Classic and all Run rules stay unchanged. Never use live MCP game_eval
+or real profiles for automatic simulations. The write lock survives menu/mode changes until
+process exit; reports are local to that disposable user:// profile and never committed.
+
 Godot's directory settings are documented in
 [ProjectSettings](https://docs.godotengine.org/en/stable/classes/class_projectsettings.html#class-projectsettings-property-application-config-custom-user-dir-name).
 The Windows engine reads APPDATA in

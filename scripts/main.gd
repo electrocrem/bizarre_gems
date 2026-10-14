@@ -1,4 +1,6 @@
 extends Control
+
+const ComboExperiment = preload("res://scripts/combo_experiment.gd")
 ## The game: rules of play, the flow between screens, ads and leaderboards.
 ##
 ## Layout lives in scenes: scenes/main.tscn (this node), the screens in scenes/ui/, the HUDs in
@@ -9,6 +11,13 @@ enum State { MENU, PLAYING, PAUSED, OVER }
 
 const TutorialLessons = preload("res://scripts/tutorial_lessons.gd")
 const TutorialController = preload("res://scripts/tutorial_controller.gd")
+var _ab_active := false
+var _ab_reported := true
+var _ab_run := {}
+var _ab_result_index := 0
+var _ab_receipts: Array = []
+var last_combo_report := {}
+
 const MENU_MODES := ["classic", "bright"]
 
 const START_TIME := 120.0
@@ -175,6 +184,7 @@ var _drag_moved := 0.0
 
 
 func _ready() -> void:
+	ComboExperiment.initialize()
 	rng.randomize()
 	board.number_font = UiKit.NUMBER_FONT
 	board.feedback_font = preload("res://ui/fonts/bold.tres")
@@ -302,6 +312,9 @@ func _navigate(to: StringName) -> void:
 
 ## Debug builds: ?start=map|tasks|coll|leaders|settings|more|challenge|pause|over|cover|lres|zen|bright|classic|levelN opens that screen directly.
 func _debug_start() -> void:
+	if OS.is_debug_build() and ComboExperiment.is_read_only():
+		start_game(ComboExperiment.target_mode)
+		return
 	if not (OS.is_debug_build() and OS.has_feature("web")):
 		return
 	var q := str(JavaScriptBridge.eval("new URLSearchParams(location.search).get('start') || ''"))
@@ -386,6 +399,7 @@ func _on_language_changed() -> void:
 # ================= game flow =================
 
 func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
+	_report_combo_ab("restart")
 	_game_generation += 1
 	_cancel_ad()
 	var generation := _game_generation
@@ -402,9 +416,9 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 	daily = is_daily
 	daily_run_date = _today() if daily else ""
 	challenge = ch.duplicate(true)
-	game_seed = int(ch.seed) if not ch.is_empty() else int(rng.randi())
+	game_seed = int(ch.seed) if not ch.is_empty() else (ComboExperiment.board_seed if ComboExperiment.is_read_only() else int(rng.randi()))
 	_use_mode(mode_id if mode_id != "" else str(Save.mode))
-	if Save.mode != mode.id and mode.id in ["classic", "bright", "zen", "levels", "puzzle"]:
+	if not ComboExperiment.is_read_only() and Save.mode != mode.id and mode.id in ["classic", "bright", "zen", "levels", "puzzle"]:
 		Save.mode = mode.id  # the tutorial and the daily challenge don't become "last mode"
 		Save.store()
 	wave = 1
@@ -439,6 +453,7 @@ func start_game(mode_id := "", is_daily := false, ch := {}) -> void:
 		board.modulate.a = 1.0
 	_deal_board()
 	level_total = logic.gems_left()
+	_begin_combo_report()
 	_set_theme(Progress.active_look(), true)
 	score = 0
 	shown_score = 0.0
@@ -518,6 +533,7 @@ func _use_mode(id: String) -> void:
 			mode = BoardLogic.TUTORIAL
 		_:
 			mode = BoardLogic.CLASSIC
+	_ab_active = ComboExperiment.is_read_only() and mode.id in ["classic", "bright"]
 	_configure_keeper()
 	visual_profile = "classic_run" if mode.id in ["bright", "tutorial"] and not Progress.COSMETICS_ENABLED else mode.skin
 	board.skin = mode.skin
@@ -542,8 +558,11 @@ func _use_mode(id: String) -> void:
 ## Rule selection stays independent of the rendering skin, including practice lessons.
 func _configure_keeper() -> void:
 	var classic: bool = (mode.id == "classic" and not daily) or (mode.kind == "tutorial" and not TutorialLessons.run_rules(_tutorial_id()))
-	keeper.configure_time_rewards(classic)
-	keeper.configure_combo_rules(classic, _run_time_rules())
+	var experiment: bool = _ab_active and mode.id == "classic"
+	keeper.configure_time_rewards(classic and not experiment)
+	keeper.configure_combo_rules(classic, _run_time_rules(),
+		ComboExperiment.window_seconds() if experiment else ScoreKeeper.CLASSIC_COMBO_WINDOW,
+		ComboExperiment.special_rules == "timed" if experiment else true)
 	keeper.time_bonuses = mode.kind == "classic" or (mode.kind == "tutorial" and not _run_time_rules())
 
 
@@ -620,6 +639,9 @@ func _deal_board() -> void:
 			if not challenge.is_empty():
 				d = challenge.dims
 			board_dims = d
+		if _ab_active and mode.id == "classic" and ComboExperiment.fixed_layout:
+			r = RandomNumberGenerator.new()
+			r.seed = ComboExperiment.board_seed
 		logic.setup(d.x, d.y, r, mode.shining, mode.kinds, mode.per_kind)
 
 
@@ -907,6 +929,8 @@ func _today() -> String:
 
 
 func _resume_play() -> void:
+	if _ab_active and state == State.OVER:
+		_ab_reported = false
 	if _run_starting:
 		return
 	if mode.skin == "bright":
@@ -958,6 +982,8 @@ func pause_game() -> void:
 
 
 func go_menu() -> void:
+	_report_combo_ab("abandoned")
+	_ab_active = false
 	_cancel_ad()
 	Progress.flush()
 	_reset_visual_feedback()
@@ -1004,7 +1030,9 @@ func end_game(reason: String) -> void:
 	board.interactive = false
 	Yandex.gameplay(false)
 	var is_best := false
-	if daily:
+	if ComboExperiment.is_read_only():
+		_report_combo_ab(reason)
+	elif daily:
 		is_best = Save.submit_daily(score, daily_run_date)
 	else:
 		is_best = Save.submit(score, mode.id)
@@ -1013,11 +1041,13 @@ func end_game(reason: String) -> void:
 			Yandex.submit_score(Save.best_for(mode.id), mode.board)
 	Sfx.play("over")
 	Haptics.buzz("over")
-	var earned := Progress.crystals_for_score(score) - paid_crystals
-	paid_crystals += earned
-	var daily_paid := Progress.pay_daily(daily_run_date) if daily else 0
-	Progress.add_crystals(maxi(earned, 0))
-	last_earned = maxi(earned, 0) + daily_paid
+	last_earned = 0
+	if not ComboExperiment.is_read_only():
+		var earned := Progress.crystals_for_score(score) - paid_crystals
+		paid_crystals += earned
+		var daily_paid := Progress.pay_daily(daily_run_date) if daily else 0
+		Progress.add_crystals(maxi(earned, 0))
+		last_earned = maxi(earned, 0) + daily_paid
 	_report_progress("games_" + mode.id)
 	_report_progress("max_combo", keeper.best_combo)
 	_report_progress("play_secs", int(play_time))
@@ -1151,6 +1181,9 @@ func _on_slot(p: Vector2i) -> void:
 	if _classic_time_rules():
 		time_left += res.time  # the bright run earns time only by clearing a whole board
 	idle = 0.0
+	if _ab_active:
+		_ab_receipts.append({"at":str(p),"game_time":play_time,"removed":vanish.size(),
+			"receipt":res.duplicate(true),"score":score,"time_left":time_left})
 	var event: String = res.event
 	board.play_knock(p, vanish, vkinds, res.points, res.mult, event != "", res)
 	if vanish.size() < gone.size():
@@ -1446,7 +1479,7 @@ func _consume_ad(request: int, generation: int) -> bool:
 
 ## Practice uses real rules without writing ordinary counters/achievements.
 func _report_progress(id: String, amount := 1) -> void:
-	if mode.kind != "tutorial":
+	if mode.kind != "tutorial" and not ComboExperiment.is_read_only():
 		Progress.report(id, amount)
 
 
@@ -1622,12 +1655,82 @@ func _input(event: InputEvent) -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventKey and event.pressed and not event.echo:
+		if OS.is_debug_build() and state in [State.MENU, State.OVER]:
+			if event.keycode in [KEY_F6, KEY_F7]:
+				debug_start_combo_ab("A" if event.keycode == KEY_F6 else "B",ComboExperiment.board_seed)
+				get_viewport().set_input_as_handled()
+				return
+			if event.keycode == KEY_N:
+				debug_start_special_combo("timed",ComboExperiment.board_seed)
+				get_viewport().set_input_as_handled()
+				return
 		if event.keycode in [KEY_ESCAPE, KEY_P]:
 			if state == State.PLAYING:
 				pause_game()
 			elif state == State.PAUSED:
 				_resume_play()
 			get_viewport().set_input_as_handled()
+
+
+func _begin_combo_report() -> void:
+	if not _ab_active: return
+	_ab_run = {"run_id":"%s-%s" % [Time.get_datetime_string_from_system(true),Time.get_ticks_usec()],
+		"variant":ComboExperiment.variant,"mode":mode.id,"daily":daily,
+		"combo_window":keeper.combo_window,"special_rules":"timed" if keeper.timed_special else "legacy",
+		"tier_time":keeper.tier_time,"streak_time":keeper.streak_time,"hit_time_rewards":keeper.hit_time_rewards,
+		"seed":ComboExperiment.board_seed,"cols":logic.cols,"rows":logic.rows,
+		"initial_gems":level_total,"layout_sha256":str(logic.cells).sha256_text()}
+	_ab_receipts.clear()
+	_ab_result_index = 0
+	_ab_reported = false
+	print("[combo-ab] START ",JSON.stringify(_ab_run)," | saves/leaderboards disabled for this process")
+
+
+func debug_start_run_combo(fixed_seed := 42) -> bool:
+	if not OS.is_debug_build() or state not in [State.MENU, State.OVER]: return false
+	if not ComboExperiment.select_run(fixed_seed): return false
+	start_game("bright")
+	return true
+
+
+func debug_start_combo_ab(variant: String, fixed_seed := 42) -> bool:
+	if not OS.is_debug_build() or state not in [State.MENU, State.OVER]:
+		return false
+	if not ComboExperiment.select(variant, fixed_seed):
+		return false
+	start_game("classic")
+	return true
+
+
+## Special-mechanic comparison at the same ordinary 3.5-second window.
+func debug_start_special_combo(rules: String, fixed_seed := 42) -> bool:
+	if not OS.is_debug_build() or state not in [State.MENU, State.OVER]:
+		return false
+	if not ComboExperiment.select_special(rules, fixed_seed):
+		return false
+	start_game("classic")
+	return true
+
+
+func _report_combo_ab(reason: String) -> void:
+	if not _ab_active or _ab_reported:
+		return
+	_ab_reported = true
+	_ab_result_index += 1
+	last_combo_report = _ab_run.duplicate(true)
+	last_combo_report.merge({"result_index": _ab_result_index, "score": score,
+		"destroyed_gems": cleared, "max_streak": keeper.best_combo,
+		"combo_breaks": keeper.combo_breaks, "hits_at_x4": keeper.hits_at_x4,
+		"precise_events": keeper.precise_events, "perfect_events": keeper.perfect_events,
+		"special_bonus_points": keeper.special_bonus_points, "special_bonus_time": keeper.special_bonus_time,
+		"end_reason": reason, "time_left": maxf(0.0, time_left), "play_time": play_time,
+		"used_continue": used_continue, "used_shuffle": used_shuffle,
+		"wave":wave, "receipts":_ab_receipts.duplicate(true)})
+	ComboExperiment.append_report(last_combo_report)
+
+
+func _exit_tree() -> void:
+	_report_combo_ab("quit")
 
 
 # ================= screens =================

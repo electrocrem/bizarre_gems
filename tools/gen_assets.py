@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
-"""Generates every art and sound asset of the game from code.
+"""Generates missing procedural art and effects; preserves authored music and icons.
 
 Run from the project root:  python3 tools/gen_assets.py
-Needs: rsvg-convert (librsvg), Pillow, numpy.
+Needs: Pillow, numpy, and rsvg-convert or Node.js with sharp.
+Default: fill missing generated assets only. --overwrite-generated explicitly refreshes
+procedural assets; authored OGG and project/store icons are never generated.
+--branding additionally generates catalogue covers (existing covers are preserved by default).
 """
 import math, os, subprocess, wave, struct, random
+import argparse, shutil, tempfile
+from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
@@ -28,7 +33,11 @@ GEMS = [  # name, base colour, cut
 
 def svg_to_png(svg, path, w, h=None):
     h = h or w
-    subprocess.run(["rsvg-convert", "-w", str(w), "-h", str(h), "-o", path], input=svg.encode(), check=True)
+    if shutil.which("rsvg-convert"):
+        command = ["rsvg-convert", "-w", str(w), "-h", str(h), "-o", path]
+    else:
+        command = ["node", str(Path(__file__).with_name("svg_to_png.cjs")), path, str(w), str(h)]
+    subprocess.run(command, input=svg.encode(), check=True)
 
 
 def shade(hexc, f):
@@ -142,6 +151,7 @@ ICONS = {  # 64x64 white glyphs
     "link": '<rect x="6" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/><rect x="28" y="20" width="30" height="24" rx="12" fill="none" stroke="#fff" stroke-width="7"/>',
     "more": '<circle cx="14" cy="32" r="6"/><circle cx="32" cy="32" r="6"/><circle cx="50" cy="32" r="6"/>',
     "share": '<circle cx="46" cy="14" r="8"/><circle cx="46" cy="50" r="8"/><circle cx="16" cy="32" r="8"/><path d="M46 14L16 32l30 18" fill="none" stroke="#fff" stroke-width="5"/>',
+    "ticket": '<path d="M6 18a4 4 0 0 1 4-4h44a4 4 0 0 1 4 4v7a7 7 0 0 0 0 14v7a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4v-7a7 7 0 0 0 0-14z"/><path d="M32 22l3 7 7 .6-5.3 4.6 1.7 7-6.4-3.9-6.4 3.9 1.7-7-5.3-4.6 7-.6z" fill="#000" fill-opacity=".55"/>',
     "chart": '<rect x="8" y="34" width="10" height="22" rx="2"/><rect x="27" y="20" width="10" height="36" rx="2"/><rect x="46" y="8" width="10" height="48" rx="2"/>',
     "next": '<path d="M24 12l20 20-20 20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
     "prev": '<path d="M40 12L20 32l20 20" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -651,7 +661,7 @@ def make_sounds():
     write_sfx(A("audio", "bonus.wav"), bell(1568, .5, .2, .3) + np.pad(bell(2093, .42, .2, .25), (int(.08 * SR), 0))[:int(SR * .5)])
     make_combo_sounds(rng)
     make_bright_sounds(rng)
-    make_music()
+    # Authored OGG loops are immutable inputs, not generator outputs.
 
 
 def arpeggio(notes, step, tail, decay=.3, vol=.28):
@@ -788,7 +798,7 @@ def make_bright_sounds(rng):
     a = arpeggio((1047, 1319, 1568, 2093, 2637, 3136), .09, 1.2, .5, .22); x[:min(n, len(a))] += a[:min(n, len(a))]
     g = shimmer(rng, 1.8, .14); x[:len(g)] += g
     write_sfx(A("audio", "b_clear.wav"), np.tanh(x * 1.3) * .8)
-    make_bright_music()
+
 
 
 def _kick():
@@ -799,97 +809,6 @@ def _kick():
 def _snare(rng):
     n = int(SR * .16); t = np.arange(n) / SR
     return (rng.normal(0, 1, n) * .6 + np.sin(2 * np.pi * 190 * t) * .5) * np.exp(-t / .05)
-
-
-def _hat(rng):
-    n = int(SR * .05); t = np.arange(n) / SR
-    x = rng.normal(0, 1, n); x = x - np.convolve(x, np.ones(4) / 4, "same")
-    return x * np.exp(-t / .012) * .5
-
-
-def _lead(freq, dur, vol=.12):
-    """Soft square-ish lead: odd harmonics, quick attack, gentle vibrato."""
-    n = int(SR * dur); t = np.arange(n) / SR
-    vib = 1 + .004 * np.sin(2 * np.pi * 5.5 * t)
-    ph = 2 * np.pi * freq * vib * t
-    x = np.sin(ph) + np.sin(3 * ph) / 3 + np.sin(5 * ph) / 6
-    env_ = np.minimum(t / .01, 1) * np.exp(-t / (dur * .9))
-    return x * env_ * vol
-
-
-def make_bright_music():
-    """Bright mode loop: a light funky groove in A minor at 112 bpm, 8 bars. Kick, snare with
-    ghost notes, swung hats, a syncopated bass and a pentatonic lead melody (original)."""
-    rng = np.random.default_rng(33)
-    bpm = 112; beat = 60 / bpm; bars = 8; step = beat / 4
-    n = int(SR * beat * 4 * bars); x = np.zeros(n)
-    def put(sig, at, vol=1.0):
-        s0 = int(at * SR)
-        if s0 >= n: return
-        x[s0:s0 + len(sig)] += sig[:n - s0] * vol
-    nA, nC, nD, nE, nG = 220.0, 261.63, 293.66, 329.63, 392.0
-    chords = [(nA, nC, nE), (nD, 349.23, nA * 2), (nC, nE, nG), (nG, 246.94, nD)]  # Am Dm C G
-    bass_roots = [55.0, 73.42, 65.41, 49.0]
-    # sixteenth-note bass rhythm (1 = play), same each bar, syncopated
-    bass_hits = [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0, 0, 1, 0, 0]
-    # lead: (bar, step, semitone offset from A4, length in steps)
-    def note(semi): return 440.0 * 2 ** (semi / 12)
-    lead = [(0, 0, 0, 3), (0, 4, 3, 2), (0, 6, 5, 2), (0, 8, 7, 4), (0, 14, 5, 2),
-            (1, 0, 3, 3), (1, 4, 0, 2), (1, 8, -2, 4), (1, 12, 0, 4),
-            (2, 0, 7, 2), (2, 2, 10, 2), (2, 4, 12, 4), (2, 10, 10, 2), (2, 12, 7, 4),
-            (3, 0, 5, 3), (3, 4, 3, 3), (3, 8, 2, 6),
-            (4, 0, 0, 3), (4, 4, 3, 2), (4, 6, 5, 2), (4, 8, 7, 4), (4, 14, 10, 2),
-            (5, 0, 12, 3), (5, 4, 10, 2), (5, 8, 7, 4), (5, 12, 5, 4),
-            (6, 0, 3, 2), (6, 2, 5, 2), (6, 4, 7, 4), (6, 10, 5, 2), (6, 12, 3, 4),
-            (7, 0, 0, 6), (7, 8, -5, 2), (7, 12, -2, 4)]
-    for bar in range(bars):
-        ci = bar % 4; t0 = bar * 4 * beat
-        for b in range(4):
-            put(_kick(), t0 + b * beat, .85 if b in (0, 2) else .55)
-            if b in (1, 3):
-                put(_snare(rng), t0 + b * beat, .45)
-        for st in range(16):
-            swing = step * .12 if st % 2 else 0.0
-            put(_hat(rng), t0 + st * step + swing, .35 if st % 4 == 2 else .18)
-            if st in (7, 15):
-                put(_snare(rng), t0 + st * step, .12)  # ghost notes
-            if bass_hits[st]:
-                f = bass_roots[ci] * (2 if st in (6, 13) else 1)
-                put(pluck(f * 2, step * 1.8, .34, .6), t0 + st * step)
-        for f in chords[ci]:  # short chord stabs on the offbeats
-            for st in (2, 10):
-                put(pluck(f, step * 1.5, .06, .8), t0 + st * step)
-    for bar, st, semi, length in lead:
-        put(_lead(note(semi), step * length), bar * 4 * beat + st * step)
-    x = np.tanh(x * 1.15) * .75
-    write_wav(A("audio", "music_bright.wav"), x)
-
-
-def make_music():
-    """A calm 32-second loop: soft pads over a slow plucked arpeggio, A minor."""
-    bpm, beats = 75, 40
-    beat = 60 / bpm
-    n = int(SR * beat * beats); t = np.arange(n) / SR
-    x = np.zeros(n)
-    chords = [(220, 261.63, 329.63), (174.61, 220, 261.63), (130.81, 196, 261.63), (196, 246.94, 293.66)] * 3
-    bar = beat * 4
-    for ci in range(int(beats / 4)):
-        ch = chords[ci % len(chords)]
-        s, e = int(ci * bar * SR), int(min((ci + 1) * bar, beat * beats) * SR)
-        seg = np.arange(e - s) / SR
-        fade = np.minimum(1, np.minimum(seg / .8, (seg[-1] - seg + 1e-6) / .8))
-        for f in ch:
-            x[s:e] += (np.sin(2 * np.pi * f * seg) + .3 * np.sin(2 * np.pi * f * 2.003 * seg)) * fade * .045
-        for k in range(8):
-            f = ch[k % 3] * (2 if k >= 3 else 1) * (2 if k == 7 else 1)
-            o = s + int(k * beat / 2 * SR)
-            b = bell(f * 2, beat * 1.6, .35, .07)
-            x[o:o + len(b)] += b[:max(0, n - o)]
-    x = np.tanh(x * 1.4) * .7
-    # seamless loop: crossfade tail into head
-    cf = int(SR * .5)
-    x[:cf] = x[:cf] * np.linspace(0, 1, cf) + x[-cf:] * np.linspace(1, 0, cf)
-    write_wav(A("audio", "music.wav"), x[:-cf])
 
 
 def font(path, size):
@@ -932,47 +851,8 @@ def prism_diamond_svg(size):
     return "\n".join(out)
 
 
-def make_icon(ground):
-    """Store icon 512x512 (opaque, the platform rounds corners) and the 256 px project icon."""
-    S = 1024  # draw at 2x, downscale for clean edges
-    ic = ground(S, S)
-    # warm glow behind the strike point
-    y, x = np.mgrid[0:S, 0:S]
-    d = np.sqrt((x - S / 2) ** 2 + (y - S * .47) ** 2) / (S * .5)
-    glow = np.zeros((S, S, 4), np.uint8)
-    glow[..., 0], glow[..., 1], glow[..., 2] = 247, 214, 140
-    glow[..., 3] = (np.clip(1 - d, 0, 1) ** 2.2 * 150).astype(np.uint8)
-    ic.alpha_composite(Image.fromarray(glow))
-    dr = ImageDraw.Draw(ic)
-    cx, cy = S // 2, int(S * .47)
-    # the cross strike: tapered golden beams
-    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-        for w, a in ((34, 60), (18, 140), (8, 255)):
-            dr.line([(cx, cy), (cx + dx * S * .44, cy + dy * S * .44)], fill=(247, 226, 168, a), width=w)
-    # gem pairs at the ends of the cross
-    gsz = 230
-    for i, (x0, y0) in zip((0, 0, 2, 2), ((cx, 112), (cx, S - 128), (112, cy), (S - 112, cy))):
-        g = Image.open(A("gems", f"gem_{i}.png")).convert("RGBA").resize((gsz, gsz), Image.LANCZOS)
-        ic.alpha_composite(g, (int(x0 - gsz / 2), int(y0 - gsz / 2)))
-    # the big prismatic diamond in the middle
-    tmp = os.path.join(ROOT, "store", ".diamond.png")
-    svg_to_png(prism_diamond_svg(560), tmp, 560)
-    dia = Image.open(tmp).convert("RGBA"); os.remove(tmp)
-    sh = Image.new("RGBA", dia.size, (0, 0, 0, 0)); sh.putalpha(dia.getchannel("A").point(lambda a: a * .55))
-    sh = sh.filter(ImageFilter.GaussianBlur(18))
-    ic.alpha_composite(sh, (cx - 280 + 10, cy - 280 + 26))
-    ic.alpha_composite(dia, (cx - 280, cy - 280))
-    # sparkles
-    sp = Image.open(A("fx", "sparkle.png")).convert("RGBA")
-    for (sx, sy, ss) in ((cx + 210, cy - 205, 120), (cx - 250, cy + 150, 80), (cx + 150, cy + 210, 64), (cx - 190, cy - 230, 56)):
-        ic.alpha_composite(sp.resize((ss, ss), Image.LANCZOS), (sx - ss // 2, sy - ss // 2))
-    out = ic.convert("RGB").resize((512, 512), Image.LANCZOS)
-    out.save(STORE("icon_512.png"))
-    out.resize((256, 256), Image.LANCZOS).save(os.path.join(ROOT, "icon.png"))
-
-
 def make_branding():
-    """App icon, Yandex store icon (512) and cover (800x470)."""
+    """Catalogue covers only. Authored project/store icons are never overwritten."""
     os.makedirs(STORE(), exist_ok=True)
     gem = lambda i, s: Image.open(A("gems", f"gem_{i}.png")).convert("RGBA").resize((s, s), Image.LANCZOS)
     velvet = Image.open(A("ui", "velvet.png")).convert("RGBA")
@@ -990,7 +870,6 @@ def make_branding():
         for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
             d.line([(cx, cy), (cx + dx * L, cy + dy * L)], fill=(247, 226, 168, 230), width=w)
 
-    make_icon(ground)
 
     # cover 800x470
     w, h = 800, 470
@@ -1027,7 +906,7 @@ def make_branding():
         cv.convert("RGB").save(STORE(f"cover_800x470_{lang}.png"))
 
 
-def main():
+def generate(branding=False):
     for d in ("gems", "tiles", "ui", "fx", "audio"):
         os.makedirs(A(d), exist_ok=True)
     for i, (name, base, cut) in enumerate(GEMS):
@@ -1039,8 +918,41 @@ def main():
     make_specials()
     make_previews()
     make_sounds()
-    make_branding()
-    print("assets written")
+    if branding:
+        make_branding()
+
+
+def main():
+    global ROOT
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--overwrite-generated", action="store_true")
+    parser.add_argument("--branding", action="store_true")
+    args = parser.parse_args()
+    destination = Path(ROOT).resolve()
+    # Generate in a private temporary tree. A failed renderer cannot partially rewrite assets.
+    with tempfile.TemporaryDirectory(prefix="bizarre-assets-") as temporary:
+        ROOT = temporary
+        try:
+            shutil.copytree(destination / "assets/fonts", Path(temporary) / "assets/fonts")
+            generate(args.branding)
+            outputs = sorted(p for p in Path(temporary).rglob("*") if p.is_file()
+                             and "fonts" not in p.relative_to(temporary).parts)
+            written = 0
+            for output in outputs:
+                relative = output.relative_to(temporary)
+                # Also protect authored inputs if a future producer is added accidentally.
+                if output.suffix == ".ogg" or output.name.startswith("voice_") or output.name in (
+                        "icon.png", "icon_512.png", "music.wav", "music_bright.wav"):
+                    raise RuntimeError(f"Authored/retired asset generation refused: {relative}")
+                target = destination / relative
+                if target.exists() and (not args.overwrite_generated or target.read_bytes() == output.read_bytes()):
+                    continue
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copyfile(output, target)
+                written += 1
+            print(f"assets written: {written}")
+        finally:
+            ROOT = str(destination)
 
 
 if __name__ == "__main__":

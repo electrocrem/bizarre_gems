@@ -46,7 +46,7 @@ scripts/
 ui/theme.tres           тема: шрифты, кнопки, панели и стили текста (Title, Muted, Number…)
 ui/fonts/*.tres         начертания шрифтов (вес Manrope / JetBrains Mono)
 i18n/strings.csv        все тексты: колонки keys, ru, en, tr
-assets/                 всё сгенерировано tools/gen_assets.py, шрифты под OFL
+assets/                 процедурная графика/SFX, авторские OGG; шрифты под OFL
 tests/test_logic.gd     тесты правил
 tests/smoke_ui.gd       прогон всех экранов и режимов (ловит ошибки скриптов)
 tools/
@@ -111,7 +111,28 @@ python3 tools/serve.py          # http://127.0.0.1:8060/  (?lang=en, ?lang=tr)
 `godot --headless --audio-driver Dummy --path . --export-debug "Yandex Web" build/webdebug/index.html`, затем
 `python3 tools/serve.py 8061 build/webdebug` и открыть `http://127.0.0.1:8061/?autoplay`.
 
-Перегенерировать ассеты: `python3 tools/gen_assets.py` (нужны rsvg-convert, Pillow, numpy).
+Генератор `python3 tools/gen_assets.py` заполняет только отсутствующие процедурные ресурсы.
+Нужны Pillow/numpy и rsvg-convert либо Node.js с sharp. Все результаты сначала создаются
+во временной папке; существующие файлы по умолчанию сохраняются. Явный
+`--overwrite-generated` обновляет процедурную графику/SFX, `--branding` добавляет генерацию
+каталожных обложек. Авторские OGG, иконки проекта/магазина и их импорты генератор не меняет.
+Старая музыка WAV и диктор не генерируются. Проверять генератор следует в изолированной
+копии через `tools/test_isolated.ps1 -Assets -Python <python.exe>`; рабочую папку для
+экспериментального перегенерирования не использовать.
+
+Музыка: `assets/audio/classic theme loop.ogg` для Classic и
+`assets/audio/bright run theme loop.ogg` для Bright Run/Daily. Полные файлы зациклены
+нативным импортом Ogg Vorbis; используется один фоновый плеер, прежние настройки
+громкости, меню и игровой паузы. Реальное прослушивание — отдельная ручная проверка.
+
+ComboExperiment доступен только в debug-сборке. F6/F7 выбирают сравнение окон A/B
+(3,0/3,5 с, исторические special/rewards), N — timed special comparison. Входы контроллера
+`debug_start_combo_ab`, `debug_start_special_combo`, `debug_start_run_combo` используют
+обычные BoardLogic/ScoreKeeper и сценовый HUD. Явная диагностика блокирует записи локального
+и облачного прогресса/рекордов до выхода из процесса, включая возврат в меню и другие режимы.
+Отчёты с фактическими receipts пишутся в `user://debug/classic_combo_ab.jsonl` изолированного
+профиля. Для автоматической диагностики используйте только runner с Dummy; команды и тесты
+описаны в [tests/README.md](tests/README.md). В обычных пользовательских экранах диагностики нет.
 
 ## Тестовая версия в браузере (GitHub Pages)
 

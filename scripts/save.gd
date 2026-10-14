@@ -1,4 +1,6 @@
 extends Node
+
+const ComboExperiment = preload("res://scripts/combo_experiment.gd")
 ## Player progress: best score and audio settings. Stored locally and, on Yandex Games,
 ## in the player's cloud data so it follows them across devices.
 
@@ -39,8 +41,9 @@ func _ready() -> void:
 
 ## Merge cloud data once the SDK is up. The higher best score wins.
 func sync_cloud() -> void:
+	if ComboExperiment.is_read_only(): return
 	Yandex.load_data(func(d: Dictionary):
-		if d.is_empty():
+		if ComboExperiment.is_read_only() or d.is_empty():
 			return
 		var newer := false
 		if int(d.get("best", 0)) > best:
@@ -61,6 +64,7 @@ func sync_cloud() -> void:
 
 ## Best score of today's daily board. Returns true on a new daily record.
 func submit_daily(score: int, date: String) -> bool:
+	if ComboExperiment.is_read_only(): return false
 	var date_changed := daily_date != date
 	if date_changed:
 		daily_date = date
@@ -98,6 +102,7 @@ func cloud_data() -> Dictionary:
 
 
 func submit(score: int, mode := "classic") -> bool:
+	if ComboExperiment.is_read_only(): return false
 	if mode not in ["classic", "bright", "zen"]:
 		return false  # Practice/hidden level results cannot fall through to Classic.
 	if score <= best_for(mode):
@@ -115,6 +120,7 @@ func submit(score: int, mode := "classic") -> bool:
 
 
 func store() -> void:
+	if ComboExperiment.is_read_only(): return
 	_write_local()
 	Yandex.save_data(cloud_data())
 	changed.emit()
@@ -126,6 +132,7 @@ func _data() -> Dictionary:
 
 
 func _write_local() -> void:
+	if ComboExperiment.is_read_only(): return
 	var cfg := ConfigFile.new()
 	cfg.set_value("game", "best", best)
 	cfg.set_value("game", "best_bright", best_bright)

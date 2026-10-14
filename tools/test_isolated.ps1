@@ -6,6 +6,9 @@ param(
     [switch]$ReferenceVisuals,
     [switch]$ReferenceHud,
     [switch]$ReferenceMenu,
+    [switch]$Assets,
+    [string]$Python,
+    [string]$GeneratedAssetsFrom,
     [ValidateSet('none', 'cosmetics-enabled', 'double-reward')][string]$Mutation = 'none',
     [ValidateRange(1, 1800)][int]$TimeoutSeconds = 180
 )
@@ -87,10 +90,13 @@ function Invoke-IsolatedGodot([string]$Name, [string[]]$Arguments, [string]$Comp
             throw "Godot verification failed: $Name, exit $($process.ExitCode) (logs: $caseRoot)"
         }
         if ($Completion -and -not $log.Contains($Completion)) { throw "Missing completion marker: $Name (logs: $caseRoot)" }
-        if ($Name -notin @('probe', 'resources-import', 'project-import') -and -not $log.Contains('ISOLATED_PROFILE_READY')) {
+        # Editor imports do not instantiate autoloads. Every runtime, including the
+        # regenerated-resource check, must still report the actual profile and driver.
+        $editorImport = $Name -in @('resources-import', 'project-import', 'generated-resources-import', 'generated-project-import')
+        if ($Name -ne 'probe' -and -not $editorImport -and -not $log.Contains('ISOLATED_PROFILE_READY')) {
             throw "Missing isolation guard: $Name (logs: $caseRoot)"
         }
-        if ($Name -notin @('resources-import', 'project-import') -and -not $log.Contains('ISOLATED_AUDIO_DUMMY')) {
+        if (-not $editorImport -and -not $log.Contains('ISOLATED_AUDIO_DUMMY')) {
             throw "Missing Dummy audio guard: $Name (logs: $caseRoot)"
         }
         Write-Output "PASS $Name (logs: $caseRoot)"
@@ -120,7 +126,7 @@ Invoke-IsolatedGodot 'probe' @('--script', 'res://tests/test_profile_isolation.g
 $paths = & git -C $projectRoot -c core.quotepath=false ls-files --cached --others --exclude-standard
 if ($LASTEXITCODE -ne 0) { throw 'Cannot enumerate project files.' }
 foreach ($relative in $paths | Sort-Object -Unique) {
-    if ($relative -notmatch '^(assets/|i18n/|scenes/|scripts/|ui/|tests/|icon\.png(\.import)?$|default_bus_layout\.tres$)') { continue }
+    if ($relative -notmatch '^(assets/|i18n/|scenes/|scripts/|ui/|tests/|tools/(gen_assets\.py|svg_to_png\.cjs)$|icon\.png(\.import)?$|default_bus_layout\.tres$)') { continue }
     $source = Join-Path $projectRoot $relative
     if (-not (Test-Path -LiteralPath $source -PathType Leaf)) { continue }
     if ((Get-Item -LiteralPath $source).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw "Linked resource refused: $relative" }
@@ -188,6 +194,49 @@ $importConfig = [regex]::Replace($config, '(?m)^(theme/custom|locale/translation
 Write-Utf8 (Join-Path $fixture 'project.godot') $importConfig
 Invoke-IsolatedGodot 'resources-import' @('--editor', '--import')
 Write-Utf8 (Join-Path $fixture 'project.godot') $config
+if ($Assets -or $GeneratedAssetsFrom) {
+    if ($Assets -and $GeneratedAssetsFrom) { throw 'Choose fresh generation or an existing isolated generated fixture.' }
+    if ($Assets) {
+        if (-not $Python) { throw '-Assets requires a Python executable (Pillow/numpy and an SVG renderer).' }
+        & $Python (Join-Path $fixture 'tests/test_assets.py') --project $fixture
+        if ($LASTEXITCODE -ne 0) { throw 'Isolated generator/resource checks failed.' }
+    } else {
+        # Focused import follow-up: reuse only generated assets, with fresh current code/config.
+        $generatedSource = (Resolve-Path -LiteralPath $GeneratedAssetsFrom).Path
+        $sourceParent = Split-Path $generatedSource -Parent
+        if ((Split-Path $generatedSource -Leaf) -ne 'generated-assets' -or
+            (Split-Path $sourceParent -Leaf) -notmatch '^[0-9a-f]{32}$' -or
+            (Split-Path $sourceParent -Parent) -ne $verificationRoot) { throw 'Only a fixture owned by this isolated runner may be reused.' }
+        foreach ($path in @('tools/gen_assets.py','tools/svg_to_png.cjs')) {
+            if ((Get-FileHash (Join-Path $generatedSource $path)).Hash -ne (Get-FileHash (Join-Path $fixture $path)).Hash) {
+                throw "Generated fixture has a different producer: $path"
+            }
+        }
+        $generatedTarget = Join-Path $runRoot 'generated-assets'
+        foreach ($file in Get-ChildItem -LiteralPath $fixture -Recurse -File) {
+            $relative = [IO.Path]::GetRelativePath($fixture,$file.FullName)
+            if ($relative -match '^\.godot[\\/]' -or $file.Extension -eq '.translation') { continue }
+            $sourceFile = if ($relative -match '^assets[\\/]') { Join-Path $generatedSource $relative } else { $file.FullName }
+            if ((Get-Item -LiteralPath $sourceFile).Attributes -band [IO.FileAttributes]::ReparsePoint) { throw 'Linked generated resource refused.' }
+            $target = Join-Path $generatedTarget $relative
+            [IO.Directory]::CreateDirectory((Split-Path $target -Parent)) | Out-Null
+            Copy-Item -LiteralPath $sourceFile -Destination $target
+        }
+        Write-Output "Reusing isolated generated assets: $generatedSource"
+    }
+    # Import and load the actual regenerated outputs, also with the common Dummy launcher.
+    $primaryFixture = $fixture
+    try {
+        $fixture = Join-Path $runRoot 'generated-assets'
+        Write-Utf8 (Join-Path $fixture 'project.godot') $importConfig
+        Invoke-IsolatedGodot 'generated-resources-import' @('--editor', '--import')
+        Write-Utf8 (Join-Path $fixture 'project.godot') $config
+        Invoke-IsolatedGodot 'generated-project-import' @('--editor', '--import')
+        Invoke-IsolatedGodot 'generated-resource-check' @('--script', 'res://tests/test_resources.gd') 'RESOURCES_SUITE_DONE'
+    } finally {
+        $fixture = $primaryFixture
+    }
+}
 Invoke-IsolatedGodot 'project-import' @('--editor', '--import')
 Invoke-IsolatedGodot 'storage' @('--script', 'res://tests/test_profile_isolation.gd') 'PROFILE_ISOLATION_DONE'
 $index = 0
@@ -213,6 +262,10 @@ foreach ($script in $Scripts) {
         'res://tests/test_menu_reference.gd' { 'MENU_REFERENCE_DONE' }
         'res://tests/test_dummy_audio.gd' { 'DUMMY_AUDIO_DONE' }
         'res://tests/test_hud_routes.gd' { 'HUD_ROUTES_DONE' }
+        'res://tests/run_media_suite.gd' { 'MEDIA_SUITE_DONE' }
+        'res://tests/run_diagnostics_suite.gd' { 'DIAGNOSTICS_SUITE_DONE' }
+        'res://tests/test_diagnostics_cli.gd' { 'DIAGNOSTICS_CLI_DONE' }
+        'res://tests/test_resources.gd' { 'RESOURCES_SUITE_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)

@@ -39,7 +39,7 @@ func _run() -> void:
 	check(sfx._music.playing,"platform resume still restarts music")
 	check([save.sound,save.music,save.sound_volume,save.music_volume] == settings,"audio settings unchanged")
 	check((FileAccess.get_sha256(path) if FileAccess.file_exists(path) else "") == before,"saved audio settings unchanged")
-	sfx._music.finished.disconnect(sfx._music.play) # Shutdown only: prevent an already queued finish from restarting music.
+	check(not sfx._music.finished.is_connected(sfx._music.play),"native OGG loops have no finished restart callback")
 	for player in sfx.get_children():
 		if player is AudioStreamPlayer:
 			player.stop()

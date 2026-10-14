@@ -1,4 +1,6 @@
 extends Node
+
+const ComboExperiment = preload("res://scripts/combo_experiment.gd")
 ## Bridge to the Yandex Games SDK.
 ##
 ## The web export's <head> defines window.YG (see export_presets.cfg, html/head_include),
@@ -110,6 +112,7 @@ func open_auth(done: Callable) -> void:
 
 ## `board` is the leaderboard's technical name in the Yandex console.
 func submit_score(score: int, board := "score") -> void:
+	if ComboExperiment.is_read_only(): return
 	if _yg and available:
 		_yg.setScore(board, score)
 
@@ -130,6 +133,7 @@ func load_data(done: Callable) -> void:
 
 
 func save_data(data: Dictionary) -> void:
+	if ComboExperiment.is_read_only(): return
 	if _yg and available:
 		_yg.saveData(JSON.stringify(data))
 

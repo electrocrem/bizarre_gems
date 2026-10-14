@@ -1,4 +1,6 @@
 extends Node
+
+const ComboExperiment = preload("res://scripts/combo_experiment.gd")
 ## Long-term progress for the bright modes: level stars, crystals, the tile looks the player
 ## owns, and today's three tasks. Stored in user://progress.cfg.
 
@@ -94,6 +96,7 @@ func _ready() -> void:
 	refresh_tasks()
 
 func _save() -> void:
+	if ComboExperiment.is_read_only(): return
 	_dirty = false
 	_since = 0.0
 	var cfg := ConfigFile.new()
@@ -128,6 +131,7 @@ func to_dict() -> Dictionary:
 
 ## Merge cloud progress into the local one, keeping the better of each.
 func merge(d: Dictionary) -> void:
+	if ComboExperiment.is_read_only(): return
 	if d.is_empty():
 		return
 	var st: Dictionary = d.get("stars", {})
@@ -192,6 +196,7 @@ static func stars_for_share(share: float) -> int:
 
 ## Store a level result; returns how many new stars were earned (each pays crystals).
 func record_level(level: int, got: int) -> int:
+	if ComboExperiment.is_read_only(): return 0
 	var old := stars_for(level)
 	if got > old:
 		stars[level] = got
@@ -208,6 +213,7 @@ func record_level(level: int, got: int) -> int:
 
 ## Today's three tasks, the same for everyone (seeded by the UTC date).
 func refresh_tasks() -> void:
+	if ComboExperiment.is_read_only(): return
 	var today := Time.get_date_string_from_system(true)
 	if task_date == today and tasks.size() == 3:
 		return
@@ -224,6 +230,7 @@ func refresh_tasks() -> void:
 
 
 func report(id: String, amount := 1) -> void:
+	if ComboExperiment.is_read_only(): return
 	refresh_tasks()
 	if id == "run_score" or id.begins_with("max_"):
 		life[id] = maxi(int(life.get(id, 0)), amount)
@@ -263,6 +270,7 @@ func achievement_done(i: int) -> bool:
 
 
 func claim_achievement(i: int) -> int:
+	if ComboExperiment.is_read_only(): return 0
 	if i < 0 or i >= ACHIEVEMENTS.size():
 		return 0
 	var a: Dictionary = ACHIEVEMENTS[i]
@@ -295,6 +303,7 @@ static func gift_amount(day: int) -> int:
 
 ## Open today's gift. Returns {"crystals", "day", "look"} (look = -1 unless a look was unlocked).
 func open_gift() -> Dictionary:
+	if ComboExperiment.is_read_only(): return {}
 	if not gift_ready():
 		return {}
 	var today := Time.get_date_string_from_system(true)
@@ -337,6 +346,7 @@ func claim_season() -> bool:
 
 
 func solved_puzzle(n: int) -> void:
+	if ComboExperiment.is_read_only(): return
 	if n > puzzles:
 		puzzles = n
 		report("puzzles")
@@ -345,6 +355,7 @@ func solved_puzzle(n: int) -> void:
 
 ## Keep a result in this device's top 10 for a board ("score", "score_bright", "stars", ...).
 func add_local_score(board: String, value: int) -> void:
+	if ComboExperiment.is_read_only(): return
 	if board == "" or value <= 0:
 		return
 	var list: Array = local_scores.get(board, [])
@@ -361,12 +372,14 @@ func local_top(board: String) -> Array:
 
 
 func finish_tutorial() -> void:
+	if ComboExperiment.is_read_only(): return
 	tutorial = true
 	tutorial_skipped = false
 	_save()
 
 
 func skip_tutorial() -> void:
+	if ComboExperiment.is_read_only(): return
 	tutorial_skipped = true
 	_save()
 
@@ -381,6 +394,7 @@ func task_done(i: int) -> bool:
 
 
 func claim(i: int) -> int:
+	if ComboExperiment.is_read_only(): return 0
 	if i < 0 or i >= tasks.size() or not task_done(i) or bool(tasks[i].claimed):
 		return 0
 	tasks[i].claimed = true
@@ -409,6 +423,7 @@ func owns(i: int) -> bool:
 
 
 func buy(i: int) -> bool:
+	if ComboExperiment.is_read_only(): return false
 	if not COSMETICS_ENABLED or i < 0 or i >= LOOK_PRICES.size():
 		return false
 	if owns(i) or int(LOOK_PRICES[i]) < 0 or crystals < int(LOOK_PRICES[i]):
@@ -421,6 +436,7 @@ func buy(i: int) -> bool:
 
 
 func select(i: int) -> void:
+	if ComboExperiment.is_read_only(): return
 	if not COSMETICS_ENABLED:
 		return
 	if owns(i):
@@ -429,6 +445,7 @@ func select(i: int) -> void:
 
 
 func use_hint_token() -> bool:
+	if ComboExperiment.is_read_only(): return false
 	if hint_tokens <= 0:
 		return false
 	hint_tokens -= 1
@@ -446,6 +463,7 @@ func daily_reward_ready(date := "") -> bool:
 
 ## Pay the daily challenge crystals once a day. Returns the crystals paid (0 if already).
 func pay_daily(date := "") -> int:
+	if ComboExperiment.is_read_only(): return 0
 	var day := Time.get_date_string_from_system(true) if date.is_empty() else date
 	if not daily_reward_ready(day):
 		return 0
@@ -482,6 +500,7 @@ func chapter_due(c: int) -> Array:
 
 
 func claim_chapter(c: int, what: String) -> int:
+	if ComboExperiment.is_read_only(): return 0
 	if not (what in chapter_due(c)):
 		return 0
 	chapter_claims.append("c%d_%s" % [c, what])
@@ -499,5 +518,6 @@ static func crystals_for_score(score: int) -> int:
 
 
 func add_crystals(n: int) -> void:
+	if ComboExperiment.is_read_only(): return
 	crystals += n
 	_save()

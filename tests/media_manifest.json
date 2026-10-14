@@ -1,0 +1,14 @@
+{
+  "assets/audio/classic theme loop.ogg": {
+    "sha256": "879b405a3069615d626476055ec3471e8dac878bb2f07a03d5969d63f61224d7",
+    "bytes": 2075413
+  },
+  "assets/audio/bright run theme loop.ogg": {
+    "sha256": "8d323d76ce46a3fc152afa053956fdd73827ce5ba14a680c11d7ab4266417c58",
+    "bytes": 1869109
+  },
+  "icon.png": {
+    "sha256": "b8d068363ed2c55fcd7393587262b76eb2b88e51db7c8488ccc4c63e5f678749",
+    "bytes": 137741
+  }
+}
