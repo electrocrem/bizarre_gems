@@ -95,6 +95,7 @@ var _stuck_t := 0.0
 var _game_generation := 0
 var _ad_request := 0
 var _ad_pending := false
+var _hud_safe_poll := 0.0
 
 # ---- nodes of scenes/main.tscn ----
 @onready var ambient: Ambient = $Ambient
@@ -150,6 +151,7 @@ func _ready() -> void:
 	board.feedback_font = preload("res://ui/fonts/bold.tres")
 	board.feedback_exclusion = _feedback_exclusion
 	board.logic = logic
+	game_layer.get_node("Column").resized.connect(_layout_game)
 	_connect_screens()
 	_apply_ui_scale()
 	_set_orientation(false)
@@ -330,6 +332,8 @@ func _on_sdk_ready() -> void:
 ## Texts that are translation keys in the scenes switch by themselves; the ones put together in
 ## code are rebuilt here.
 func _on_language_changed() -> void:
+	hud.configure(mode.id,_is_native_android())
+	hud.set_combo(keeper.combo)
 	var s := _current_screen()
 	if s and s != result and s != level_result:
 		s.refresh()
@@ -439,7 +443,7 @@ func _wait_run_layout(generation: int) -> void:
 		var viewport_size := get_viewport_rect().size
 		var area := board.size - Vector2.ONE * board.frame_pad * 2.0
 		var current := Vector4(viewport_size.x, viewport_size.y, area.x, area.y)
-		var portrait_ready := not OS.has_feature("android") or viewport_size.y >= viewport_size.x
+		var portrait_ready := not _is_native_android() or viewport_size.y >= viewport_size.x
 		if board.is_visible_in_tree() and area.x >= 50.0 and area.y >= 50.0 and portrait_ready:
 			stable = stable + 1 if current.is_equal_approx(previous) else 0
 			if stable >= 2:
@@ -480,6 +484,7 @@ func _use_mode(id: String) -> void:
 	for k in huds:
 		huds[k].visible = k == mode.skin
 	hud = huds[mode.skin]
+	hud.configure(mode.id, _is_native_android())
 	hud.set_combo(keeper.combo)
 	_update_hud()
 	if is_node_ready():
@@ -559,7 +564,7 @@ func _deal_board() -> void:
 		var r := RandomNumberGenerator.new()
 		r.seed = hash("bizarre-gems-%s-%s-%d" % [daily_run_date, mode.id, wave])
 		logic.setup(mode.cols, mode.rows, r, mode.shining, mode.kinds, mode.per_kind)
-		if mode.id == "classic" and _is_touch_device() and not OS.has_feature("android"):
+		if mode.id == "classic" and _is_touch_device() and not _is_native_android():
 			logic.transpose()  # the same daily board, upright in mobile browsers
 	else:
 		var d := _dims()
@@ -723,7 +728,7 @@ func _set_theme(i: int, instant := false) -> void:
 ## Android: the app is upright, but the classic board is wide, so the screen turns
 ## sideways while a classic game is on and back upright for the menus and bright mode.
 func _set_orientation(landscape: bool) -> void:
-	if not OS.has_feature("android"):
+	if not _is_native_android():
 		return
 	DisplayServer.screen_set_orientation(DisplayServer.SCREEN_SENSOR_LANDSCAPE if landscape
 		else DisplayServer.SCREEN_SENSOR_PORTRAIT)
@@ -1219,7 +1224,12 @@ func _process(delta: float) -> void:
 		shown_score = lerpf(shown_score, score, minf(1.0, delta * 10.0))
 	else:
 		shown_score = score
-	hud.score_label.text = str(int(round(shown_score)))
+	hud.set_number(hud.score_label, int(round(shown_score)))
+	_hud_safe_poll += delta
+	if _hud_safe_poll >= .25:
+		_hud_safe_poll = 0.0
+		if safe != _safe_insets():
+			_on_viewport_resized()
 	_update_hand()
 	if state != State.PLAYING:
 		return
@@ -1703,11 +1713,13 @@ func _update_hud() -> void:
 		"levels":
 			fraction = time_left / _level_time(level_n)
 	hud.set_time(text, fraction, state == State.PLAYING and secs <= 15)
-	hud.best_label.text = str(maxi(Save.best_for(mode.id), score))
+	hud.set_number(hud.best_label, maxi(Save.best_for(mode.id), score))
+	hud.update_progress(keeper,play_time,state in [State.PLAYING,State.PAUSED],board,wave)
 	hud.set_buttons(state == State.PLAYING, state == State.PLAYING or state == State.PAUSED)
 	var bright: Hud = huds.bright
-	bright.level_label.text = "· " + L.t("level_short", {"n": _level()})
-	bright.level_label.visible = mode.kind == "levels" or mode.kind == "zen" or mode.kind == "puzzle"
+	if mode.kind != "run":
+		bright.level_label.text = "· " + L.t("level_short", {"n": _level()})
+	bright.level_label.visible = mode.kind in ["run", "levels", "zen", "puzzle"]
 	if goal_kind >= 0:
 		bright.level_label.text += "  ·  " + L.t("goal_left", {"n": logic.count_kind(goal_kind)})
 	# the hint button shows an ad badge once the free hint and the spare ones are used up
@@ -1771,7 +1783,7 @@ func _banner(title: String, pts: int, secs: float, color: Color, sub := "", prio
 func _dims() -> Vector2i:
 	if mode.kind == "run" and _run_dims != Vector2i.ZERO:
 		return _run_dims
-	if mode.id == "classic" and (not _is_touch_device() or OS.has_feature("android")):
+	if mode.id == "classic" and (not _is_touch_device() or _is_native_android()):
 		return Vector2i(mode.cols, mode.rows)  # the original wide board (desktop, Android turned sideways)
 	var slots: int = mode.slots
 	if mode.kind == "run":
@@ -1791,6 +1803,7 @@ func _board_area() -> Vector2:
 ## Fit the board to its area. Before a game starts the board is re-dealt in the best shape;
 ## during a game it is only transposed (when that shape fits better) or rescaled.
 func _relayout_board() -> void:
+	_layout_game()
 	if mode.kind == "run" and (_run_starting or _run_dims != Vector2i.ZERO):
 		board.refresh()  # Resize rendering only; logical coordinates persist for the entire Run.
 		return
@@ -1818,7 +1831,7 @@ func _relayout_board() -> void:
 
 func _on_viewport_resized() -> void:
 	var s := get_viewport_rect().size
-	var turn := _is_touch_device() and s.x > s.y * 1.05 and not OS.has_feature("android")
+	var turn := _is_touch_device() and s.x > s.y * 1.05 and not _is_native_android()
 	rotate_overlay.visible = turn
 	if turn:
 		pause_game()
@@ -1845,7 +1858,17 @@ func _on_viewport_resized() -> void:
 			p.custom_minimum_size.x = w
 			p.theme_type_variation = &"PanelCompact" if compact else &""
 		p.layout(s, compact)
-	board.frame_pad = 5.0 if compact else 10.0
+	board.frame_pad = 3.0 if mode.id == "classic" and _is_native_android() else (5.0 if compact else 10.0)
+	if mode.id == "classic" and _is_native_android():
+		# Refinement centres both rails on the full screen; the cell/rail calculation
+		# reserves horizontal cutouts. Vertical margins use the larger safe inset.
+		var side := 4
+		var vertical := maxi(ceili(safe.position.y),ceili(safe.size.y))+4
+		for edge in ["left","right"]:
+			game_layer.add_theme_constant_override("margin_"+edge,side)
+		for edge in ["top","bottom"]:
+			game_layer.add_theme_constant_override("margin_"+edge,vertical)
+	_layout_game.call_deferred()
 	_relayout_board.call_deferred()
 	_fit_panels.call_deferred()
 
@@ -1933,7 +1956,7 @@ func _safe_insets() -> Rect2:
 			var s := get_viewport_rect().size
 			r = Rect2(n, 0, 0, 0) if s.x > s.y else Rect2(0, n, 0, 0)
 		return r
-	if not OS.has_feature("android"):
+	if not _is_native_android():
 		return Rect2()
 	var win := get_window()
 	var safe := DisplayServer.get_display_safe_area()
@@ -1950,6 +1973,16 @@ func _safe_insets() -> Rect2:
 
 func _is_touch_device() -> bool:
 	return OS.has_feature("mobile") or DisplayServer.is_touchscreen_available()
+
+
+func _is_native_android() -> bool:
+	return OS.has_feature("android")
+
+
+func _layout_game() -> void:
+	if not is_node_ready() or not hud:
+		return
+	game_layer.get_node("Column").arrange(board,hud,mode.id,_is_native_android(),get_viewport_rect().size,safe)
 
 
 func _fit_banner_text() -> void:
@@ -1982,9 +2015,13 @@ func _show_bonus_feedback(res: Dictionary, at: Vector2i) -> void:
 	board.play_bonus_feedback(at, res, keeper.color_streak_kind, keeper.color_streak_hits,
 		L.t("color_chain_start"), L.t("color_chain_length", {"n": keeper.color_streak_hits}), L.t("double_hit"),
 		L.t("hit_total", {"n": res.points}))
+	if int(res.color_streak_points) > 0:
+		hud.pop(hud.chain_count,1.35)
 
 ## Presentation reset only; game/continue contracts own ScoreKeeper state.
 func _reset_visual_feedback() -> void:
+	if hud:
+		hud.reset_feedback()
 	board.clear_combo_feedback()
 	if banner.has_meta("banner_tween"):
 		var previous: Tween = banner.get_meta("banner_tween")

@@ -225,3 +225,6 @@ color_chain_start,ЦЕПЬ!,COLOR CHAIN!,RENK ZİNCİRİ!
 color_chain_length,ЦЕПЬ {n},CHAIN {n},ZİNCİR {n}
 double_hit,ДВОЙНОЙ УДАР!,DOUBLE HIT!,ÇİFTE VURUŞ!
 hit_total,ИТОГО +{n},TOTAL +{n},TOPLAM +{n}
+streak_caption,Серия,Streak,Seri
+color_streak_chain,цепь,chain,zincir
+run_field_caption,Поле,Board,Tahta

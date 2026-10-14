@@ -1,0 +1,38 @@
+[gd_scene format=3]
+[ext_resource type="Script" path="res://scripts/hud_stat_slot.gd" id="slot"]
+[ext_resource type="FontVariation" path="res://ui/fonts/numbers.tres" id="number"]
+[ext_resource type="FontVariation" path="res://ui/fonts/bold.tres" id="bold"]
+[node name="Stat" type="Control"]
+mouse_filter = 2
+script = ExtResource("slot")
+[node name="Block" type="VBoxContainer" parent="."]
+mouse_filter = 2
+theme_override_constants/separation = 3
+[node name="Caption" type="Label" parent="Block"]
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("bold")
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.6667,0.7216,0.9255,1)
+uppercase = true
+[node name="Value" type="Label" parent="Block"]
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("number")
+theme_override_font_sizes/font_size = 28
+text = "0"
+[node name="Delta" type="Control" parent="Block/Value"]
+mouse_filter = 2
+offset_left = 55.0
+offset_top = 6.0
+offset_right = 104.0
+offset_bottom = 34.0
+script = ExtResource("slot")
+[node name="Label" type="Label" parent="Block/Value/Delta"]
+mouse_filter = 2
+modulate = Color(1,1,1,0)
+theme_override_fonts/font = ExtResource("number")
+theme_override_font_sizes/font_size = 14
+theme_override_colors/font_color = Color(1,0.7843,0.2392,1)
+[node name="Bar" type="ProgressBar" parent="Block"]
+mouse_filter = 2
+custom_minimum_size = Vector2(0,4)
+show_percentage = false

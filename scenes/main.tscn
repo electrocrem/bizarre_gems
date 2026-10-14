@@ -24,6 +24,8 @@
 [ext_resource type="Texture2D" uid="uid://b2mk3dtc8lkxe" path="res://assets/ui/icon_hand.png" id="22"]
 [ext_resource type="Texture2D" uid="uid://cfgdoqm0qwb33" path="res://assets/ui/icon_rotate.png" id="23"]
 
+[ext_resource type="Script" path="res://scripts/ui/game_composition.gd" id="composition"]
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
 content_margin_left = 16.0
 content_margin_top = 10.0
@@ -71,9 +73,9 @@ theme_override_constants/margin_top = 16
 theme_override_constants/margin_right = 16
 theme_override_constants/margin_bottom = 16
 
-[node name="Column" type="VBoxContainer" parent="Game" unique_id=2136040033]
+[node name="Column" type="Control" parent="Game" unique_id=2136040033]
 layout_mode = 2
-theme_override_constants/separation = 10
+script = ExtResource("composition")
 
 [node name="HudClassic" parent="Game/Column" unique_id=1809899830 instance=ExtResource("3")]
 unique_name_in_owner = true

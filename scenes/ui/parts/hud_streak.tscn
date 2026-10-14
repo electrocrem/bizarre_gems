@@ -1,0 +1,34 @@
+[gd_scene format=3]
+[ext_resource type="Script" path="res://scripts/hud_stat_slot.gd" id="slot"]
+[ext_resource type="FontVariation" path="res://ui/fonts/numbers.tres" id="number"]
+[ext_resource type="FontVariation" path="res://ui/fonts/bold.tres" id="bold"]
+[sub_resource type="StyleBoxFlat" id="clear"]
+bg_color = Color(0,0,0,0)
+content_margin_left = 0.0
+content_margin_top = 0.0
+content_margin_right = 0.0
+content_margin_bottom = 0.0
+[node name="Streak" type="Control"]
+mouse_filter = 2
+script = ExtResource("slot")
+[node name="Panel" type="PanelContainer" parent="."]
+mouse_filter = 2
+theme_override_styles/panel = SubResource("clear")
+[node name="VBox" type="VBoxContainer" parent="Panel"]
+mouse_filter = 2
+theme_override_constants/separation = 3
+[node name="Count" type="Label" parent="Panel/VBox"]
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("bold")
+theme_override_font_sizes/font_size = 12
+theme_override_colors/font_color = Color(0.6667,0.7216,0.9255,1)
+uppercase = true
+[node name="Mult" type="Label" parent="Panel/VBox"]
+mouse_filter = 2
+theme_override_fonts/font = ExtResource("number")
+theme_override_font_sizes/font_size = 28
+text = "×1"
+[node name="Bar" type="ProgressBar" parent="Panel/VBox"]
+mouse_filter = 2
+custom_minimum_size = Vector2(0,4)
+show_percentage = false

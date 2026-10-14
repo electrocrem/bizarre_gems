@@ -4,6 +4,7 @@ param(
     [string[]]$UserArgs = @(),
     [switch]$Render,
     [switch]$ReferenceVisuals,
+    [switch]$ReferenceHud,
     [ValidateSet('none', 'cosmetics-enabled', 'double-reward')][string]$Mutation = 'none',
     [ValidateRange(1, 1800)][int]$TimeoutSeconds = 180
 )
@@ -126,6 +127,22 @@ if ($ReferenceVisuals) {
         Write-Utf8 (Join-Path $fixture "tests/reference_visuals/$name.gd") ($referenceText + "`n")
     }
 }
+if ($ReferenceHud) {
+    $referenceMain = (& git -C $projectRoot show 'bcee01634740130b6f2bf8f1193adc49e3f68e1f:scripts/main.gd') -join "`n"
+    if ($LASTEXITCODE -ne 0) { throw 'Missing pinned HUD source.' }
+    $referenceHudSource = [IO.File]::ReadAllText((Join-Path $projectRoot 'tools/reference_hud_shell.txt'))
+    foreach ($method in @('_box','_label','_caption','_icon_button','_stable_hud_slot','_build_classic_hud',
+            '_layout_classic_header','_side_label','_side_stat','_build_classic_side_hud','_build_bonus_widgets',
+            '_constrain_side_width','_layout_classic_sides','_set_hud_number')) {
+        $body = [regex]::Match($referenceMain, '(?ms)^func ' + $method + '\(.*?(?=^func |\z)').Value
+        if (-not $body) { throw "Missing pinned HUD method $method" }
+        $referenceHudSource += "`n" + $body
+    }
+    Write-Utf8 (Join-Path $fixture 'tests/reference_visuals/hud.gd') $referenceHudSource
+    $referenceSlot = (& git -C $projectRoot show 'bcee01634740130b6f2bf8f1193adc49e3f68e1f:scripts/hud_stat_slot.gd') -join "`n"
+    if ($LASTEXITCODE -ne 0) { throw 'Missing pinned stat slot.' }
+    Write-Utf8 (Join-Path $fixture 'tests/reference_visuals/hud_stat_slot.gd') ($referenceSlot + "`n")
+}
 if ($Mutation -ne 'none') {
     # Deliberate negative checks change ONLY the disposable project, never the worktree.
     $mutationCase = switch ($Mutation) {
@@ -171,6 +188,10 @@ foreach ($script in $Scripts) {
         'res://tests/run_progress_suite.gd' { 'PROGRESS_SUITE_DONE' }
         'res://tests/run_visual_suite.gd' { 'VISUAL_SUITE_DONE' }
         'res://tests/test_visual_reference.gd' { 'VISUAL_REFERENCE_DONE' }
+        'res://tests/test_android_touch.gd' { 'ANDROID_TOUCH_DONE' }
+        'res://tests/test_hud_layout.gd' { 'HUD_LAYOUT_DONE' }
+        'res://tests/test_hud_reference.gd' { 'HUD_REFERENCE_DONE' }
+        'res://tests/test_hud_runtime.gd' { 'HUD_RUNTIME_DONE' }
         default { '' }
     }
     $argsForTest = @('--script', $script)

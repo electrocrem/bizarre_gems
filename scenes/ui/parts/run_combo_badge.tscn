@@ -1,0 +1,56 @@
+[gd_scene format=3]
+[ext_resource type="Script" path="res://scripts/ui/run_combo_badge.gd" id="script"]
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
+resource_local_to_scene = true
+content_margin_left = 12.0
+content_margin_top = 2.0
+content_margin_right = 12.0
+content_margin_bottom = 4.0
+bg_color = Color(0.2392, 0.5451, 1, 1)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 1, 1, 0.5)
+corner_radius_top_left = 16
+corner_radius_top_right = 16
+corner_radius_bottom_right = 16
+corner_radius_bottom_left = 16
+
+[node name="RunBadge" type="Control"]
+mouse_filter = 2
+script = ExtResource("script")
+[node name="Fit" type="Control" parent="."]
+mouse_filter = 2
+[node name="Panel" type="PanelContainer" parent="Fit"]
+mouse_filter = 2
+modulate = Color(1,1,1,0)
+theme_override_styles/panel = SubResource("StyleBoxFlat_1")
+[node name="VBox" type="VBoxContainer" parent="Fit/Panel"]
+layout_mode = 2
+theme_override_constants/separation = 0
+
+[node name="Mult" type="Label" parent="Fit/Panel/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Banner"
+theme_override_colors/font_color = Color(1, 1, 1, 1)
+theme_override_font_sizes/font_size = 20
+horizontal_alignment = 1
+theme_override_constants/outline_size = 8
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.25)
+
+[node name="Count" type="Label" parent="Fit/Panel/VBox"]
+layout_mode = 2
+mouse_filter = 2
+theme_type_variation = &"Bold"
+theme_override_font_sizes/font_size = 12
+horizontal_alignment = 1
+uppercase = true
+visible = false
+
+[node name="ComboBar" type="ProgressBar" parent="Fit/Panel/VBox"]
+layout_mode = 2
+mouse_filter = 2
+custom_minimum_size = Vector2(80, 4)
+show_percentage = false

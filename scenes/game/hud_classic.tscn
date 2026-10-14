@@ -1,157 +1,38 @@
 [gd_scene format=3]
-
-[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_pause.png" id="2"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_restart.png" id="3"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_settings.png" id="4"]
-
-[sub_resource type="StyleBoxEmpty" id="StyleBoxEmpty_1"]
-resource_local_to_scene = true
-
-[node name="HudClassic" type="HBoxContainer"]
-script = ExtResource("1")
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/hud_stat.tscn" id="stat"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/hud_chain.tscn" id="chain"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/hud_streak.tscn" id="streak"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_pause.png" id="pause"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_restart.png" id="restart"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_settings.png" id="settings"]
+[node name="Hud" type="Control"]
+mouse_filter = 2
+script = ExtResource("hud")
 skin = "classic"
-theme_override_constants/separation = 18
-
-[node name="Title" type="Label" parent="."]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Title"
-theme_override_font_sizes/font_size = 30
-text = "title"
-size_flags_vertical = 4
-
-[node name="TimeBox" type="VBoxContainer" parent="."]
-layout_mode = 2
-theme_override_constants/separation = 3
-size_flags_horizontal = 3
-size_flags_stretch_ratio = 2.0
-custom_minimum_size = Vector2(110, 0)
-
-[node name="TimeCaption" type="Label" parent="TimeBox"]
-layout_mode = 2
-theme_type_variation = &"Caption"
-text = "time"
-uppercase = true
-
-[node name="TimeRow" type="HBoxContainer" parent="TimeBox"]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="Time" type="Label" parent="TimeBox/TimeRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Number"
-theme_override_font_sizes/font_size = 28
-text = "120"
-
-[node name="Delta" type="Label" parent="TimeBox/TimeRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"NumberGold"
-theme_override_font_sizes/font_size = 18
-modulate = Color(1, 1, 1, 0)
-
-[node name="TimeBar" type="ProgressBar" parent="TimeBox"]
-layout_mode = 2
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 6)
-show_percentage = false
-
-[node name="ScoreBox" type="VBoxContainer" parent="."]
-layout_mode = 2
-theme_override_constants/separation = 3
-
-[node name="ScoreCaption" type="Label" parent="ScoreBox"]
-layout_mode = 2
-theme_type_variation = &"Caption"
-text = "score"
-uppercase = true
-
-[node name="Score" type="Label" parent="ScoreBox"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Number"
-theme_override_font_sizes/font_size = 28
-text = "0"
-
-[node name="BestBox" type="VBoxContainer" parent="."]
-layout_mode = 2
-theme_override_constants/separation = 3
-
-[node name="BestCaption" type="Label" parent="BestBox"]
-layout_mode = 2
-theme_type_variation = &"Caption"
-text = "best"
-uppercase = true
-
-[node name="Best" type="Label" parent="BestBox"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Number"
-theme_override_font_sizes/font_size = 28
-text = "0"
-
-[node name="Combo" type="PanelContainer" parent="."]
-layout_mode = 2
-unique_name_in_owner = true
-modulate = Color(1, 1, 1, 0)
-custom_minimum_size = Vector2(80, 0)
-size_flags_vertical = 4
-theme_override_styles/panel = SubResource("StyleBoxEmpty_1")
-
-[node name="VBox" type="VBoxContainer" parent="Combo"]
-layout_mode = 2
-theme_override_constants/separation = 2
-
-[node name="Count" type="Label" parent="Combo/VBox"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Caption"
-uppercase = true
-
-[node name="Mult" type="Label" parent="Combo/VBox"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Title"
-theme_override_font_sizes/font_size = 30
-
-[node name="ComboBar" type="ProgressBar" parent="Combo/VBox"]
-layout_mode = 2
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 4)
-show_percentage = false
-
-[node name="Buttons" type="HBoxContainer" parent="."]
-layout_mode = 2
-unique_name_in_owner = true
-theme_override_constants/separation = 8
-size_flags_vertical = 4
-
+[node name="Stats" type="Control" parent="."]
+mouse_filter = 2
+[node name="Time" parent="Stats" instance=ExtResource("stat")]
+[node name="Score" parent="Stats" instance=ExtResource("stat")]
+[node name="Best" parent="Stats" instance=ExtResource("stat")]
+[node name="Combo" type="Control" parent="Stats"]
+mouse_filter = 2
+[node name="Streak" parent="Stats/Combo" instance=ExtResource("streak")]
+[node name="Chain" parent="Stats" instance=ExtResource("chain")]
+[node name="Buttons" type="Control" parent="."]
+mouse_filter = 2
 [node name="Pause" type="Button" parent="Buttons"]
-layout_mode = 2
-unique_name_in_owner = true
 theme_type_variation = &"IconButton"
-icon = ExtResource("2")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("pause")
 icon_alignment = 1
-
 [node name="Restart" type="Button" parent="Buttons"]
-layout_mode = 2
-unique_name_in_owner = true
 theme_type_variation = &"IconButton"
-icon = ExtResource("3")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("restart")
 icon_alignment = 1
-
 [node name="Settings" type="Button" parent="Buttons"]
-layout_mode = 2
-unique_name_in_owner = true
 theme_type_variation = &"IconButton"
-icon = ExtResource("4")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("settings")
 icon_alignment = 1
-
-[connection signal="pressed" from="Buttons/Pause" to="." method="_on_pause_pressed"]
-[connection signal="pressed" from="Buttons/Restart" to="." method="_on_restart_pressed"]
-[connection signal="pressed" from="Buttons/Settings" to="." method="_on_settings_pressed"]

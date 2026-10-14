@@ -1,0 +1,42 @@
+extends Control
+## Geometry only: scene-owned HUD/board nodes, independent of game state and generation.
+## Preserve refinement's board sizing reservations even when the visible Run header is compact.
+
+func arrange(board: BoardView, hud: Hud, mode_id: String, android: bool,
+		view: Vector2, insets: Rect2) -> void:
+	if size.x <= 0 or size.y <= 0:
+		return
+	var sides := mode_id == "classic" and android
+	if sides:
+		var side_inset := maxf(ceilf(insets.position.x), ceilf(insets.size.x))
+		var vertical_inset := maxf(ceilf(insets.position.y), ceilf(insets.size.y))
+		var safe_height := view.y - vertical_inset * 2 - 8
+		var fit_cell := maxf(8, floorf(minf((view.x-side_inset*4-140-16-6)/23, (safe_height-6)/15)))
+		var board_width := fit_cell * 23 + 6
+		board.position = Vector2(floorf((size.x-board_width)/2), 0)
+		board.size = Vector2(board_width, size.y)
+		board.refresh()
+		hud.position = Vector2.ZERO
+		hud.size = size
+		hud.layout_sides(board.get_rect(), view, insets)
+		return
+	var run := mode_id == "bright"
+	var reservation := 148.0 if hud.skin == "bright" else 74.0
+	board.position = Vector2(0, reservation)
+	board.size = Vector2(size.x, maxf(1, size.y-reservation))
+	board.refresh()
+	hud.position = Vector2.ZERO
+	hud.size = size
+	var left := maxf(0, board.origin.x-board.frame_pad)
+	var right := minf(size.x, board.origin.x+board.logic.cols*board.cell+board.frame_pad)
+	var width := maxf(1, right-left)
+	if run and not android:
+		var header_height := hud.header_height(width)
+		var frame_height := board.logic.rows*board.cell+board.frame_pad*2
+		var top := maxf(0, floorf((size.y-header_height-16-frame_height)/2))
+		board.position.y = top+header_height+16-board.origin.y+board.frame_pad
+		hud.layout_header(Rect2(left, top, width, header_height))
+	elif hud.skin == "bright" and android:
+		hud.layout_portrait(Rect2(0, 0, size.x, 138))
+	else:
+		hud.layout_header(Rect2(left, 0, width, 64))

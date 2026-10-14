@@ -1,0 +1,32 @@
+extends Control
+## Disposable renderer-only harness; pinned UI builders are appended by the runner.
+const HudStatSlot = preload("res://tests/reference_visuals/hud_stat_slot.gd")
+const BRASS = Color("#ffc83d")
+const BRASS_LIGHT = Color("#ffe9a3")
+const CREAM = Color.WHITE
+const MUTED = Color("#aab8ec")
+const HUD_IDLE = Color(.47,.59,.65,.72)
+const ICONS = {"pause":preload("res://assets/ui/icon_pause.png"),"restart":preload("res://assets/ui/icon_restart.png"),"settings":preload("res://assets/ui/icon_settings.png"),"hint":preload("res://assets/ui/icon_hint.png")}
+var f_num: Font = load("res://ui/fonts/numbers.tres")
+var f_bold: Font = load("res://ui/fonts/bold.tres")
+var f_display: Font = load("res://assets/fonts/RussoOne-Regular.ttf")
+var hud_sets := {}
+var hud_classic: HBoxContainer
+var classic_sides: HBoxContainer
+var classic_stats: VBoxContainer
+var classic_actions: VBoxContainer
+var title_label: Label
+var time_caption: Label
+var score_caption: Label
+var best_caption: Label
+var board
+var logic
+var android := false
+var mode := {"id":"classic"}
+var daily := false
+var _classic_safe_area := Rect2()
+func pause_game() -> void: pass
+func start_game(_id,_daily) -> void: pass
+func _open_settings_from_hud() -> void: pass
+func _use_hint() -> void: pass
+func _classic_android_sides() -> bool: return android

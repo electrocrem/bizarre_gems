@@ -29,6 +29,9 @@ func freeze(main) -> void:
 func capture(main, label: String) -> Image:
 	if DisplayServer.get_name() == "headless":
 		return null
+	# The scene-owned HUD has activity/value/delta tweens independent of board processing.
+	# Compare settled pixels; keep the strict equality check of the original green intact.
+	await main.get_tree().create_timer(.8).timeout
 	for i in 3:
 		await main.get_tree().process_frame
 	await RenderingServer.frame_post_draw

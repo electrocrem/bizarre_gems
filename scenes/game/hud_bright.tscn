@@ -1,181 +1,47 @@
 [gd_scene format=3]
-
-[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="1"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_pause.png" id="2"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_restart.png" id="3"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_crown.png" id="4"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_hint.png" id="5"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_settings.png" id="6"]
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
-resource_local_to_scene = true
-content_margin_left = 12.0
-content_margin_top = 2.0
-content_margin_right = 12.0
-content_margin_bottom = 4.0
-bg_color = Color(0.2392, 0.5451, 1, 1)
-border_width_left = 2
-border_width_top = 2
-border_width_right = 2
-border_width_bottom = 2
-border_color = Color(1, 1, 1, 0.5)
-corner_radius_top_left = 16
-corner_radius_top_right = 16
-corner_radius_bottom_right = 16
-corner_radius_bottom_left = 16
-
-[node name="HudBright" type="VBoxContainer"]
-script = ExtResource("1")
-theme_override_constants/separation = 10
-
-[node name="Top" type="HBoxContainer" parent="."]
-layout_mode = 2
-unique_name_in_owner = true
-theme_override_constants/separation = 22
-
-[node name="Pause" type="Button" parent="Top"]
-layout_mode = 2
-unique_name_in_owner = true
+[ext_resource type="Script" path="res://scripts/ui/hud.gd" id="hud"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/hud_stat.tscn" id="stat"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/hud_chain.tscn" id="chain"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/hud_streak.tscn" id="streak"]
+[ext_resource type="PackedScene" path="res://scenes/ui/parts/run_combo_badge.tscn" id="badge"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_pause.png" id="pause"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_restart.png" id="restart"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_settings.png" id="settings"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_hint.png" id="hint"]
+[node name="Hud" type="Control"]
+mouse_filter = 2
+script = ExtResource("hud")
+skin = "bright"
+[node name="Stats" type="Control" parent="."]
+mouse_filter = 2
+[node name="Time" parent="Stats" instance=ExtResource("stat")]
+[node name="Score" parent="Stats" instance=ExtResource("stat")]
+[node name="Best" parent="Stats" instance=ExtResource("stat")]
+[node name="Combo" type="Control" parent="Stats"]
+mouse_filter = 2
+[node name="Streak" parent="Stats/Combo" instance=ExtResource("streak")]
+[node name="Chain" parent="Stats" instance=ExtResource("chain")]
+[node name="RunBadge" parent="Stats/Combo" instance=ExtResource("badge")]
+[node name="Field" parent="Stats" instance=ExtResource("stat")]
+[node name="Buttons" type="Control" parent="."]
+mouse_filter = 2
+[node name="Pause" type="Button" parent="Buttons"]
 theme_type_variation = &"IconButton"
-icon = ExtResource("2")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("pause")
 icon_alignment = 1
-size_flags_vertical = 4
-
-[node name="Restart" type="Button" parent="Top"]
-layout_mode = 2
-unique_name_in_owner = true
+[node name="Restart" type="Button" parent="Buttons"]
 theme_type_variation = &"IconButton"
-icon = ExtResource("3")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("restart")
 icon_alignment = 1
-size_flags_vertical = 4
-
-[node name="Mid" type="VBoxContainer" parent="Top"]
-layout_mode = 2
-theme_override_constants/separation = 0
-size_flags_horizontal = 3
-
-[node name="Score" type="Label" parent="Top/Mid"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Banner"
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 54
-text = "0"
-horizontal_alignment = 1
-theme_override_colors/font_outline_color = Color(0.05, 0.07, 0.2, 0.6)
-theme_override_constants/outline_size = 10
-
-[node name="BestRow" type="HBoxContainer" parent="Top/Mid"]
-layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
-
-[node name="Crown" type="TextureRect" parent="Top/Mid/BestRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(22, 22)
-size_flags_vertical = 4
-texture = ExtResource("4")
-expand_mode = 1
-stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
-
-[node name="Best" type="Label" parent="Top/Mid/BestRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"NumberGold"
-text = "0"
-
-[node name="Level" type="Label" parent="Top/Mid/BestRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Bold"
-theme_override_colors/font_color = Color(0.6667, 0.7216, 0.9255, 1)
-theme_override_font_sizes/font_size = 16
-
-[node name="Hint" type="Button" parent="Top"]
-layout_mode = 2
-unique_name_in_owner = true
+[node name="Hint" type="Button" parent="Buttons"]
 theme_type_variation = &"IconButton"
-icon = ExtResource("5")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("hint")
 icon_alignment = 1
-size_flags_vertical = 4
-
-[node name="Settings" type="Button" parent="Top"]
-layout_mode = 2
-unique_name_in_owner = true
+[node name="Settings" type="Button" parent="Buttons"]
 theme_type_variation = &"IconButton"
-icon = ExtResource("6")
-custom_minimum_size = Vector2(52, 52)
+custom_minimum_size = Vector2(52,52)
+icon = ExtResource("settings")
 icon_alignment = 1
-size_flags_vertical = 4
-
-[node name="TimeRow" type="HBoxContainer" parent="."]
-layout_mode = 2
-theme_override_constants/separation = 10
-
-[node name="TimeBar" type="ProgressBar" parent="TimeRow"]
-layout_mode = 2
-unique_name_in_owner = true
-custom_minimum_size = Vector2(0, 10)
-size_flags_horizontal = 3
-size_flags_vertical = 4
-show_percentage = false
-
-[node name="Time" type="Label" parent="TimeRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Number"
-theme_override_font_sizes/font_size = 22
-text = "120"
-
-[node name="Delta" type="Label" parent="TimeRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"NumberGold"
-theme_override_font_sizes/font_size = 18
-modulate = Color(1, 1, 1, 0)
-
-[node name="Combo" type="PanelContainer" parent="TimeRow"]
-layout_mode = 2
-unique_name_in_owner = true
-modulate = Color(1, 1, 1, 0)
-custom_minimum_size = Vector2(96, 0)
-size_flags_vertical = 4
-theme_override_styles/panel = SubResource("StyleBoxFlat_1")
-
-[node name="VBox" type="VBoxContainer" parent="TimeRow/Combo"]
-layout_mode = 2
-theme_override_constants/separation = 0
-
-[node name="Mult" type="Label" parent="TimeRow/Combo/VBox"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Banner"
-theme_override_colors/font_color = Color(1, 1, 1, 1)
-theme_override_font_sizes/font_size = 20
-horizontal_alignment = 1
-theme_override_constants/outline_size = 8
-theme_override_colors/font_outline_color = Color(0, 0, 0, 0.25)
-
-[node name="Count" type="Label" parent="TimeRow/Combo/VBox"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Bold"
-theme_override_font_sizes/font_size = 12
-horizontal_alignment = 1
-uppercase = true
-visible = false
-
-[node name="ComboBar" type="ProgressBar" parent="TimeRow/Combo/VBox"]
-layout_mode = 2
-unique_name_in_owner = true
-custom_minimum_size = Vector2(80, 4)
-show_percentage = false
-
-[connection signal="pressed" from="Top/Pause" to="." method="_on_pause_pressed"]
-[connection signal="pressed" from="Top/Restart" to="." method="_on_restart_pressed"]
-[connection signal="pressed" from="Top/Hint" to="." method="_on_hint_pressed"]
-[connection signal="pressed" from="Top/Settings" to="." method="_on_settings_pressed"]

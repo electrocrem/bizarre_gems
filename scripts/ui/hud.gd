@@ -1,121 +1,293 @@
 class_name Hud
-extends BoxContainer
-## The in-game bar: score, best, time (or moves), the combo badge and the buttons.
-## Two layouts share this script: scenes/game/hud_classic.tscn (the first version's look) and
-## scenes/game/hud_bright.tscn (big score). main.gd shows the one for the current mode.
-
+extends Control
+## Scene-owned widgets. Geometry and animation never change game counters/timers.
 signal pause_pressed
 signal restart_pressed
 signal settings_pressed
 signal hint_pressed
-
 @export var skin := "bright"
-
-@onready var score_label: Label = %Score
-@onready var best_label: Label = %Best
-@onready var time_label: Label = %Time
-@onready var time_bar: ProgressBar = %TimeBar
-@onready var time_delta: Label = %Delta
-@onready var combo_box: PanelContainer = %Combo
-@onready var combo_mult: Label = %Mult
-@onready var combo_count: Label = %Count
-@onready var combo_bar: ProgressBar = %ComboBar
-@onready var btn_pause: Button = %Pause
-@onready var btn_restart: Button = %Restart
-@onready var btn_settings: Button = %Settings
-@onready var btn_hint: Button = get_node_or_null("%Hint")      ## bright only
-@onready var level_label: Label = get_node_or_null("%Level")   ## bright only
-@onready var title_label: Label = get_node_or_null("%Title")   ## classic only
-
+const HUD_IDLE := Color(.47,.59,.65,.72)
+@onready var score_label: Label = $Stats/Score/Block/Value
+@onready var best_label: Label = $Stats/Best/Block/Value
+@onready var time_label: Label = $Stats/Time/Block/Value
+@onready var time_bar: ProgressBar = $Stats/Time/Block/Bar
+@onready var time_delta: Label = $Stats/Time/Block/Value/Delta/Label
+@onready var btn_pause: Button = $Buttons/Pause
+@onready var btn_restart: Button = $Buttons/Restart
+@onready var btn_settings: Button = $Buttons/Settings
+@onready var btn_hint: Button = get_node_or_null("Buttons/Hint")
+@onready var level_label: Label = get_node_or_null("Stats/Field/Block/Value")
+@onready var chain_slot: Control = $Stats/Chain
+@onready var chain_gem: TextureRect = $Stats/Chain/Block/Progress/Gem
+@onready var chain_count: Label = $Stats/Chain/Block/Progress/Count
+@onready var streak: PanelContainer = $Stats/Combo/Streak/Panel
+@onready var run_badge: Control = get_node_or_null("Stats/Combo/RunBadge")
+var combo_box: PanelContainer
+var combo_mult: Label
+var combo_count: Label
+var combo_bar: ProgressBar
+var title_label: Label
+var mode_id := ""
+var side_layout := false
+var stat_slots: Array[Control] = []
 
 func _ready() -> void:
-	if OS.has_feature("mobile") or DisplayServer.is_touchscreen_available():
-		# phones: settings next to pause, restart out on the edge, away from it
-		var row := btn_settings.get_parent()
-		row.move_child(btn_settings, 1)
-		row.move_child(btn_restart, -1)
+	mouse_filter = Control.MOUSE_FILTER_IGNORE
+	stat_slots.assign([$Stats/Time,$Stats/Score,$Stats/Best,$Stats/Combo,$Stats/Chain])
+	if level_label: stat_slots.append($Stats/Field)
+	btn_pause.pressed.connect(func(): Sfx.play("click"); pause_pressed.emit())
+	btn_restart.pressed.connect(func(): Sfx.play("click"); restart_pressed.emit())
+	btn_settings.pressed.connect(func(): settings_pressed.emit())
+	if btn_hint: btn_hint.pressed.connect(func(): hint_pressed.emit())
+	configure("bright" if skin == "bright" else "classic",false)
 
+func configure(id: String, android: bool) -> void:
+	if mode_id != id and run_badge: run_badge.reset()
+	mode_id = id
+	side_layout = id == "classic" and android
+	$Stats/Combo/Streak.visible = id != "bright"
+	if run_badge: run_badge.visible = id == "bright" # Daily and Challenge are also real Run.
+	combo_box = run_badge.panel if id == "bright" else streak
+	combo_mult = run_badge.label if id == "bright" else $Stats/Combo/Streak/Panel/VBox/Mult
+	combo_count = $Stats/Combo/Streak/Panel/VBox/Count
+	combo_bar = run_badge.bar if id == "bright" else $Stats/Combo/Streak/Panel/VBox/Bar
+	chain_slot.visible = id in ["classic","bright"]
+	if level_label: $Stats/Field.visible = id != "tutorial"
+	for slot in [$Stats/Time,$Stats/Score,$Stats/Best]:
+		slot.get_node("Block/Caption").text = L.t(slot.name.to_lower())
+		slot.get_node("Block/Bar").modulate.a = 1 if slot == $Stats/Time else 0
+	$Stats/Chain/Block/Caption.text = L.t("color_streak_chain")
+	if level_label:
+		$Stats/Field/Block/Caption.text = L.t("run_field_caption" if id == "bright" else "level_short",{"n":""})
+		$Stats/Field/Block/Bar.modulate.a = 0
 
-func layout(view: Vector2, compact: bool) -> void:
-	combo_box.custom_minimum_size.x = 64 if compact else 96
-	if title_label:
-		title_label.visible = view.x >= 980
-		add_theme_constant_override("separation", 10 if compact else 18)
+func layout(_view: Vector2, _compact: bool) -> void:
+	pass # GameComposition fits the actual field and safe area.
+
+func header_height(width: float) -> float:
+	return 128 if mode_id == "bright" and width < 680 else 64
+
+func _place(node: Control, rect: Rect2) -> void:
+	node.position = rect.position
+	node.size = rect.size
+	if node.has_method("_fit"): node.call("_fit")
+
+func _typography(sides: bool, centered := false) -> void:
+	for slot in [$Stats/Time,$Stats/Score,$Stats/Best]:
+		var caption: Label = slot.get_node("Block/Caption")
+		var value: Label = slot.get_node("Block/Value")
+		caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
+		value.horizontal_alignment = caption.horizontal_alignment
+		value.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if sides else TextServer.AUTOWRAP_OFF
+		value.add_theme_font_size_override("font_size",28 if slot == $Stats/Time or not sides else 24)
+		value.add_theme_font_override("font",UiKit.NUMBER_FONT)
+		slot.get_node("Block").add_theme_constant_override("separation",2 if sides else 3)
+		slot.get_node("Block/Bar").visible = not sides or slot == $Stats/Time
+	$Stats/Combo/Streak/Panel/VBox.add_theme_constant_override("separation",2 if sides else 3)
+	combo_count.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
+	combo_count.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART if sides else TextServer.AUTOWRAP_OFF
+	if mode_id != "bright":
+		combo_mult.horizontal_alignment = combo_count.horizontal_alignment
+		combo_mult.add_theme_font_size_override("font_size",30 if sides else 28)
+		combo_mult.add_theme_font_override("font",load("res://assets/fonts/RussoOne-Regular.ttf") if sides else UiKit.NUMBER_FONT)
+	$Stats/Chain/Block/Caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER if centered else HORIZONTAL_ALIGNMENT_LEFT
+	$Stats/Chain/Block.add_theme_constant_override("separation",2 if sides else 3)
+	$Stats/Chain/Block/Progress.alignment = BoxContainer.ALIGNMENT_CENTER if centered else BoxContainer.ALIGNMENT_BEGIN
+	$Stats/Chain/Block/Space.visible = not sides
+	chain_count.add_theme_font_size_override("font_size",24 if sides else 28)
+	$Stats/Time/Block/Bar.custom_minimum_size.y = 6 if sides else 4
+	$Stats/Time.vertical_padding = 18 if sides else 0
+	var delta: Control = time_delta.get_parent()
+	var target: Control = time_bar if sides else time_label
+	if delta.get_parent() != target:
+		delta.reparent(target,false)
+	delta.position = Vector2(0,7) if sides else (Vector2(0,38) if mode_id == "bright" else Vector2(55,6))
+	delta.size = Vector2(49,28)
+	time_delta.add_theme_font_size_override("font_size",12 if sides else 14)
+
+func _buttons(rect: Rect2, vertical := false) -> void:
+	_place($Buttons,rect)
+	var actions: Array[Button] = [btn_pause,btn_restart]
+	if btn_hint: actions.append(btn_hint)
+	actions.append(btn_settings)
+	var gap := 16.0 if vertical else 8.0
+	var side := stat_slots[0].size.x if vertical else 52.0
+	var extent := Vector2(side,side*actions.size()+gap*(actions.size()-1)) if vertical else Vector2(side*actions.size()+gap*(actions.size()-1),side)
+	var fit := minf(1,minf(rect.size.x/maxf(1,extent.x),rect.size.y/maxf(1,extent.y)))
+	for i in actions.size():
+		actions[i].custom_minimum_size = Vector2.ONE*side
+		actions[i].size = Vector2.ONE*side
+		actions[i].scale = Vector2.ONE*fit
+		var origin := (rect.size-extent*fit)*.5
+		if not vertical:
+			origin.x = rect.size.x-extent.x*fit
+		actions[i].position = origin+(Vector2(0,i*(side+gap)) if vertical else Vector2(i*(side+gap),0))*fit
+
+func layout_header(rect: Rect2) -> void:
+	_typography(false)
+	_place($Stats,rect)
+	var gap := floorf(clampf(rect.size.x*.015,4,16))
+	var count := stat_slots.size()
+	var buttons_width := floorf(rect.size.x*(.30 if mode_id == "bright" else .22))
+	if rect.size.y > 64:
+		var top: Array[Control] = [$Stats/Time,$Stats/Score,$Stats/Best]
+		var width := (rect.size.x-buttons_width-gap*3)/3
+		for i in top.size(): _place(top[i],Rect2(i*(width+gap),0,width,64))
+		_buttons(Rect2(rect.position+Vector2(rect.size.x-buttons_width,0),Vector2(buttons_width,64)))
+		var badge_width := floorf(rect.size.x*.46)
+		_place($Stats/Combo,Rect2(0,64,badge_width,64))
+		_place($Stats/Chain,Rect2(badge_width+gap,64,(rect.size.x-badge_width-gap*2)*.55,64))
+		_place($Stats/Field,Rect2(rect.size.x-(rect.size.x-badge_width-gap*2)*.45,64,(rect.size.x-badge_width-gap*2)*.45,64))
 	else:
-		%Top.add_theme_constant_override("separation", 10 if compact else 22)
+		var badge_width := floorf(rect.size.x*.23) if mode_id == "bright" else 0.0
+		var normal_width := maxf(1,(rect.size.x-buttons_width-gap*count-badge_width)/(count-1 if badge_width > 0 else count))
+		var x := 0.0
+		for slot in stat_slots:
+			var width := badge_width if slot == $Stats/Combo and badge_width > 0 else normal_width
+			_place(slot,Rect2(x,0,width,64))
+			x += width+gap
+		_buttons(Rect2(rect.position+Vector2(rect.size.x-buttons_width,0),Vector2(buttons_width,64)))
+	_fit_combo()
 
+func _fit_combo() -> void:
+	_place($Stats/Combo/Streak,Rect2(Vector2.ZERO,$Stats/Combo.size))
+	if run_badge: _place(run_badge,Rect2(Vector2.ZERO,$Stats/Combo.size))
 
-## Time left (or moves) as text, the bar from 0 to 1; `low` turns both red.
+func layout_sides(board_rect: Rect2, view: Vector2, insets: Rect2) -> void:
+	_typography(true,true)
+	var side_inset := maxf(ceilf(insets.position.x),ceilf(insets.size.x))
+	var vertical_inset := maxf(ceilf(insets.position.y),ceilf(insets.size.y))
+	var safe_height := view.y-vertical_inset*2-8
+	var content := floorf(clampf((view.x-board_rect.size.x)*.5-side_inset*2-8,70,80))
+	# Match the reference HBox's 4px gaps on both sides of the board.
+	_place($Stats,Rect2(0,0,maxf(1,board_rect.position.x-4),size.y))
+	var gap := roundf(clampf(safe_height*.016,4,8))
+	var height := minf(74,floorf((safe_height-16-4*gap)/10)*2)
+	var top := floorf((size.y-height*5-gap*4)/2)
+	for i in 5: _place(stat_slots[i],Rect2(floorf(($Stats.size.x-content)/2),top+i*(height+gap),content,height))
+	time_label.add_theme_font_size_override("font_size",26 if content < 74 else 28)
+	$Stats/Time.call_deferred("_fit") # Fit after the font's queued minimum-size update.
+	if level_label: $Stats/Field.visible = false
+	_buttons(Rect2(board_rect.end.x+4,0,size.x-board_rect.end.x-4,size.y),true)
+	_fit_combo()
+
+func layout_portrait(rect: Rect2) -> void:
+	_typography(false,true)
+	_place($Stats,rect)
+	var outer := 112.0
+	var mid := maxf(1,rect.size.x-outer*2)
+	_place($Stats/Score,Rect2(outer,0,mid,52))
+	_place($Stats/Best,Rect2(outer,52,mid*.6,40))
+	_place($Stats/Field,Rect2(outer+mid*.6,52,mid*.4,40))
+	var gap := 6.0
+	var badge_width := floorf(rect.size.x*.46)
+	var chain_width := floorf(rect.size.x*.20)
+	_place($Stats/Time,Rect2(0,94,rect.size.x-badge_width-chain_width-gap*2,44))
+	_place($Stats/Combo,Rect2(rect.size.x-badge_width-chain_width-gap,94,badge_width,44))
+	_place($Stats/Chain,Rect2(rect.size.x-chain_width,94,chain_width,44))
+	_place($Buttons,rect)
+	var actions := [btn_pause,btn_restart,btn_hint,btn_settings]
+	for i in actions.size():
+		actions[i].custom_minimum_size = Vector2(52,52)
+		actions[i].size = Vector2(52,52)
+		actions[i].scale = Vector2.ONE
+		actions[i].position = Vector2(i*60 if i < 2 else rect.size.x-(4-i)*60+8,20)
+	_fit_combo()
+
 func set_time(text: String, fraction: float, low: bool) -> void:
 	time_label.text = text
-	time_label.add_theme_color_override("font_color", UiKit.DANGER if low else UiKit.CREAM)
+	time_label.add_theme_color_override("font_color",UiKit.DANGER if low else UiKit.CREAM)
 	time_bar.theme_type_variation = &"ProgressBarLow" if low else &""
-	time_bar.value = clampf(fraction, 0.0, 1.0) * 100.0
-
+	time_bar.value = clampf(fraction,0,1)*100
 
 func set_buttons(playing: bool, can_restart: bool) -> void:
 	btn_pause.disabled = not playing
 	btn_restart.disabled = not can_restart
 
-
-## The combo badge: hidden below a streak of 2; `pulse` bumps it when the multiplier goes up.
-func set_combo(streak: int, pulse := false) -> void:
-	if streak < 2:
-		combo_box.modulate.a = 0.0
+func set_combo(streak_length: int, pulse := false) -> void:
+	var multiplier := ScoreKeeper.multiplier_for(streak_length) if streak_length >= 2 else 1
+	if mode_id == "bright":
+		run_badge.show_combo(streak_length,multiplier,pulse)
 		return
-	var m := ScoreKeeper.multiplier_for(streak)
-	var color: Color = UiKit.COMBO_COLORS[clampi(m, 1, 4) - 1]
-	combo_count.text = L.t("combo_count", {"n": streak})
-	if skin == "classic":
-		combo_mult.text = "×%d" % m
-		combo_mult.add_theme_color_override("font_color", color.lightened(0.3))
-	else:
-		combo_mult.text = "%s ×%d · %d" % [L.t("combo").to_upper(), m, streak]
-		(combo_box.get_theme_stylebox("panel") as StyleBoxFlat).bg_color = color
-	combo_box.modulate.a = 1.0
-	if pulse:
-		combo_box.pivot_offset = combo_box.size / 2
-		combo_box.scale = Vector2.ONE * 1.35
-		create_tween().tween_property(combo_box, "scale", Vector2.ONE, 0.3).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
-
+	combo_count.text = L.t("streak_caption")+(" %d" % streak_length if streak_length >= 2 else "")
+	combo_mult.text = "×%d" % multiplier
+	combo_mult.add_theme_color_override("font_color",UiKit.COMBO_COLORS[multiplier-1].lightened(.3))
+	_activity(streak,streak_length >= 2)
+	if pulse: pop(combo_mult)
 
 func fade_combo() -> void:
-	create_tween().tween_property(combo_box, "modulate:a", 0.0, 0.35)
+	if mode_id == "bright": run_badge.fade_combo()
+	else: set_combo(0)
 
+func reset_feedback() -> void:
+	if run_badge:
+		run_badge.reset()
 
-## "+3 s" / "−1 s" next to the clock (unit "steps" for the moves mode).
-func flash_delta(text: String, negative: bool, unit := "time") -> void:
-	if unit == "steps":
-		time_delta.text = text + " " + L.t("steps_unit")
+func update_progress(keeper: ScoreKeeper, now: float, active: bool, board: BoardView, field: int) -> void:
+	combo_bar.value = keeper.window_left(now)/keeper.combo_window*100
+	var chain_active := keeper.classic_bonus_combos and keeper.color_streak_hits >= 2 and active
+	_activity($Stats/Chain/Block,chain_active)
+	chain_gem.texture = board._tex(keeper.color_streak_kind) if chain_active else BoardView.GEM_TEX[6]
+	chain_count.text = str(keeper.color_streak_hits) if chain_active else "0"
+	if mode_id == "bright": level_label.text = str(field)
+
+func _activity(control: Control, active: bool) -> void:
+	if control.has_meta("hud_active") and control.get_meta("hud_active") == active: return
+	control.set_meta("hud_active",active)
+	var previous: Tween = control.get_meta("activity_tween") if control.has_meta("activity_tween") else null
+	if previous and previous.is_valid(): previous.kill()
+	if active: control.modulate = Color.WHITE
 	else:
-		time_delta.text = text + (" с" if L.lang == "ru" else (" sn" if L.lang == "tr" else " s"))
-	time_delta.add_theme_color_override("font_color", UiKit.DANGER if negative else UiKit.BRASS)
-	time_delta.modulate.a = 1.0
-	var tw := create_tween()
-	tw.tween_interval(0.35)
-	tw.tween_property(time_delta, "modulate:a", 0.0, 0.4)
+		var tween := create_tween()
+		tween.tween_property(control,"modulate",HUD_IDLE,.25)
+		control.set_meta("activity_tween",tween)
 
+func flash_delta(text: String, negative: bool, unit := "time") -> void:
+	time_delta.text = text+(" "+L.t("steps_unit") if unit == "steps" else (" с" if L.lang == "ru" else (" sn" if L.lang == "tr" else " s")))
+	time_delta.add_theme_color_override("font_color",UiKit.DANGER if negative else UiKit.BRASS)
+	var previous: Tween = time_delta.get_meta("delta_tween") if time_delta.has_meta("delta_tween") else null
+	if previous and previous.is_valid(): previous.kill()
+	time_delta.modulate.a = 1
+	var tween := create_tween()
+	tween.tween_interval(.35)
+	tween.tween_property(time_delta,"modulate:a",0,.4)
+	time_delta.set_meta("delta_tween",tween)
 
-## Little scale bump for a number.
-func pop(c: Control, k := 1.25) -> void:
-	c.pivot_offset = Vector2(0, c.size.y / 2)
-	c.scale = Vector2.ONE * k
-	create_tween().tween_property(c, "scale", Vector2.ONE, 0.22).set_trans(Tween.TRANS_BACK).set_ease(Tween.EASE_OUT)
+func pop(control: Control, strength := 1.3) -> void:
+	var previous: Tween = control.get_meta("hud_pulse") if control.has_meta("hud_pulse") else null
+	if previous and previous.is_valid(): previous.kill()
+	control.scale = Vector2.ONE
+	control.modulate = Color(strength,strength,strength)
+	var tween := create_tween()
+	tween.tween_property(control,"modulate",Color.WHITE,.22)
+	control.set_meta("hud_pulse",tween)
 
-
-func _on_pause_pressed() -> void:
-	Sfx.play("click")
-	pause_pressed.emit()
-
-
-func _on_restart_pressed() -> void:
-	Sfx.play("click")
-	restart_pressed.emit()
-
-
-func _on_settings_pressed() -> void:
-	settings_pressed.emit()
-
-
-func _on_hint_pressed() -> void:
-	hint_pressed.emit()
+func set_number(label: Label, value: int) -> void:
+	var text := str(value)
+	if side_layout:
+		var width := maxf($Stats/Score.size.x, 70.0)
+		var font_size := 18
+		if text.length() <= 6:
+			var measured := UiKit.NUMBER_FONT.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, 24).x
+			font_size = clampi(floori(24.0 * (width - 4.0) / maxf(measured, 1.0)), 18, 24)
+		else:
+			# Keep every digit. Spaces allow large scores to wrap at whole thousands.
+			var grouped := ""
+			for i in text.length():
+				if i > 0 and (text.length() - i) % 3 == 0:
+					grouped += "\u2009"
+				grouped += text[i]
+			text = grouped
+			if width < 74.0:
+				# Six-digit lines fit at 18 px even in the narrowest symmetric rail.
+				# Line breaks remain at whole-thousands boundaries; every digit is kept.
+				var digits := str(value)
+				text = ""
+				var head := digits.length() % 6
+				if head == 0:
+					head = 6
+				text = digits.substr(0, head)
+				for start in range(head, digits.length(), 6):
+					text += "\n" + digits.substr(start, 6)
+		label.add_theme_font_size_override("font_size", font_size)
+	label.text = text

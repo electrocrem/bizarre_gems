@@ -16,16 +16,35 @@ static func octagon(p: Vector2, r: float) -> PackedVector2Array:
 		pts.append(p + Vector2.from_angle(-PI / 2 + i * TAU / 8) * r)
 	return pts
 
-static func joker(c: CanvasItem, p: Vector2, s: float) -> void:
+## Small deal-in faces at a distant pixel origin can fall below the triangulator's
+## tolerance. Normal art keeps its original commands; only those faces use local units.
+static func _polygon(c: CanvasItem, points: PackedVector2Array, color: Color, offset: Vector2) -> void:
+	if not Geometry2D.triangulate_polygon(points).is_empty():
+		c.draw_colored_polygon(points,color)
+		return
+	var origin := points[0]
+	var extent := 0.0
+	for point in points:
+		extent = maxf(extent,point.distance_to(origin))
+	if extent <= 0:
+		return
+	var local := PackedVector2Array()
+	for point in points:
+		local.append((point-origin)/extent)
+	c.draw_set_transform(origin+offset,0,Vector2.ONE*extent)
+	c.draw_colored_polygon(local,color)
+	c.draw_set_transform(offset)
+
+static func joker(c: CanvasItem, p: Vector2, s: float, offset := Vector2.ZERO) -> void:
 	var pts := octagon(p, s * .4)
 	var hues := [Color("#f1effa"),Color("#94bfc9"),Color("#e6d7a8"),Color("#fcfbff"),
 		Color("#91a1b9"),Color("#d5e6e9"),Color("#bbadd5"),Color("#ffffff")]
 	for i in 8:
-		c.draw_colored_polygon(PackedVector2Array([p+Vector2(-.05,-.08)*s,pts[i],pts[(i+1)%8]]),hues[i])
+		_polygon(c,PackedVector2Array([p+Vector2(-.05,-.08)*s,pts[i],pts[(i+1)%8]]),hues[i],offset)
 	outline(c,pts,LIGHT,maxf(1,s*.025))
 	var star := PackedVector2Array([p+Vector2(0,-.23)*s,p+Vector2(.05,-.05)*s,p+Vector2(.2,0)*s,
 		p+Vector2(.05,.05)*s,p+Vector2(0,.23)*s,p+Vector2(-.05,.05)*s,p+Vector2(-.2,0)*s,p+Vector2(-.05,-.05)*s])
-	c.draw_colored_polygon(star,INK)
+	_polygon(c,star,INK,offset)
 	outline(c,star,Color.WHITE,maxf(1,s*.018))
 
 static func overlays(c: CanvasItem, p: Vector2, s: float, boxed: bool, linked: bool, iced: bool, bomb: int, cham: bool, font: Font) -> void:
