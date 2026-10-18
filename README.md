@@ -96,7 +96,13 @@ IconButton, RoundButton, DailyCard, ChallengeCard. Сами стили прав�
 ```sh
 ./build.sh                      # нужны godot 4.7 и шаблоны экспорта web_nothreads_*
 python3 tools/serve.py          # http://127.0.0.1:8060/  (?lang=en, ?lang=tr)
+tools/release.sh                # build.sh + build/releases/bizarre-gems-<версия>-<дата>-<коммит>.zip для загрузки в Яндекс Игры
+tools/lint.sh                   # gdlint по всем .gd (правила в gdlintrc); build.sh запускает его первым
 ```
+
+Проверка перед коммитом: `git config core.hooksPath tools/git-hooks` (один раз) — хук прогоняет `tools/lint.sh`
+по изменённым `.gd`. Файлы, которые gdtoolkit не умеет разбирать (новый синтаксис Godot 4.7), он пропускает с
+предупреждением. Пропустить проверку: `git commit --no-verify`.
 
 Локально `/sdk.js` подменяется имитацией: реклама показывается заглушкой, в таблице лидеров два
 тестовых игрока. В редакторе Godot SDK нет, награда за рекламу выдаётся сразу.
