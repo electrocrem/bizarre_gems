@@ -316,5 +316,20 @@ func _init() -> void:
 	r = k.hit(2, 0.0, 1)
 	check(r.points == 2 + ScoreKeeper.SHINE_POINTS and r.time == ScoreKeeper.SHINE_TIME, "a shining gem adds +5 points and +2 s")
 
+	k.reset()
+	for i in ScoreKeeper.HOT_AT - 1:
+		r = k.hit(2, i * 10.0)  # slow strikes: no combo, but the streak still grows
+	check(r.hot == ScoreKeeper.HOT_AT - 1 and not r.ignited and r.points == 2, "the streak grows without a combo, no bonus yet")
+	r = k.hit(2, 100.0)
+	check(r.ignited and r.points == 2 + ScoreKeeper.HOT_POINTS, "the 5th strike in a row sets the streak on fire")
+	for i in 20:
+		r = k.hit(2, 200.0 + i * 10.0)
+	check(r.hot == 25 and r.points == 2 + ScoreKeeper.HOT_POINTS * ScoreKeeper.HOT_MAX_STEPS and not r.ignited,
+		"the fire bonus is capped")
+	k.update(1000.0)
+	check(k.hot == 25, "a combo running out leaves the streak alone")
+	k.miss()
+	check(k.hot == 0 and k.lost_hot == 25 and k.best_hot == 25, "a miss puts the streak out")
+
 	print("FAILED: %d" % failed if failed else "all passed")
 	quit(1 if failed else 0)

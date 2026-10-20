@@ -7,6 +7,9 @@ extends RefCounted
 ##
 ## Precise combo: strikes in a row that each knock out PRECISE_MIN or more gems.
 ## The 3rd such strike in a row is a "precise" combo, the 4th and every one after it is "perfect".
+##
+## Hot streak: strikes in a row without a miss, however slow. From HOT_AT on the streak is on
+## fire and every strike scores extra; only a miss puts it out.
 
 const COMBO_WINDOW := 3.0
 const PRECISE_MIN := 3
@@ -23,6 +26,9 @@ const STREAK_EVERY := 10     ## every this many hits in a row...
 const STREAK_TIME := 3.0     ## ...give this many seconds
 ## combo length -> multiplier (first entry whose length is reached, checked from the top)
 const TIERS := [[9, 4], [5, 3], [2, 2], [0, 1]]
+const HOT_AT := 5        ## strikes in a row without a miss that set the streak on fire
+const HOT_POINTS := 3    ## extra points per strike on fire, for every HOT_AT in the streak...
+const HOT_MAX_STEPS := 4  ## ...up to this many (5: +3, 10: +6, 15: +9, 20+: +12)
 
 ## Extra seconds for combos, streaks, precise/perfect combos and shining gems. Bright mode
 ## turns them off (its timer also speeds up per level), so a round can't go on forever.
@@ -32,6 +38,9 @@ var combo := 0
 var best_combo := 0
 var precise_streak := 0
 var precise_count := 0
+var hot := 0
+var best_hot := 0
+var lost_hot := 0  ## the streak the last miss put out
 var _last_hit := -1000.0
 
 
@@ -48,6 +57,9 @@ func reset() -> void:
 	best_combo = 0
 	precise_streak = 0
 	precise_count = 0
+	hot = 0
+	best_hot = 0
+	lost_hot = 0
 	_last_hit = -1000.0
 
 
@@ -68,16 +80,23 @@ func update(now: float) -> bool:
 	return false
 
 
-## Returns true when a running combo (2+) was broken.
+static func hot_bonus(streak: int) -> int:
+	return HOT_POINTS * mini(streak / HOT_AT, HOT_MAX_STEPS)
+
+
+## Returns true when a running combo (2+) was broken. The hot streak goes out too (see lost_hot).
 func miss() -> bool:
 	var had := combo >= 2
+	lost_hot = hot
+	hot = 0
 	combo = 0
 	precise_streak = 0
 	return had
 
 
 ## A successful strike that knocked out n gems, `shining` of them shining gems.
-## Returns {points, time, combo, mult, tier_up, event, shine} where event is "", "precise" or "perfect".
+## Returns {points, time, combo, mult, tier_up, event, shine, hot, ignited} where event is "",
+## "precise" or "perfect" and ignited is true on the strike that sets the streak on fire.
 func hit(n: int, now: float, shining := 0) -> Dictionary:
 	if now - _last_hit > COMBO_WINDOW:
 		combo = 0
@@ -105,6 +124,9 @@ func hit(n: int, now: float, shining := 0) -> Dictionary:
 	else:
 		precise_streak = 0
 	points += shining * SHINE_POINTS
+	hot += 1
+	best_hot = maxi(best_hot, hot)
+	points += hot_bonus(hot)
 	time += shining * SHINE_TIME
 	if mult > old_mult and mult > 1:
 		time += TIER_TIME
@@ -113,4 +135,5 @@ func hit(n: int, now: float, shining := 0) -> Dictionary:
 	if not time_bonuses:
 		time = float(BoardLogic.bonus_for(n))  # only the basic +1 s / +2 s for 3 / 4 gems
 	score += points
-	return {"points": points, "time": time, "combo": combo, "mult": mult, "tier_up": mult > old_mult, "event": event, "shine": shining}
+	return {"points": points, "time": time, "combo": combo, "mult": mult, "tier_up": mult > old_mult, "event": event, "shine": shining,
+		"hot": hot, "ignited": hot == HOT_AT}

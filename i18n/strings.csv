@@ -218,3 +218,20 @@ stats,Лучшая серия: {combo} · Точных комбо: {precise},Bes
 rule4,"Бей без промахов и пауз дольше 3 секунд — растёт комбо и множитель очков. Три удара подряд по 3–4 камня дают точное комбо, четыре и больше — идеальное.","Strike without misses or pauses over 3 seconds to build a combo and a points multiplier. Three strikes in a row of 3–4 gems make a precise combo, four or more a perfect one.","Iskalamadan ve 3 saniyeden uzun durmadan vur, kombo ve puan çarpanı artsın. Üst üste üç kez 3–4 taş kırmak hassas kombo, dört ve fazlası kusursuz kombo verir."
 pay_combo,"Комбо: ×2 со 2-го удара, ×3 с 5-го, ×4 с 9-го","Combo: ×2 from strike 2, ×3 from 5, ×4 from 9","Kombo: 2. vuruştan ×2, 5.'den ×3, 9.'dan ×4"
 pay_precise,"Точное: +10 очков, +3 с · идеальное: +20, +5 с","Precise: +10 points, +3 s · perfect: +20, +5 s","Hassas: +10 puan, +3 sn · kusursuz: +20, +5 sn"
+record_first,Поставь первый рекорд!,Set your first record!,İlk rekorunu koy!
+record_new,НОВЫЙ РЕКОРД!,NEW BEST!,YENİ REKOR!
+record_label,Рекорд {n},Best {n},Rekor {n}
+record_left,ещё {n},{n} to go,{n} kaldı
+record_sub,Прошлый рекорд: {n},Previous best: {n},Önceki rekor: {n}
+near_best,Не хватило всего {n} до рекорда!,Just {n} short of your best!,Rekora sadece {n} puan kaldı!
+on_fire,В ударе!,On fire!,Alev aldın!
+fire_out,Огонь погас: {n} без промахов,Fire's out: {n} without a miss,Ateş söndü: {n} hatasız vuruş
+best_hot,Без промахов подряд: {n},No-miss run: {n},Hatasız seri: {n}
+warmup,Разминка: +{n} с,Warm-up: +{n} s,Isınma: +{n} sn
+warmup_steps,Разминка: +{n} шагов,Warm-up: +{n} moves,Isınma: +{n} hamle
+praise_1,Хорошо!,Good!,İyi!
+praise_2,Отлично!,Great!,Harika!
+praise_3,Супер!,Super!,Süper!
+praise_4,Великолепно!,Excellent!,Mükemmel!
+praise_5,Невероятно!,Incredible!,İnanılmaz!
+praise_6,Легендарно!,Legendary!,Efsane!
