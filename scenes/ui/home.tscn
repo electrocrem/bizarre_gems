@@ -5,7 +5,7 @@
 [ext_resource type="Texture2D" path="res://assets/gems/gem_0.png" id="3"]
 [ext_resource type="Texture2D" path="res://assets/gems/gem_2.png" id="4"]
 [ext_resource type="Texture2D" path="res://assets/ui/icon_play.png" id="5"]
-[ext_resource type="Texture2D" path="res://assets/ui/icon_crown.png" id="6"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_settings.png" id="6"]
 [ext_resource type="Texture2D" path="res://assets/ui/icon_calendar.png" id="7"]
 [ext_resource type="Texture2D" path="res://assets/ui/icon_share.png" id="8"]
 [ext_resource type="Texture2D" path="res://assets/ui/icon_crystal.png" id="9"]
@@ -14,6 +14,12 @@
 [ext_resource type="Texture2D" path="res://assets/ui/icon_tasks.png" id="12"]
 [ext_resource type="Texture2D" path="res://assets/ui/icon_trophy.png" id="13"]
 [ext_resource type="Texture2D" path="res://assets/ui/icon_more.png" id="14"]
+[ext_resource type="Script" path="res://scripts/ui/chunky_button.gd" id="15"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_star.png" id="16"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_strikes.png" id="17"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_hint.png" id="18"]
+[ext_resource type="Texture2D" path="res://assets/ui/icon_puzzle.png" id="19"]
+[ext_resource type="Script" path="res://scripts/ui/gem_drift.gd" id="20"]
 
 [node name="Home" type="MarginContainer"]
 script = ExtResource("1")
@@ -29,11 +35,46 @@ theme_override_constants/margin_top = 24
 theme_override_constants/margin_right = 24
 theme_override_constants/margin_bottom = 24
 
+[node name="Drift" type="Control" parent="."]
+layout_mode = 2
+mouse_filter = 2
+script = ExtResource("20")
+
 [node name="VBox" type="VBoxContainer" parent="."]
 layout_mode = 2
 unique_name_in_owner = true
+custom_minimum_size = Vector2(360, 0)
+size_flags_horizontal = 4
 alignment = 1
-theme_override_constants/separation = 18
+theme_override_constants/separation = 12
+
+[node name="TopBar" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+
+[node name="CrystalPill" type="Button" parent="VBox/TopBar"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"CrystalPill"
+icon = ExtResource("9")
+text = "0"
+theme_override_constants/icon_max_width = 22
+theme_override_colors/icon_normal_color = Color(0.498, 0.8471, 1, 1)
+theme_override_colors/icon_hover_color = Color(0.498, 0.8471, 1, 1)
+theme_override_colors/icon_pressed_color = Color(0.498, 0.8471, 1, 1)
+theme_override_colors/icon_focus_color = Color(0.498, 0.8471, 1, 1)
+
+[node name="Spacer" type="Control" parent="VBox/TopBar"]
+layout_mode = 2
+size_flags_horizontal = 3
+
+[node name="Settings" type="Button" parent="VBox/TopBar"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_type_variation = &"RoundButton"
+custom_minimum_size = Vector2(48, 48)
+icon = ExtResource("6")
+icon_alignment = 1
+theme_override_constants/icon_max_width = 24
 
 [node name="Gems" type="HBoxContainer" parent="VBox"]
 layout_mode = 2
@@ -43,24 +84,24 @@ alignment = 1
 
 [node name="Gem0" type="TextureRect" parent="VBox/Gems"]
 layout_mode = 2
-custom_minimum_size = Vector2(76, 76)
-pivot_offset = Vector2(38, 38)
+custom_minimum_size = Vector2(64, 64)
+pivot_offset = Vector2(32, 32)
 texture = ExtResource("2")
 expand_mode = 1
 stretch_mode = 5
 
 [node name="Gem1" type="TextureRect" parent="VBox/Gems"]
 layout_mode = 2
-custom_minimum_size = Vector2(76, 76)
-pivot_offset = Vector2(38, 38)
+custom_minimum_size = Vector2(64, 64)
+pivot_offset = Vector2(32, 32)
 texture = ExtResource("3")
 expand_mode = 1
 stretch_mode = 5
 
 [node name="Gem2" type="TextureRect" parent="VBox/Gems"]
 layout_mode = 2
-custom_minimum_size = Vector2(76, 76)
-pivot_offset = Vector2(38, 38)
+custom_minimum_size = Vector2(64, 64)
+pivot_offset = Vector2(32, 32)
 texture = ExtResource("4")
 expand_mode = 1
 stretch_mode = 5
@@ -69,7 +110,7 @@ stretch_mode = 5
 layout_mode = 2
 unique_name_in_owner = true
 theme_type_variation = &"Title"
-theme_override_font_sizes/font_size = 64
+theme_override_font_sizes/font_size = 56
 text = "title"
 horizontal_alignment = 1
 autowrap_mode = 3
@@ -78,87 +119,93 @@ theme_override_colors/font_outline_color = Color(0.04, 0.05, 0.15, 0.85)
 
 [node name="Tagline" type="Label" parent="VBox"]
 layout_mode = 2
+unique_name_in_owner = true
 theme_type_variation = &"Muted"
 text = "tagline"
 horizontal_alignment = 1
 autowrap_mode = 3
-size_flags_horizontal = 3
 
 [node name="Gap" type="Control" parent="VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 12)
+custom_minimum_size = Vector2(0, 6)
 
-[node name="Play" type="Button" parent="VBox"]
+[node name="Classic" type="Button" parent="VBox"]
 layout_mode = 2
 unique_name_in_owner = true
-theme_type_variation = &"PrimaryButton"
-text = "play"
-icon = ExtResource("5")
-custom_minimum_size = Vector2(280, 78)
-size_flags_horizontal = 4
-theme_override_constants/icon_max_width = 34
-theme_override_font_sizes/font_size = 32
+custom_minimum_size = Vector2(0, 92)
+script = ExtResource("15")
+color = Color(1, 0.7843, 0.2392, 1)
+symbol = ExtResource("5")
+title = "mode_classic"
 
-[node name="BestRow" type="HBoxContainer" parent="VBox"]
-layout_mode = 2
-theme_override_constants/separation = 8
-alignment = 1
-
-[node name="Crown" type="TextureRect" parent="VBox/BestRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(24, 24)
-size_flags_vertical = 4
-texture = ExtResource("6")
-expand_mode = 1
-stretch_mode = 5
-modulate = Color(1, 0.7843, 0.2392, 1)
-
-[node name="Best" type="Label" parent="VBox/BestRow"]
+[node name="Levels" type="Button" parent="VBox"]
 layout_mode = 2
 unique_name_in_owner = true
-theme_type_variation = &"NumberGold"
-theme_override_font_sizes/font_size = 22
+custom_minimum_size = Vector2(0, 92)
+script = ExtResource("15")
+color = Color(0.1333, 0.7882, 0.4784, 1)
+symbol = ExtResource("16")
+title = "mode_levels"
+progress = 0.0
+
+[node name="Tiles" type="HBoxContainer" parent="VBox"]
+layout_mode = 2
+unique_name_in_owner = true
+theme_override_constants/separation = 10
+
+[node name="Bright" type="Button" parent="VBox/Tiles"]
+layout_mode = 2
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+size_flags_horizontal = 3
+script = ExtResource("15")
+color = Color(0.2392, 0.5451, 1, 1)
+symbol = ExtResource("17")
+title = "mode_bright"
+compact = true
+
+[node name="Zen" type="Button" parent="VBox/Tiles"]
+layout_mode = 2
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+size_flags_horizontal = 3
+script = ExtResource("15")
+color = Color(0.6392, 0.3608, 1, 1)
+symbol = ExtResource("18")
+title = "mode_zen"
+compact = true
+
+[node name="Puzzle" type="Button" parent="VBox/Tiles"]
+layout_mode = 2
+unique_name_in_owner = true
+custom_minimum_size = Vector2(0, 84)
+size_flags_horizontal = 3
+script = ExtResource("15")
+color = Color(1, 0.4353, 0.7098, 1)
+symbol = ExtResource("19")
+title = "mode_puzzle"
+compact = true
 
 [node name="Daily" type="Button" parent="VBox"]
 layout_mode = 2
 unique_name_in_owner = true
-theme_type_variation = &"DailyCard"
-icon = ExtResource("7")
-custom_minimum_size = Vector2(300, 0)
-size_flags_horizontal = 4
+custom_minimum_size = Vector2(0, 74)
+script = ExtResource("15")
+color = Color(0.3569, 0.2941, 0.8392, 1)
+symbol = ExtResource("7")
 
 [node name="Challenge" type="Button" parent="VBox"]
+visible = false
 layout_mode = 2
 unique_name_in_owner = true
-theme_type_variation = &"ChallengeCard"
-icon = ExtResource("8")
-custom_minimum_size = Vector2(300, 0)
-size_flags_horizontal = 4
-visible = false
+custom_minimum_size = Vector2(0, 74)
+script = ExtResource("15")
+color = Color(1, 0.6039, 0.1804, 1)
+symbol = ExtResource("8")
 
 [node name="Gap2" type="Control" parent="VBox"]
 layout_mode = 2
-custom_minimum_size = Vector2(0, 18)
-
-[node name="CrystalRow" type="HBoxContainer" parent="VBox"]
-layout_mode = 2
-theme_override_constants/separation = 6
-alignment = 1
-
-[node name="CrystalIcon" type="TextureRect" parent="VBox/CrystalRow"]
-layout_mode = 2
-custom_minimum_size = Vector2(24, 24)
-size_flags_vertical = 4
-texture = ExtResource("9")
-expand_mode = 1
-stretch_mode = 5
-modulate = Color(0.498, 0.8471, 1, 1)
-
-[node name="Crystals" type="Label" parent="VBox/CrystalRow"]
-layout_mode = 2
-unique_name_in_owner = true
-theme_type_variation = &"Crystals"
-text = "0"
+custom_minimum_size = Vector2(0, 6)
 
 [node name="RoundButtons" type="HFlowContainer" parent="VBox"]
 layout_mode = 2
@@ -196,7 +243,13 @@ unique_name_in_owner = true
 icon = ExtResource("14")
 caption = "more"
 
-[connection signal="pressed" from="VBox/Play" to="." method="_on_play_pressed"]
+[connection signal="pressed" from="VBox/TopBar/CrystalPill" to="." method="_on_collection_pressed"]
+[connection signal="pressed" from="VBox/TopBar/Settings" to="." method="_on_settings_pressed"]
+[connection signal="pressed" from="VBox/Classic" to="." method="_on_mode_pressed" binds= ["classic"]]
+[connection signal="pressed" from="VBox/Levels" to="." method="_on_mode_pressed" binds= ["levels"]]
+[connection signal="pressed" from="VBox/Tiles/Bright" to="." method="_on_mode_pressed" binds= ["bright"]]
+[connection signal="pressed" from="VBox/Tiles/Zen" to="." method="_on_mode_pressed" binds= ["zen"]]
+[connection signal="pressed" from="VBox/Tiles/Puzzle" to="." method="_on_mode_pressed" binds= ["puzzle"]]
 [connection signal="pressed" from="VBox/Daily" to="." method="_on_daily_pressed"]
 [connection signal="pressed" from="VBox/Challenge" to="." method="_on_challenge_pressed"]
 [connection signal="pressed" from="VBox/RoundButtons/Gift" to="." method="_on_gift_pressed"]

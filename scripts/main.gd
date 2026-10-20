@@ -22,6 +22,8 @@ const PENTA := [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 24]  ## combo knocks climb th
 ## (past the last one, every 5th strike repeats the top word).
 const PRAISE_AT := [3, 5, 7, 9, 12, 15]
 const PRAISE_COLORS := [Color("#9fe3ff"), Color("#7dff9a"), Color("#ffe066"), Color("#ffad42"), Color("#ff6fb5"), Color("#d79bff")]
+const HOME_TOP := Color("#3a6df0")     ## the home screen's background gradient
+const HOME_BOTTOM := Color("#5b2fb8")
 const WARMUP_GAMES := 3   ## a player's first games in a mode start with a little extra...
 const WARMUP_TIME := 20.0  ## ...time,
 const WARMUP_STEPS := 5    ## ...or steps in the moves mode
@@ -199,11 +201,13 @@ func _connect_screens() -> void:
 		h.settings_pressed.connect(_open_settings_from_hud)
 		h.hint_pressed.connect(_use_hint)
 
-	home.play_pressed.connect(func():
-		if Progress.tutorial:
-			show_screen(modes)
+	home.mode_chosen.connect(func(id: String):
+		if not Progress.tutorial:
+			start_game("tutorial")  # the very first game teaches the strike, whatever was picked
+		elif id == "levels" or id == "puzzle":
+			_open_map("puzzle" if id == "puzzle" else "levels")
 		else:
-			start_game("tutorial"))
+			start_game(id))
 	home.daily_pressed.connect(func(): start_game("bright", true))
 	home.challenge_pressed.connect(func(): start_game(str(pending_challenge.mode), false, pending_challenge))
 	modes.mode_chosen.connect(func(id: String):
@@ -1413,12 +1417,15 @@ func show_screen(p: Screen) -> void:
 	if p == home or p == modes:
 		_set_orientation(false)
 		p.refresh()
+	if p == home:  # the home screen sits on a bright gradient of its own
+		ambient.set_skin("bright")
+		ambient.fade_palette(HOME_TOP, HOME_BOTTOM, 0.5)
 	var on_menu := p == home or p == modes or p == map
 	# the game layer stays out of sight behind the menus and anything opened from them
 	game_layer.visible = not on_menu and state != State.MENU
 	for s in screens.values():
 		s.visible = s == p
-	dim.visible = p != null
+	dim.visible = p != null and p != home
 	hud.set_buttons(state == State.PLAYING, state == State.PLAYING or state == State.PAUSED)
 	if not p:
 		return

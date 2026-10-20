@@ -235,3 +235,6 @@ praise_3,Супер!,Super!,Süper!
 praise_4,Великолепно!,Excellent!,Mükemmel!
 praise_5,Невероятно!,Incredible!,İnanılmaz!
 praise_6,Легендарно!,Legendary!,Efsane!
+home_first,Поставь первый рекорд!,Set your first record!,İlk rekorunu koy!
+home_level,Уровень {n},Level {n},Seviye {n}
+daily_new_in,Новое через {t},New one in {t},Yenisi {t} sonra

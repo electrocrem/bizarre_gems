@@ -71,7 +71,7 @@ func _run() -> void:
 	_check(main.home.visible, "back home")
 	root.get_node("L").set_language("en")
 	await _frames()
-	_check(main.home.get_node("%Play").text == "play", "buttons keep their keys")
+	_check(main.home.get_node("%Classic").title == "mode_classic", "buttons keep their keys")
 	_check(tr("play") == "Play", "English text")
 	print("smoke test done")
 	quit()
